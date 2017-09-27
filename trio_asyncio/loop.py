@@ -14,6 +14,15 @@ class _Clear:
 	def clear(self):
 		pass
 
+class _AddHandle(_Clear):
+	__slots__ = ('_loop',)
+	def __init__(self, loop):
+		self._loop = loop
+	
+	def append(self, handle):
+		assert self._loop == handle._loop
+		handle._loop._q.put_nowait(handle)
+
 _tag = 1
 def _next_tag():
 	global _tag
@@ -61,14 +70,6 @@ class Handle(asyncio.Handle):
 			info.append('created at %s:%s' % (frame[0], frame[1]))
 		return info
 
-	def __call__(self):
-		"""Call the ``callback`` function."""
-		assert not self._cancelled
-		if self._is_sync is None:
-			return self._callback(self)
-		else:
-			return self._callback(*self._args, **self._kwargs)
-	
 	async def _call_async(self):
 		assert not self._is_sync
 		assert not self._cancelled
@@ -96,7 +97,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		super().__init__()
 
 		# now kill things we supersede
-		self._ready = _Clear()
+		self._ready = _AddHandle(self)
 		self._scheduled = _Clear()
 		self._laters = {}
 		del self._clock_resolution
@@ -287,9 +288,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 						if obj._cancelled:
 							continue
 
-						if obj._is_sync is True:
+						if getattr(obj, '_is_sync', True) is True:
 							try:
-								obj()
+								obj._callback(*obj._args, **getattr(obj, '_kwargs', {}))
 							except Exception as exc:
 								logger.exception("Calling %s:", repr(obj))
 						else:
