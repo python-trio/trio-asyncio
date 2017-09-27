@@ -8,6 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from functools import partial
+from asyncio.events import _format_callback, _get_function_source
 
 class _Clear:
 	def clear(self):
@@ -19,6 +20,61 @@ def _next_tag():
 	_tag += 1
 	return _tag
 	
+def _format_callback_source(func, args, kwargs):
+	func_repr = _format_callback(func, args, kwargs)
+	source = _get_function_source(func)
+	if source:
+		func_repr += ' at %s:%s' % source
+	return func_repr
+
+class Handle(asyncio.Handle):
+	"""
+	This extends asyncio.Handle with a way to pass keyword argument.
+	
+	Also, ``is_sync`` declares whether ``callback`` is synchronous.
+	As a special case, if its value is ``None`` the callback will
+	be called with the handle as its sole argument.
+
+	"""
+	__slots__ = ('_kwargs', '_is_sync')
+
+	def __init__(self, callback, args, kwargs, loop, is_sync):
+		super().__init__(callback, args, loop)
+		self._kwargs = kwargs
+		self._is_sync = is_sync
+
+	def cancel(self):
+		super().cancel()
+		self._kwargs = None
+
+	def _repr_info(self):
+		info = [self.__class__.__name__]
+		if self._cancelled:
+			info.append('cancelled')
+		if self._callback is not None:
+			info.append(_format_callback_source(self._callback, self._args, self._kwargs))
+		if self._source_traceback:
+			frame = self._source_traceback[-1]
+			info.append('created at %s:%s' % (frame[0], frame[1]))
+		return info
+
+	def __call__(self):
+		"""Call the ``callback`` function."""
+		assert not self._cancelled
+		if self._is_sync is None:
+			return self._callback(self)
+		else:
+			return self._callback(*self._args, **self._kwargs)
+	
+	async def _call_async(self):
+		assert not self._is_sync
+		assert not self._cancelled
+		if self._is_sync is None:
+			res = await self._callback(self)
+		else:
+			res = await self._callback(*self._args, **self._kwargs)
+		return res
+		
 class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 	"""An asyncio mainloop for trio
 
@@ -46,28 +102,16 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 	def time(self):
 		return trio.current_time()
 
-	def call_later(self, delay, callback, *args):
-		assert delay >= 0, delay
-		tag = _next_tag()
-		self._q.put_nowait((self.__call_later,(tag,delay,callback,)+args,{},True))
-
-		class CancelLater:
-			def __init__(_self, tag):
-				_self.tag = tag
-			def cancel(_self):
-				later = self._laters.get(_self.tag,None)
-				if later is not None:
-					later.cancel()
-		return CancelLater(tag)
-
 	def call_trio(self, p,*a,**k):
 		"""Call an asynchronous Trio-ish function from asyncio.
 
 		Returns a Future with the result / exception.
 		"""
 		f = asyncio.Future(loop=self)
-		self._q.put_nowait((self.__call_trio,(f,p,)+a,k,True))
+		h = Handle(self.__call_trio,(f,p,)+a,k,self,False)
+		self._q.put_nowait(h)
 		return f
+
 	async def __call_trio(self, f,p,*a,**k):
 		try:
 			res = await p(*a,**k)
@@ -84,8 +128,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		Returns a Future with the result / exception.
 		"""
 		f = asyncio.Future(loop=self)
-		self._q.put_nowait((self.__call_trio_sync,(f,p,)+a,k,True))
+		h = Handle(self.__call_trio_sync,(f,p,)+a,k,self,False)
+		self._q.put_nowait(h)
 		return f
+
 	async def __call_trio_sync(self, f,p,*a,**k):
 		try:
 			res = p(*a,**k)
@@ -96,22 +142,31 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		else:
 			f.set_result(res)
 
-	async def __call_later(self, tag, delay, callback, *args):
-		try:
-			with trio.open_cancel_scope() as scope:
-				self._laters[tag] = scope
-				await trio.sleep(delay)
-		finally:
-			del self._laters[tag]
-		callback(*args)
+	def call_later(self, delay, callback, *args):
+		assert delay >= 0, delay
+		tag = _next_tag()
+		h = Handle(self.__call_later, (delay,callback)+args, {}, self, None)
+		self._q.put_nowait(h)
+		return h
+
+	async def __call_later(self, h):
+		delay = h._args[0]
+		callback = h._args[1]
+		args = h._args[2:]
+		await trio.sleep(delay)
+		if not h._cancelled:
+			callback(*args, **h._kwargs)
 
 	def call_at(self, when, callback, *args):
 		raise NotImplementedError
 
 	def call_soon(self, callback, *args):
-		self._q.put_nowait((callback,args,{},False))
+		h = Handle(callback, args, {}, self, True)
+		self._q.put_nowait(h)
+
 	def call_soon_async(self, callback, *args):
-		self._q.put_nowait((callback,args,{},True))
+		h = Handle(callback, args, {}, self, False)
+		self._q.put_nowait(h)
 
 	def _add_callback(self, handle):
 		raise NotImplementedError
@@ -221,14 +276,16 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 					async for obj in self._q:
 						if obj is None:
 							break
-						p,a,k,is_async = obj
-						if is_async:
-							nursery.start_soon(partial(p,*a,**k))
-						else:
+						if obj._cancelled:
+							continue
+
+						if obj._is_sync is True:
 							try:
-								p(*a,**k)
+								obj()
 							except Exception as exc:
-								logger.exception("Calling %s %s %s:", p,a,k)
+								logger.exception("Calling %s:", repr(obj))
+						else:
+							nursery.start_soon(obj._call_async)
 				finally:
 					del self._nursery
 					self._stopping = True
