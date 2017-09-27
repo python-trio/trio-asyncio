@@ -36,16 +36,19 @@ class Handle(asyncio.Handle):
 	be called with the handle as its sole argument.
 
 	"""
-	__slots__ = ('_kwargs', '_is_sync')
+	__slots__ = ('_kwargs', '_is_sync', '_scope')
 
 	def __init__(self, callback, args, kwargs, loop, is_sync):
 		super().__init__(callback, args, loop)
 		self._kwargs = kwargs
 		self._is_sync = is_sync
+		self._scope = None
 
 	def cancel(self):
 		super().cancel()
 		self._kwargs = None
+		if self._scope is not None:
+			self._scope.cancel()
 
 	def _repr_info(self):
 		info = [self.__class__.__name__]
@@ -69,10 +72,15 @@ class Handle(asyncio.Handle):
 	async def _call_async(self):
 		assert not self._is_sync
 		assert not self._cancelled
-		if self._is_sync is None:
-			res = await self._callback(self)
-		else:
-			res = await self._callback(*self._args, **self._kwargs)
+		try:
+			with trio.open_cancel_scope() as scope:
+				self._scope = scope
+				if self._is_sync is None:
+					res = await self._callback(self)
+				else:
+					res = await self._callback(*self._args, **self._kwargs)
+		finally:
+			self._scope = None
 		return res
 		
 class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
