@@ -280,7 +280,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			async with trio.open_nursery() as nursery:
 				self._nursery = nursery
 				self._stopping = False
-				self._event = trio.Event()
 				try:
 					async for obj in self._q:
 						if obj is None:
