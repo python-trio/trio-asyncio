@@ -2,6 +2,7 @@
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
+import sys
 import trio
 import asyncio
 import logging
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 from functools import partial
 from asyncio.events import _format_callback, _get_function_source
+from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
 class _Clear:
 	def clear(self):
@@ -43,7 +45,6 @@ class Handle(asyncio.Handle):
 	Also, ``is_sync`` declares whether ``callback`` is synchronous.
 	As a special case, if its value is ``None`` the callback will
 	be called with the handle as its sole argument.
-
 	"""
 	__slots__ = ('_kwargs', '_is_sync', '_scope')
 
@@ -70,6 +71,11 @@ class Handle(asyncio.Handle):
 			info.append('created at %s:%s' % (frame[0], frame[1]))
 		return info
 
+	def _call_sync(self):
+		assert self._is_sync
+		assert not self._cancelled
+		return self._callback(*self._args, **self._kwargs)
+		
 	async def _call_async(self):
 		assert not self._is_sync
 		assert not self._cancelled
@@ -84,17 +90,54 @@ class Handle(asyncio.Handle):
 			self._scope = None
 		return res
 		
+class _TrioSelector(_BaseSelectorImpl):
+	"""A selector that hooks into a TrioEventLoop."""
+	def __init__(self, loop):
+		super().__init__()
+#		self._loop = loop
+#	
+#	def close(self):
+#		self._loop = None
+#		super().close()
+#
+#	def register(self, fileobj, events, data=None):
+#		assert data
+#		key = super().register(fileobj, events, data)
+#		if key.events & EVENT_READ:
+#			self._loop._add_read_handle(key.fd, data[0])
+#		if key.events & EVENT_WRITE:
+#			self._loop._add_write_handle(key.fd, data[1])
+#		return key
+#
+#	def unregister(self, fileobj):
+#		key = super().unregister(fileobj, events, data)
+#		if key.events & EVENT_READ:
+#			self._loop._remove_read_handle(key.fd)
+#		if key.events & EVENT_WRITE:
+#			self._loop._remove_write_handle(key.fd)
+#		return key
+#
+#	def modify(self, fileobj, events, data=None):
+#		okey = self.unregister(fileobj)
+#		key = self.register(fileobj, events, data)
+#		return key
+#		
+	def select(self, timeout=None):
+		raise NotImplementedError
+	def _select(self, r,w,x, timeout=None):
+		raise NotImplementedError
+	
 class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 	"""An asyncio mainloop for trio
 
 	This code implements a semi-efficient way to run asyncio code within Trio.
 	"""
+	_saved_fds = None
+
 	def __init__(self):
 		self._q = trio.Queue(9999)
-		self._saved_readers = {}
-		self._saved_writers = {}
 
-		super().__init__()
+		super().__init__(_TrioSelector(self))
 
 		# now kill things we supersede
 		self._ready = _AddHandle(self)
@@ -103,9 +146,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		del self._clock_resolution
 		del self._current_handle
 		del self._coroutine_wrapper_set
-
-		self._readers = {}
-		self._writers = {}
 
 	# easy methods to supersede
 	def time(self):
@@ -192,82 +232,108 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
 	# readers
 
-	def add_reader(self, fd, callback, *args):
-		if hasattr(fd,'fileno'):
-			fd = fd.fileno()
-		self._saved_readers[fd] = (callback,args)
-		self.call_soon(self.__add_reader, fd, callback, *args)
-	_add_reader = add_reader
-	def __add_reader(self, fd, callback, *args):
-		self._nursery.start_soon(self._reader_loop, fd, callback, *args)
-	async def _reader_loop(self, fd, callback, *args, task_status=trio.STATUS_IGNORED):
-		task_status.started()
-		with trio.open_cancel_scope() as scope:
-			self._readers[fd] = scope
-			try:
-				while fd in self._saved_readers:
-					await trio.hazmat.wait_readable(fd)
-					callback(*args)
-			finally:
-				del self._readers[fd]
-	def remove_reader(self, fd):
-		if hasattr(fd,'fileno'):
-			fd = fd.fileno()
-		try:
-			del self._saved_readers[fd]
-		except KeyError:
-			return False
-		self.call_soon(self.__remove_reader, fd)
-		return True
-	_remove_reader = remove_reader
-	def __remove_reader(self, fd):
-		reader = self._readers.get(fd,None)
+	def _add_reader(self, fd, callback, *args):
+		self._check_closed()
+		handle = Handle(callback, args, {}, self, True)
+		reader = self._set_read_handle(fd, handle)
 		if reader is not None:
 			reader.cancel()
-	def _start_readers(self):
-		for k,v in self._saved_readers.items():
-			callback,args = v
-			self.add_reader(k, callback,*args)
+		self.call_soon(self.__add_reader, fd, handle)
+
+	def _set_read_handle(self, fd, handle):
+		try:
+			key = self._selector.get_key(fd)
+		except KeyError:
+			self._selector.register(fd, EVENT_READ, (handle, None))
+			return None
+		else:
+			mask, (writer, writer) = key.events, key.data
+			self._selector.modify(fd, mask | EVENT_READ, (handle, writer))
+			return writer
+
+	def __add_reader(self, fd, handle):
+		self._nursery.start_soon(self._reader_loop, fd, handle)
+
+	async def _reader_loop(self, fd, handle, task_status=trio.STATUS_IGNORED):
+		task_status.started()
+		with trio.open_cancel_scope() as scope:
+			handle._scope = scope
+			try:
+				while not handle._cancelled:
+					await trio.hazmat.wait_readable(fd)
+					handle._call_sync()
+			except Exception as exc:
+				logger.exception("Reading %d: Calling %s", fd, handle)
+			finally:
+				handle._scope = None
 
 	# writers
 	# s/read/writ/g
 
-	def add_writer(self, fd, callback, *args):
-		if hasattr(fd,'fileno'):
-			fd = fd.fileno()
-		self._saved_writers[fd] = (callback,args)
-		self.call_soon(self.__add_writer, fd, callback, *args)
-	_add_writer = add_writer
-	def __add_writer(self, fd, callback, *args):
-		self._nursery.start_soon(self._writer_loop, fd, callback, *args)
-	async def _writer_loop(self, fd, callback, *args, task_status=trio.STATUS_IGNORED):
-		task_status.started()
-		with trio.open_cancel_scope() as scope:
-			self._writers[fd] = scope
-			try:
-				while fd in self._saved_writers:
-					await trio.hazmat.wait_writable(fd)
-					callback(*args)
-			finally:
-				del self._writers[fd]
-	def remove_writer(self, fd):
-		if hasattr(fd,'fileno'):
-			fd = fd.fileno()
-		try:
-			del self._saved_writers[fd]
-		except KeyError:
-			return False
-		self.call_soon(self.__remove_writer, fd)
-		return True
-	_remove_writer = remove_writer
-	def __remove_writer(self, fd):
-		writer = self._writers.get(fd,None)
+	def _add_writer(self, fd, callback, *args):
+		self._check_closed()
+		handle = Handle(callback, args, {}, self, True)
+		writer = self._set_write_handle(fd, handle)
 		if writer is not None:
 			writer.cancel()
-	def _start_writers(self):
-		for k,v in self._saved_writers.items():
-			callback,args = v
-			self.add_writer(k, callback,*args)
+		self.call_soon(self.__add_writer, fd, handle)
+
+	def _set_write_handle(self, fd, handle):
+		try:
+			key = self._selector.get_key(fd)
+		except KeyError:
+			self._selector.register(fd, EVENT_WRITE, (None, handle))
+		else:
+			mask, (reader, writer) = key.events, key.data
+			self._selector.modify(fd, mask | EVENT_WRITE, (reader, handle))
+			return writer
+
+	def __add_writer(self, fd, handle):
+		self._nursery.start_soon(self._writer_loop, fd, handle)
+
+	async def _writer_loop(self, fd, handle, task_status=trio.STATUS_IGNORED):
+		task_status.started()
+		with trio.open_cancel_scope() as scope:
+			handle._scope = scope
+			try:
+				while not handle._cancelled:
+					await trio.hazmat.wait_writable(fd)
+					handle._call_sync()
+			except Exception as exc:
+				logger.exception("writing %d: Calling %s %s", fd, callback, args)
+			finally:
+				handle._scope = None
+
+	def _save_fds(self):
+		map = self._selector.get_map()
+		saved = [{},{}]
+		for fd,key in list(self._selector.get_map().items()):
+			for flag in (0,1):
+				if key.events & (1<<flag):
+					handle = key.data[flag]
+					assert handle is not None
+					if not handle._cancelled:
+						if handle._scope is not None:
+							handle._scope.cancel()
+						saved[flag][fd] = handle
+
+		self._saved_fds = saved
+
+	async def _restore_fds(self):
+		if not self._saved_fds:
+			return
+		for flag,fds in enumerate(self._saved_fds):
+			for fd,handle in fds.items():
+				if handle._cancelled:
+					continue
+				if flag:
+					old = self._set_write_handle(fd, handle)
+					self._nursery.start_soon(self._writer_loop, fd, handle)
+				else:
+					old = self._set_read_handle(fd, handle)
+					self._nursery.start_soon(self._reader_loop, fd, handle)
+				assert old is None
+		self._saved_fds = []
 
 	def default_exception_handler(self, context):
 		import sys,pprint
@@ -280,6 +346,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			async with trio.open_nursery() as nursery:
 				self._nursery = nursery
 				self._stopping = False
+				await self._restore_fds()
+
 				try:
 					async for obj in self._q:
 						if obj is None:
@@ -295,14 +363,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 						else:
 							nursery.start_soon(obj._call_async)
 				finally:
+					self._save_fds()
 					del self._nursery
 					self._stopping = True
-					for j in self._readers.values():
-						j.cancel()
 
-			# for next time
-			self._start_readers()
-			self._start_writers()
 		except BaseException as exc:
 			print(*trio.format_exception(type(exc),exc,exc.__traceback__))
 
