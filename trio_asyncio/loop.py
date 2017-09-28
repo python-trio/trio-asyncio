@@ -133,6 +133,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 	This code implements a semi-efficient way to run asyncio code within Trio.
 	"""
 	_saved_fds = None
+	_token = None
 
 	def __init__(self):
 		self._q = trio.Queue(9999)
@@ -143,6 +144,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		self._ready = _AddHandle(self)
 		self._scheduled = _Clear()
 		self._laters = {}
+		self._delayed_calls = []
 		del self._clock_resolution
 		del self._current_handle
 		del self._coroutine_wrapper_set
@@ -213,6 +215,14 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		h = Handle(callback, args, {}, self, True)
 		self._q.put_nowait(h)
 
+	def call_soon_threadsafe(self, callback, *args):
+		h = Handle(callback, args, {}, self, True)
+		if self._token is None:
+			self._delayed_calls.append(h)
+		else:
+			self._token.run_sync_soon(self._q.put_nowait,h)
+		return h
+		
 	def call_soon_async(self, callback, *args):
 		h = Handle(callback, args, {}, self, False)
 		self._q.put_nowait(h)
@@ -346,9 +356,14 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			async with trio.open_nursery() as nursery:
 				self._nursery = nursery
 				self._stopping = False
+				self._token = trio.hazmat.current_trio_token()
 				await self._restore_fds()
 
 				try:
+					for obj in self._delayed_calls:
+						if not obj._cancelled:
+							obj._call_sync()
+					self._delayed_calls = []
 					async for obj in self._q:
 						if obj is None:
 							break
@@ -366,6 +381,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 					self._save_fds()
 					del self._nursery
 					self._stopping = True
+					self._token = None
 
 		except BaseException as exc:
 			print(*trio.format_exception(type(exc),exc,exc.__traceback__))
