@@ -341,7 +341,16 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
 	# Trio-based main loop
 
-	async def _run_forever(self):
+	async def main_loop(self, task_status=trio.STATUS_IGNORED):
+		"""This is the Trio replacement of the asyncio loop's main loop.
+
+		Run this method as a standard Trio thread if your main code is
+		Trio-based and you need to call asyncio code.
+
+		Use ``run_forever()`` or ``run_until_complete()`` instead if your
+		main code is asyncio-based.
+		"""
+		task_status.started()
 		try:
 			async with trio.open_nursery() as nursery:
 				self._nursery = nursery
@@ -377,7 +386,18 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			print(*trio.format_exception(type(exc),exc,exc.__traceback__))
 
 	def run_forever(self):
-		trio.run(self._run_forever)
+		"""Start the main loop
+
+		This method simply runs ``.main_loop()`` as a trio-enabled version
+		of the asyncio main loop.
+
+		Use this (usually via ``run_until_complete()``) if your code
+		is asyncio-based and you want to use some trio features or
+		libraries.
+
+		Use ``main_loop()`` instead if you main code is trio-based.
+		"""
+		trio.run(self.main_loop)
 		
 	def stop(self):
 		self._q.put_nowait(None)
