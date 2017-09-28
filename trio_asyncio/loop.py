@@ -328,6 +328,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 						saved[flag][fd] = handle
 
 		self._saved_fds = saved
+		self._selector = _TrioSelector(self)
 
 	async def _restore_fds(self):
 		if not self._saved_fds:
