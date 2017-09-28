@@ -60,6 +60,16 @@ class Handle(asyncio.Handle):
 		if self._scope is not None:
 			self._scope.cancel()
 
+	def _cb_future_cancel(self, f):
+		"""If a Trio task completes an asyncio Future,
+		add this callback to the future
+		and set ``_scope`` to the Trio cancel scope
+		so that the task is terminated when the future gets canceled.
+
+		"""
+		if f.cancelled():
+			self.cancel()
+
 	def _repr_info(self):
 		info = [self.__class__.__name__]
 		if self._cancelled:
@@ -140,15 +150,27 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		"""Call an asynchronous Trio-ish function from asyncio.
 
 		Returns a Future with the result / exception.
+
+		Cancelling the future will cancel the task running your procedure,
+		or prevent it from starting if that is stil possible.
 		"""
 		f = asyncio.Future(loop=self)
-		h = Handle(self.__call_trio,(f,p,)+a,k,self,False)
-		self._q.put_nowait(h)
+		h = Handle(self.__call_trio,(f,p,)+a,k,self,None)
+		if self._token is None:
+			self._delayed_calls.append(Handle(self._q.put_nowait,(h,),{},self,False))
+		else:
+			self._q.put_nowait(h)
+		f.add_done_callback(h._cb_future_cancel)
 		return f
 
-	async def __call_trio(self, f,p,*a,**k):
+	async def __call_trio(self, h):
+		f, proc, *args = h._args
+		if f.cancelled():
+			return
 		try:
-			res = await p(*a,**k)
+			with trio.open_cancel_scope() as scope:
+				h._scope = scope
+				res = await proc(*args,**h._kwargs)
 		except trio.Cancelled:
 			f.cancel()
 		except BaseException as exc:
@@ -157,19 +179,34 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			f.set_result(res)
 
 	def call_trio_sync(self, p,*a,**k):
-		"""Call a synchronous Trio-requiring function from asyncio.
+		"""Call a synchronous function from asyncio.
 
 		Returns a Future with the result / exception.
+
+		Cancelling the future will prevent the code from running,
+		assuming that is still possible.
+
+		You might need to use this method if your code needs access to
+		features which are only available when Trio is running, such as
+		global task-sepcific variables or the current time.
+		Otherwise, simply call the code in question directly.
 		"""
 		f = asyncio.Future(loop=self)
-		h = Handle(self.__call_trio_sync,(f,p,)+a,k,self,False)
-		self._q.put_nowait(h)
+		if self._token is None:
+			h = Handle(self.__call_trio_sync,(f,p,)+a,k,self,None)
+			self._delayed_calls.append(h)
+		else:
+			h = Handle(p,a,k,self,False)
+			self._q.put_nowait(h)
 		return f
 
-	async def __call_trio_sync(self, f,p,*a,**k):
+	async def __call_trio_sync(self, h):
+		f, proc, *args = h._args
+		if f.cancelled():
+			return
 		try:
-			res = p(*a,**k)
-		except trio.Cancelled:
+			res = proc(*args,**h._kwargs)
+		except trio.Cancelled: # should probably never happen, but …
 			f.cancel()
 		except BaseException as exc:
 			f.set_exception(exc)
