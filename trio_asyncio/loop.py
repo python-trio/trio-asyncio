@@ -91,37 +91,11 @@ class Handle(asyncio.Handle):
 		return res
 		
 class _TrioSelector(_BaseSelectorImpl):
-	"""A selector that hooks into a TrioEventLoop."""
-	def __init__(self, loop):
-		super().__init__()
-#		self._loop = loop
-#	
-#	def close(self):
-#		self._loop = None
-#		super().close()
-#
-#	def register(self, fileobj, events, data=None):
-#		assert data
-#		key = super().register(fileobj, events, data)
-#		if key.events & EVENT_READ:
-#			self._loop._add_read_handle(key.fd, data[0])
-#		if key.events & EVENT_WRITE:
-#			self._loop._add_write_handle(key.fd, data[1])
-#		return key
-#
-#	def unregister(self, fileobj):
-#		key = super().unregister(fileobj, events, data)
-#		if key.events & EVENT_READ:
-#			self._loop._remove_read_handle(key.fd)
-#		if key.events & EVENT_WRITE:
-#			self._loop._remove_write_handle(key.fd)
-#		return key
-#
-#	def modify(self, fileobj, events, data=None):
-#		okey = self.unregister(fileobj)
-#		key = self.register(fileobj, events, data)
-#		return key
-#		
+	"""A selector that hooks into a ``TrioEventLoop``.
+
+	In fact it's just a basic selector that disables the actual
+	``select()`` method, as that is controlled by the event loop.
+	"""
 	def select(self, timeout=None):
 		raise NotImplementedError
 	def _select(self, r,w,x, timeout=None):
@@ -136,21 +110,30 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 	_token = None
 
 	def __init__(self):
+		# Processing queue
 		self._q = trio.Queue(9999)
 
-		super().__init__(_TrioSelector(self))
+		# interim storage for calls to ``call_soon_threadsafe``
+		# while the main loop is not running
+		self._delayed_calls = []
 
-		# now kill things we supersede
+		super().__init__(_TrioSelector())
+
+		# replaced internal data
 		self._ready = _AddHandle(self)
 		self._scheduled = _Clear()
-		self._laters = {}
-		self._delayed_calls = []
+
+		# internals disabled by default
 		del self._clock_resolution
 		del self._current_handle
 		del self._coroutine_wrapper_set
 
-	# easy methods to supersede
 	def time(self):
+		"""Trio's idea of the current time.
+
+		Unlike asyncio.loop's version, this function may only be called
+		while the loop is running.
+		"""
 		return trio.current_time()
 
 	def call_trio(self, p,*a,**k):
@@ -194,6 +177,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			f.set_result(res)
 
 	def call_later(self, delay, callback, *args):
+		"""asyncio's timer-based delay
+		"""
 		assert delay >= 0, delay
 		tag = _next_tag()
 		h = Handle(self.__call_later, (delay,callback)+args, {}, self, None)
@@ -227,6 +212,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		h = Handle(callback, args, {}, self, False)
 		self._q.put_nowait(h)
 
+	# supersede some built-ins which should not be used
+
 	def _add_callback(self, handle):
 		raise NotImplementedError
 	def _add_callback_signalsafe(self, handle):
@@ -235,12 +222,15 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		raise NotImplementedError
 	def _run_once(self):
 		raise NotImplementedError
+
+	# TODO
+
 	def add_signal_handler(self, sig, callback, *args):
 		raise NotImplementedError
 	def remove_signal_handler(self, sig):
 		raise NotImplementedError
 
-	# readers
+	# reading from a file descriptor
 
 	def _add_reader(self, fd, callback, *args):
 		self._check_closed()
@@ -277,8 +267,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			finally:
 				handle._scope = None
 
-	# writers
-	# s/read/writ/g
+	# writing to a file descriptor
 
 	def _add_writer(self, fd, callback, *args):
 		self._check_closed()
@@ -328,7 +317,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 						saved[flag][fd] = handle
 
 		self._saved_fds = saved
-		self._selector = _TrioSelector(self)
+		self._selector = _TrioSelector()
 
 	async def _restore_fds(self):
 		if not self._saved_fds:
@@ -350,7 +339,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 		import sys,pprint
 		pprint.pprint(context, stream=sys.stderr)
 
-	# mainloop
+	# Trio-based main loop
 
 	async def _run_forever(self):
 		try:
@@ -390,12 +379,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 	def run_forever(self):
 		trio.run(self._run_forever)
 		
-	#trio
-	async def _stop(self):
-		"""Stop this event loop.
-		"""
-		self._running = False
-
 	def stop(self):
 		self._q.put_nowait(None)
 		
