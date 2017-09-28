@@ -257,9 +257,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			self._selector.register(fd, EVENT_READ, (handle, None))
 			return None
 		else:
-			mask, (writer, writer) = key.events, key.data
+			mask, (reader, writer) = key.events, key.data
 			self._selector.modify(fd, mask | EVENT_READ, (handle, writer))
-			return writer
+			return reader
 
 	def __add_reader(self, fd, handle):
 		self._nursery.start_soon(self._reader_loop, fd, handle)
