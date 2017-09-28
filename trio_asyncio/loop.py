@@ -209,7 +209,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 			callback(*args, **h._kwargs)
 
 	def call_at(self, when, callback, *args):
-		raise NotImplementedError
+		return call_later(when - self.time(), callback, *args)
 
 	def call_soon(self, callback, *args):
 		h = Handle(callback, args, {}, self, True)
