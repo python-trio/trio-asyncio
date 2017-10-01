@@ -38,7 +38,7 @@ def _format_callback_source(func, args, kwargs):
         func_repr += ' at %s:%s' % source
     return func_repr
 
-class Handle(asyncio.Handle):
+class HandleMixin:
     """
     This extends asyncio.Handle with a way to pass keyword argument.
     
@@ -46,10 +46,8 @@ class Handle(asyncio.Handle):
     As a special case, if its value is ``None`` the callback will
     be called with the handle as its sole argument.
     """
-    __slots__ = ('_kwargs', '_is_sync', '_scope')
 
-    def __init__(self, callback, args, kwargs, loop, is_sync):
-        super().__init__(callback, args, loop)
+    def __init__(self, kwargs, is_sync):
         self._kwargs = kwargs
         self._is_sync = is_sync
         self._scope = None
@@ -100,6 +98,11 @@ class Handle(asyncio.Handle):
             self._scope = None
         return res
         
+class Handle(asyncio.Handle, HandleMixin):
+    def __init__(self, callback, args, kwargs, loop, is_sync):
+        super().__init__(callback, args, loop)
+        HandleMixin.__init__(self, kwargs,is_sync)
+
 class _TrioSelector(_BaseSelectorImpl):
     """A selector that hooks into a ``TrioEventLoop``.
 
