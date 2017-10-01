@@ -230,7 +230,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         You might need to use this method if your code needs access to
         features which are only available when Trio is running, such as
-        global task-sepcific variables or the current time.
+        global task-specific variables or the current time.
         Otherwise, simply call the code in question directly.
         """
         f = asyncio.Future(loop=self)
