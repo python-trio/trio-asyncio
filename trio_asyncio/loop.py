@@ -146,6 +146,45 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         """
         return trio.current_time()
 
+    async def wait_for(self, future):
+        """Wait for an asyncio future in Trio code.
+
+        Cancellations will be propagated bidirectionally.
+        """
+        current_task = trio.hazmat.current_task()
+        assert self._task is not trio.hazmat.current_task()
+
+        def is_done(f):
+            if f.cancelled():
+                scope.cancel()
+                return
+            exc = f.exception()
+            if exc is None:
+                res = trio.hazmat.Value(f.result())
+            else:
+                res = trio.hazmat.Error(exc)
+            trio.hazmat.reschedule(current_task, next_send = res)
+
+        def is_aborted(raise_cancel):
+            if not future.cancelled():
+                future.remove_done_callback(is_done)
+                future.cancel()
+            return trio.hazmat.Abort.SUCCEEDED
+
+        future.add_done_callback(is_done)
+        with trio.open_cancel_scope() as scope:
+            await trio.hazmat.wait_task_rescheduled(is_aborted)
+
+    async def call_asyncio(self, p,*a,**k):
+        """Call an asyncio function or method from Trio.
+        
+        Returns/Raises: whatever the procedure does.
+
+        Cancellations will be propagated bidirectionally.
+        """
+        f = asyncio.ensure_future(p(*a,**k), loop=self)
+        return await self.wait_for(f)
+
     def call_trio(self, p,*a,**k):
         """Call an asynchronous Trio-ish function from asyncio.
 
@@ -392,6 +431,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             async with trio.open_nursery() as nursery:
                 self._nursery = nursery
                 self._stopping = False
+                self._task = trio.hazmat.current_task()
                 self._token = trio.hazmat.current_trio_token()
                 await self._restore_fds()
 
