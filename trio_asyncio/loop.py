@@ -6,6 +6,8 @@ import sys
 import trio
 import asyncio
 import logging
+import math
+import heapq
 logger = logging.getLogger(__name__)
 
 from functools import partial
@@ -103,6 +105,22 @@ class Handle(asyncio.Handle, HandleMixin):
         super().__init__(callback, args, loop)
         HandleMixin.__init__(self, kwargs,is_sync)
 
+class TimerHandle(asyncio.TimerHandle, HandleMixin):
+    def __init__(self, when, callback, args, kwargs, loop, is_sync, is_relative=False):
+        super().__init__(when, callback, args, loop)
+        HandleMixin.__init__(self, kwargs,is_sync)
+        self._relative = is_relative
+
+    def _abs_time(self):
+        if self._relative:
+            self._when += self._loop.time()
+            self._relative = False
+
+    def _rel_time(self):
+        if not self._relative:
+            self._when -= self._loop.time()
+            self._relative = True
+
 class _TrioSelector(_BaseSelectorImpl):
     """A selector that hooks into a ``TrioEventLoop``.
 
@@ -135,6 +153,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         # replaced internal data
         self._ready = _AddHandle(self)
         self._scheduled = _Clear()
+
+        # we need to do our own timeout handling
+        self._timers = []
 
         # internals disabled by default
         del self._clock_resolution
@@ -257,9 +278,18 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     def call_later(self, delay, callback, *args):
         """asyncio's timer-based delay
+
+        Note that the callback is a sync function.
         """
         assert delay >= 0, delay
-        tag = _next_tag()
+        h = TimerHandle(delay, callback, args, {}, self, True, True)
+        if self._token is None:
+            self._delayed_calls.append(h)
+        else:
+            h = TimerHandle(delay, callback, args, {}, self, True, True)
+            self._q.put_nowait(h)
+        return h
+
         h = Handle(self.__call_later, (delay,callback)+args, {}, self, None)
         self._q.put_nowait(h)
         return h
@@ -273,11 +303,18 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             callback(*args, **h._kwargs)
 
     def call_at(self, when, callback, *args):
-        return call_later(when - self.time(), callback, *args)
+        """asyncio's time-based delay
+
+        Note that the callback is a sync function.
+        """
+        h = TimerHandle(when, callback, args, {}, self, True)
+        self._q.put_nowait(h)
+        return h
 
     def call_soon(self, callback, *args):
         h = Handle(callback, args, {}, self, True)
         self._q.put_nowait(h)
+        return h
 
     def call_soon_threadsafe(self, callback, *args):
         h = Handle(callback, args, {}, self, True)
@@ -298,7 +335,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
     def _add_callback_signalsafe(self, handle):
         raise NotImplementedError
     def _timer_handle_cancelled(self, handle):
-        raise NotImplementedError
+        pass
     def _run_once(self):
         raise NotImplementedError
 
@@ -441,14 +478,40 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                 try:
                     for obj in self._delayed_calls:
                         if not obj._cancelled:
-                            obj._call_sync()
+                            if isinstance(obj,TimerHandle):
+                                obj._abs_time()
+                                heapq.heappush(self._timers, obj)
+                            else:
+                                obj._call_sync()
                     self._delayed_calls = []
-                    async for obj in self._q:
+
+                    time_valid = False
+                    while True:
+                        obj = None
+                        if not time_valid:
+                            t = self.time()
+                            time_valid = True
+                        if not self._timers:
+                            timeout = math.inf
+                        else:
+                            timeout = self._timers[0]._when - t
+                            if timeout <= 0:
+                                obj = heapq.heappop(self._timers)
                         if obj is None:
-                            break
+                            time_valid = False
+                            with trio.move_on_after(timeout) as cancel_scope:
+                                obj = await self._q.get()
+                            if cancel_scope.cancel_called:
+                                continue
+
+                            if obj is None:
+                                break
+                            if isinstance(obj,TimerHandle):
+                                obj._abs_time()
+                                heapq.heappush(self._timers, obj)
+                                continue
                         if obj._cancelled:
                             continue
-
                         if getattr(obj, '_is_sync', True) is True:
                             try:
                                 obj._callback(*obj._args, **getattr(obj, '_kwargs', {}))
@@ -457,6 +520,12 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                         else:
                             nursery.start_soon(obj._call_async)
                 finally:
+                    # save timers, by converting them back to relative time
+                    for tm in self._timers:
+                        tm._rel_time()
+                        self._delayed_calls.append(tm)
+                    self._timers.clear()
+
                     self._save_fds()
                     del self._nursery
                     self._stopping = True
