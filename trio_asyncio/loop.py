@@ -281,6 +281,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         Note that the callback is a sync function.
         """
+        self._check_closed()
         assert delay >= 0, delay
         h = TimerHandle(delay, callback, args, {}, self, True, True)
         if self._token is None:
@@ -307,16 +308,19 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         Note that the callback is a sync function.
         """
+        self._check_closed()
         h = TimerHandle(when, callback, args, {}, self, True)
         self._q.put_nowait(h)
         return h
 
     def call_soon(self, callback, *args):
+        self._check_closed()
         h = Handle(callback, args, {}, self, True)
         self._q.put_nowait(h)
         return h
 
     def call_soon_threadsafe(self, callback, *args):
+        self._check_closed()
         h = Handle(callback, args, {}, self, True)
         if self._token is None:
             self._delayed_calls.append(h)
@@ -546,6 +550,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         Use ``main_loop()`` instead if you main code is trio-based.
         """
+        self._check_closed()
         trio.run(self.main_loop)
         
     def stop(self):
