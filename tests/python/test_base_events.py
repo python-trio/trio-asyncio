@@ -1,4 +1,5 @@
 """Tests for base_events.py"""
+import pytest
 
 import errno
 import logging
@@ -308,6 +309,7 @@ class BaseEventLoopTests(test_utils.TestCase):
             loop.call_at(loop.time() + 60, cb)
 
     def test_check_thread(self):
+        pytest.xfail("Loops in multiple threads")
         def check_in_thread(loop, event, debug, create_loop, fut):
             # wait until the event loop is running
             event.wait()
@@ -1710,6 +1712,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
     @mock.patch('asyncio.base_events.logger')
     def test_log_slow_callbacks(self, m_logger):
+        pytest.xfail("Slow callback logging")
         def stop_loop_cb(loop):
             loop.stop()
 
@@ -1750,7 +1753,7 @@ class RunningLoopTests(unittest.TestCase):
         outer_loop = asyncio.new_event_loop()
         try:
             with self.assertRaisesRegex(RuntimeError,
-                                        'while another loop is running'):
+                                        'call run.. from inside a run'):
                 outer_loop.run_until_complete(runner(loop))
         finally:
             loop.close()

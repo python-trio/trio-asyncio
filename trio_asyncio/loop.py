@@ -107,9 +107,26 @@ class Handle(asyncio.Handle, HandleMixin):
         super().__init__(callback, args, loop)
         HandleMixin.__init__(self, kwargs,is_sync)
 
+class DeltaTime:
+    __slots__= ('delta')
+    def __init__(self,delta=0):
+        self.delta = delta
+    def __add__(self, x):
+        return DeltaTime(self.delta + x)
+    def __iadd__(self, x):
+        self.delta +=x
+    def __sub__(self, x):
+        return DeltaTime(self.delta - x)
+    def __isub__(self, x):
+        self.delta -=x
+
 class TimerHandle(asyncio.TimerHandle, HandleMixin):
     def __init__(self, when, callback, args, kwargs, loop, is_sync, is_relative=False):
         super().__init__(when, callback, args, loop)
+        if isinstance(when, DeltaTime):
+            assert not is_relative
+            when = when.delta
+            is_relative = True
         HandleMixin.__init__(self, kwargs,is_sync)
         self._relative = is_relative
 
@@ -170,7 +187,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         Unlike asyncio.loop's version, this function may only be called
         while the loop is running.
         """
-        return trio.current_time()
+        if self._token is None:
+            return DeltaTime()
+        else:
+            return trio.current_time()
 
     async def wait_for(self, future):
         """Wait for an asyncio future in Trio code.
@@ -283,6 +303,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         Note that the callback is a sync function.
         """
+        self._check_callback(callback, 'call_later')
         self._check_closed()
         assert delay >= 0, delay
         h = TimerHandle(delay, callback, args, {}, self, True, True)
@@ -310,18 +331,21 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         Note that the callback is a sync function.
         """
+        self._check_callback(callback, 'call_at')
         self._check_closed()
         h = TimerHandle(when, callback, args, {}, self, True)
         self._q.put_nowait(h)
         return h
 
     def call_soon(self, callback, *args):
+        self._check_callback(callback, 'call_soon')
         self._check_closed()
         h = Handle(callback, args, {}, self, True)
         self._q.put_nowait(h)
         return h
 
     def call_soon_threadsafe(self, callback, *args):
+        self._check_callback(callback, 'call_soon_threadsafe')
         self._check_closed()
         h = Handle(callback, args, {}, self, True)
         if self._token is None:
@@ -456,10 +480,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     self._nursery.start_soon(self._reader_loop, fd, handle)
                 assert old is None
         self._saved_fds = []
-
-    def default_exception_handler(self, context):
-        import sys,pprint
-        pprint.pprint(context, stream=sys.stderr)
 
     # Trio-based main loop
 
