@@ -14,6 +14,8 @@ from functools import partial
 from asyncio.events import _format_callback, _get_function_source
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
+__all = ['TrioEventLoop']
+
 class _Clear:
     def clear(self):
         pass
@@ -470,7 +472,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         Use ``run_forever()`` or ``run_until_complete()`` instead if your
         main code is asyncio-based.
         """
-        task_status.started()
         try:
             async with trio.open_nursery() as nursery:
                 self._nursery = nursery
@@ -488,6 +489,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                             else:
                                 obj._call_sync()
                     self._delayed_calls = []
+                    task_status.started()
 
                     time_valid = False
                     while True:
@@ -508,7 +510,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                             if cancel_scope.cancel_called:
                                 continue
 
-                            if obj is None:
+                            if isinstance(obj, trio.Event):
                                 break
                             if isinstance(obj,TimerHandle):
                                 obj._abs_time()
@@ -530,13 +532,34 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                         self._delayed_calls.append(tm)
                     self._timers.clear()
 
-                    self._save_fds()
+                    try:
+                        self._selfpipes = (self._ssock.fileno(),self._csock.fileno())
+                    except AttributeError:
+                        self._selfpipe_fds = {}
+                    try:
+                        self._save_fds()
+                    except AttributeError:
+                        pass
                     del self._nursery
                     self._stopping = True
                     self._token = None
+                    obj.set()
 
         except BaseException as exc:
             print(*trio.format_exception(type(exc),exc,exc.__traceback__))
+
+    def run_task(self, proc,*a,**k):
+        """Run a Trio task.
+        The asyncio main loop is started in parallel.
+        It is suspended when your task finishes.
+        """
+        trio.run(self.__run_task,proc,a,k)
+
+    async def __run_task(self,proc,a,k):
+        async with trio.open_nursery() as nursery:
+            await nursery.start(self.main_loop)
+            res = await proc(*a,**k)
+            await self.stop().wait()
 
     def run_forever(self):
         """Start the main loop
@@ -554,9 +577,29 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         trio.run(self.main_loop)
         
     def stop(self):
-        self._q.put_nowait(None)
+        """Halt the main loop.
+
+        This returns a trio.Event which will trigger when the loop has
+        terminated.
+        """
+        e = trio.Event()
+        self._q.put_nowait(e)
+        return e
+
+    def close(self):
+        super().close()
+
+        if self._saved_fds:
+            for flag,fds in enumerate(self._saved_fds):
+                try:
+                    del fds[self._selfpipes[flag]]
+                except (IndexError,KeyError):
+                    pass
+
         
 class TrioPolicy(asyncio.unix_events._UnixDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
 
 asyncio.set_event_loop_policy(TrioPolicy())
+if not isinstance(asyncio.get_event_loop(), TrioEventLoop):
+    raise ImportError("You imported trio.asyncio too late.")
