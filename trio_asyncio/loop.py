@@ -44,16 +44,26 @@ def _format_callback_source(func, args, kwargs):
         func_repr += ' at %s:%s' % source
     return func_repr
 
-class HandleMixin:
+class _TrioHandle:
     """
-    This extends asyncio.Handle with a way to pass keyword argument.
+    This extends asyncio.Handle by providing:
+    * a way to pass keyword arguments
+    * a way to cancel an async callback
+    * a way to declare the type of the callback function
     
-    Also, ``is_sync`` declares whether ``callback`` is synchronous.
-    As a special case, if its value is ``None`` the callback will
-    be called with the handle as its sole argument.
+    ``is_sync`` may be
+    * True: sync function, use _call_sync()
+    * False: async function, use _call_async()
+    * None: also async, but the callback function accepts
+      the handle as its sole argument
+
+    The caller is responsible for checking whether the handle
+    has been cancelled before invoking ``call_[a]sync()``.
     """
 
-    def __init__(self, kwargs, is_sync):
+    def _init(self, kwargs, is_sync):
+        """Secondary init.
+        """
         self._kwargs = kwargs
         self._is_sync = is_sync
         self._scope = None
@@ -104,10 +114,10 @@ class HandleMixin:
             self._scope = None
         return res
         
-class Handle(asyncio.Handle, HandleMixin):
+class Handle(_TrioHandle, asyncio.Handle):
     def __init__(self, callback, args, kwargs, loop, is_sync):
         super().__init__(callback, args, loop)
-        HandleMixin.__init__(self, kwargs,is_sync)
+        self._init(kwargs,is_sync)
 
 class DeltaTime:
     __slots__= ('delta')
@@ -122,14 +132,14 @@ class DeltaTime:
     def __isub__(self, x):
         self.delta -=x
 
-class TimerHandle(asyncio.TimerHandle, HandleMixin):
+class TimerHandle(_TrioHandle, asyncio.TimerHandle):
     def __init__(self, when, callback, args, kwargs, loop, is_sync, is_relative=False):
         super().__init__(when, callback, args, loop)
         if isinstance(when, DeltaTime):
             assert not is_relative
             when = when.delta
             is_relative = True
-        HandleMixin.__init__(self, kwargs,is_sync)
+        self._init(kwargs,is_sync)
         self._relative = is_relative
 
     def _abs_time(self):
