@@ -5,9 +5,11 @@
 import sys
 import trio
 import asyncio
-import logging
 import math
 import heapq
+import signal
+
+import logging
 logger = logging.getLogger(__name__)
 
 from functools import partial
@@ -172,6 +174,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         # replaced internal data
         self._ready = _AddHandle(self)
         self._scheduled = _Clear()
+
+        self._orig_signals = {}
 
         # we need to do our own timeout handling
         self._timers = []
@@ -360,23 +364,52 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     # supersede some built-ins which should not be used
 
-    def _add_callback(self, handle):
-        raise NotImplementedError
+    def _add_callback(self, handle, _via_token=False):
+        assert isinstance(handle, Handle), 'A Handle is required here'
+        if handle._cancelled:
+            return
+        assert not isinstance(handle, TimerHandle)
+
+        if via_token:
+            self._token.run_sync_soon(self._q.put_nowait,h)
+        else:
+            self._q.put_nowait(h)
+
     def _add_callback_signalsafe(self, handle):
-        raise NotImplementedError
+        self._add_callback(handle, _via_token = (self._task is not trio.hazmat.current_task()))
+
     def _timer_handle_cancelled(self, handle):
         pass
     def _run_once(self):
         raise NotImplementedError
 
-    # TODO
+    def _handle_sig(self, sig, _):
+        h = self._signal_handlers[sig]
+        if self._token is None:
+            self._delayed_calls.append(h)
+        else:
+            self._token.run_sync_soon(self._q.put_nowait,h)
 
     def add_signal_handler(self, sig, callback, *args):
-        raise NotImplementedError
-    def remove_signal_handler(self, sig):
-        raise NotImplementedError
+        self._check_signal(sig)
+        self._check_closed()
+        if sig == signal.SIGKILL:
+            raise RuntimeError("SIGKILL cannot be caught")
+        h = Handle(callback, args, {}, self, True)
+        assert sig not in self._signal_handlers, "Signal %d is already caught" % (sig,)
+        self._orig_signals[sig] = signal.signal(sig, self._handle_sig)
+        self._signal_handlers[sig] = h
 
-    # reading from a file descriptor
+    def remove_signal_handler(self, sig):
+        self._check_signal(sig)
+        try:
+            h = self._signal_handlers.pop(sig)
+        except KeyError:
+            return False
+        h.cancel()
+        signal.signal(sig, self._orig_signals[sig])
+        del self._orig_signals[sig]
+        return True
 
     def _add_reader(self, fd, callback, *args):
         self._check_closed()
