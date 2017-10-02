@@ -1,5 +1,6 @@
 """Tests support for new syntax introduced by PEP 492."""
 
+import collections.abc
 import types
 import unittest
 

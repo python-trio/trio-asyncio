@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import warnings
 from unittest import mock
 
 if sys.platform == 'win32':
