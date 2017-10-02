@@ -2205,7 +2205,7 @@ else:
                 self.loop.run_until_complete(main()),
                 'hello')
 
-    if hasattr(selectors, 'KqueueSelector'):
+    if False and hasattr(selectors, 'KqueueSelector'):
         class KqueueEventLoopTests(UnixEventLoopTestsMixin,
                                    SubprocessTestsMixin,
                                    test_utils.TestCase):
@@ -2230,7 +2230,7 @@ else:
             def test_write_pty(self):
                 super().test_write_pty()
 
-    if hasattr(selectors, 'EpollSelector'):
+    if False and hasattr(selectors, 'EpollSelector'):
         class EPollEventLoopTests(UnixEventLoopTestsMixin,
                                   SubprocessTestsMixin,
                                   test_utils.TestCase):
@@ -2238,7 +2238,7 @@ else:
             def create_event_loop(self):
                 return asyncio.SelectorEventLoop(selectors.EpollSelector())
 
-    if hasattr(selectors, 'PollSelector'):
+    if False and hasattr(selectors, 'PollSelector'):
         class PollEventLoopTests(UnixEventLoopTestsMixin,
                                  SubprocessTestsMixin,
                                  test_utils.TestCase):
@@ -2247,12 +2247,13 @@ else:
                 return asyncio.SelectorEventLoop(selectors.PollSelector())
 
     # Should always exist.
-    class SelectEventLoopTests(UnixEventLoopTestsMixin,
+    class TrioEventLoopTests(UnixEventLoopTestsMixin,
                                SubprocessTestsMixin,
                                test_utils.TestCase):
 
         def create_event_loop(self):
-            return asyncio.SelectorEventLoop(selectors.SelectSelector())
+            import trio.asyncio
+            return trio.asyncio.TrioEventLoop()
 
 
 def noop(*args, **kwargs):
