@@ -189,6 +189,29 @@ class _TrioSelector(_BaseSelectorImpl):
     def _select(self, r,w,x, timeout=None):
         raise NotImplementedError
     
+class TrioExecutor:
+    def __init__(self, limiter=None):
+        self._running = True
+        self._limiter = limiter 
+    async def submit(self, func,*args):
+        if not self._running:
+            raise RuntimeError("Executor is down")
+        await trio.run_sync_in_worker_thread(self._runner, func, *args, limiter=self._limiter)
+    def shutdown(self, wait=None):
+        self._running = False
+
+    def _runner(self, func, *args):
+        import os
+        try:
+            logger.debug("THREAD START %d %s %s",os.getpid(), func,args)
+            res = func(*args)
+        except BaseException as exc:
+            logger.exception("THREAD ERROR %d",os.getpid())
+            raise
+        else:
+            logger.debug("THREAD RES %s %s",os.getpid(), repr(res))
+            return res
+
 class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
     """An asyncio mainloop for trio
 
@@ -209,6 +232,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         # replaced internal data
         self._ready = _AddHandle(self)
         self._scheduled = _Clear()
+        self._default_executor = TrioExecutor()
 
         self._orig_signals = {}
 
@@ -405,6 +429,15 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
     def _timer_handle_cancelled(self, handle):
         pass
 
+    def run_in_executor(self, executor, func, *args):
+        self._check_callback(func, 'run_in_executor')
+        self._check_closed()
+        if executor is None:
+            executor = self._default_executor
+        else:
+            assert isinstance(executor, TrioExecutor)
+        return self.call_trio(executor.submit,func,*args)
+        
     def _handle_sig(self, sig, _):
         h = self._signal_handlers[sig]
         if self._token is None:
