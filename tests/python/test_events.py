@@ -38,6 +38,11 @@ try:
 except ImportError:
     from asyncio import test_support as support
 
+import time
+try:
+    monotime = time.monotonic
+except AttributeError:
+    monotime = time.time
 
 def data_file(filename):
     if hasattr(support, 'TEST_HOME_DIR'):
@@ -280,9 +285,9 @@ class EventLoopTestsMixin:
     # 15.6 msec, we use fairly long sleep times here (~100 msec).
 
     def test_run_until_complete(self):
-        t0 = self.loop.time()
+        t0 = monotime()
         self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
-        t1 = self.loop.time()
+        t1 = monotime()
         self.assertTrue(0.08 <= t1-t0 <= 0.8, t1-t0)
 
     def test_run_until_complete_stopped(self):
