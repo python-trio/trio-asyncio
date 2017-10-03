@@ -214,9 +214,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         # we need to do our own timeout handling
         self._timers = []
 
-        # internals disabled by default
-        del self._clock_resolution
-
     def time(self):
         """Trio's idea of the current time.
 
