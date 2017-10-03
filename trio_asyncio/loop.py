@@ -653,11 +653,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                         else:
                             nursery.start_soon(obj._call_async)
                 finally:
-                    # save timers, by converting them back to relative time
-                    for tm in self._timers:
-                        tm._rel_time()
-                        self._delayed_calls.append(tm)
-                    self._timers.clear()
 
                     # Save open file descriptors (but not the self-pipe)
                     try:
@@ -668,6 +663,13 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                         self._save_fds()
                     except AttributeError:
                         pass
+
+                    # save timers, by converting them back to relative time
+                    for tm in self._timers:
+                        tm._rel_time()
+                        self._delayed_calls.append(tm)
+                    self._timers.clear()
+
                     del self._nursery
                     self._token = None
                     if obj is not None:
