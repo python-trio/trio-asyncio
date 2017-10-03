@@ -152,6 +152,8 @@ class DeltaTime:
     def __iadd__(self, x):
         self.delta +=x
     def __sub__(self, x):
+        if isinstance(x,DeltaTime):
+            return self.delta - x.delta
         return DeltaTime(self.delta - x)
     def __isub__(self, x):
         self.delta -=x
