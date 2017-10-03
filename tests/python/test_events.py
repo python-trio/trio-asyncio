@@ -2388,6 +2388,7 @@ class HandleTests(test_utils.TestCase):
             % (filename, lineno, create_filename, create_lineno))
 
     def test_handle_source_traceback(self):
+        pytest.xfail("Tracebacks don't look the same in trio-asynio")
         loop = asyncio.get_event_loop_policy().new_event_loop()
         loop.set_debug(True)
         self.set_event_loop(loop)
