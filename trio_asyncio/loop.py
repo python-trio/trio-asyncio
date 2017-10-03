@@ -598,7 +598,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
                 try:
                     for obj in self._delayed_calls:
-                        if not obj._cancelled:
+                        if not getattr(obj,'_cancelled',False):
                             if isinstance(obj,TimerHandle):
                                 obj._abs_time()
                                 heapq.heappush(self._timers, obj)
@@ -734,7 +734,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         # reset to False by asyncio's run_forever()
 
         e = _QuitEvent()
-        self._q.put_nowait(e)
+        self._queue_handle(e)
         return e
 
     def close(self):
