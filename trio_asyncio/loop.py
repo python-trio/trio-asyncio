@@ -106,9 +106,17 @@ class _TrioHandle:
     def _call_sync(self):
         assert self._is_sync
         assert not self._cancelled
-        return self._callback(*self._args, **self._kwargs)
+        try:
+            res = self._callback(*self._args, **self._kwargs)
+        except Exception as exc:
+            logger.exception("Sync call %s", self)
+            raise
+        else:
+            logger.debug("Sync result %s: %s", self, repr(res))
+            return res
         
     async def _call_async(self):
+        logger.debug("Start call: %s", self)
         assert not self._is_sync
         assert not self._cancelled
         try:
@@ -118,9 +126,17 @@ class _TrioHandle:
                     res = await self._callback(self)
                 else:
                     res = await self._callback(*self._args, **self._kwargs)
+        except Exception as exc:
+            logger.exception("Async call %s", self)
+            raise
+        except trio.Cancelled as exc:
+            logger.debug("Async call %s: cancelled", self)
+            raise
+        else:
+            logger.debug("Async result %s: %s", self, repr(res))
+            return res
         finally:
             self._scope = None
-        return res
         
 class Handle(_TrioHandle, asyncio.Handle):
     def __init__(self, callback, args, kwargs, loop, is_sync):
