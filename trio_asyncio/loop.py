@@ -196,7 +196,7 @@ class TrioExecutor:
     async def submit(self, func,*args):
         if not self._running:
             raise RuntimeError("Executor is down")
-        await trio.run_sync_in_worker_thread(self._runner, func, *args, limiter=self._limiter)
+        return await trio.run_sync_in_worker_thread(self._runner, func, *args, limiter=self._limiter)
     def shutdown(self, wait=None):
         self._running = False
 
