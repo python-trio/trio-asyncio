@@ -9,6 +9,7 @@ import math
 import heapq
 import signal
 import threading
+import selectors
 
 import logging
 logger = logging.getLogger(__name__)
