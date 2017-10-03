@@ -200,7 +200,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         # internals disabled by default
         del self._clock_resolution
-        del self._current_handle
 
     def time(self):
         """Trio's idea of the current time.
