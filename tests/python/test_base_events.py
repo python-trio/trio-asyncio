@@ -309,7 +309,6 @@ class BaseEventLoopTests(test_utils.TestCase):
             loop.call_at(loop.time() + 60, cb)
 
     def test_check_thread(self):
-        pytest.xfail("Loops in multiple threads")
         def check_in_thread(loop, event, debug, create_loop, fut):
             # wait until the event loop is running
             event.wait()
@@ -1712,7 +1711,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
     @mock.patch('asyncio.base_events.logger')
     def test_log_slow_callbacks(self, m_logger):
-        pytest.xfail("Slow callback logging")
+        pytest.xfail("Slow callback logging is not yet implemented")
         def stop_loop_cb(loop):
             loop.stop()
 

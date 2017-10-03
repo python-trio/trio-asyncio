@@ -397,7 +397,6 @@ class EventLoopTestsMixin:
         self.assertEqual(bytes_read, b'abcdef')
 
     def test_writer_callback(self):
-        pytest.xfail("hangs. TODO")
         r, w = test_utils.socketpair()
         w.setblocking(False)
 
@@ -741,7 +740,6 @@ class EventLoopTestsMixin:
                                              peername=httpd.address)
 
     def test_legacy_create_ssl_unix_connection(self):
-        pytest.xfail("hangs. TODO")
         with test_utils.force_legacy_ssl_support():
             self.test_create_ssl_unix_connection()
 
@@ -1046,14 +1044,12 @@ class EventLoopTestsMixin:
         server.close()
 
     def test_legacy_create_server_ssl(self):
-        pytest.xfail("hangs. TODO")
         with test_utils.force_legacy_ssl_support():
             self.test_create_server_ssl()
 
     @unittest.skipIf(ssl is None, 'No ssl module')
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'No UNIX Sockets')
     def test_create_unix_server_ssl(self):
-        pytest.xfail("hangs. TODO")
         proto = MyProto(loop=self.loop)
         server, path = self._make_ssl_unix_server(
             lambda: proto, ONLYCERT, ONLYKEY)
@@ -2385,8 +2381,8 @@ class HandleTests(test_utils.TestCase):
             '<Handle cancelled noop(1, 2) at %s:%s created at %s:%s>'
             % (filename, lineno, create_filename, create_lineno))
 
+    @pytest.mark.skip("Tracebacks don't look the same in trio-asynio")
     def test_handle_source_traceback(self):
-        pytest.xfail("Tracebacks don't look the same in trio-asynio")
         loop = asyncio.get_event_loop_policy().new_event_loop()
         loop.set_debug(True)
         self.set_event_loop(loop)
