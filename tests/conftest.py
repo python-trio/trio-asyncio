@@ -28,11 +28,9 @@ def loop(request):
 #    assert loop._q.qsize() == 0
     assert not loop._timers
     assert not loop._delayed_calls
-    loop.run_task(trio._core.wait_all_tasks_blocked)
-    loop.close()
-    if loop._saved_fds:
-        for flag,fds in enumerate(loop._saved_fds):
-            assert not fds, ("write" if flag else "read", fds)
+    if not loop.is_closed():
+        loop.run_task(trio._core.wait_all_tasks_blocked)
+        loop.close()
 
 # FIXME: split off into a package (or just make part of trio's public
 # interface?), with config file to enable? and I guess a mark option too; I

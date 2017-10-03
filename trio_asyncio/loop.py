@@ -194,7 +194,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     This code implements a semi-efficient way to run asyncio code within Trio.
     """
-    _saved_fds = [{},{}]
     _token = None
 
     def __init__(self):
@@ -442,13 +441,11 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
     def _add_reader(self, fd, callback, *args):
         self._check_closed()
         handle = Handle(callback, args, {}, self, True)
-        if self._token is None:
-            fd = selectors._fileobj_to_fd(fd)
-            self._saved_fds[0][fd] = handle
-            return
         reader = self._set_read_handle(fd, handle)
         if reader is not None:
             reader.cancel()
+        if self._token is None:
+            return
         self._nursery.start_soon(self._reader_loop, fd, handle)
 
     def _remove_reader(self, fd):
@@ -457,11 +454,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         try:
             key = self._selector.get_key(fd)
         except KeyError:
-            if self._saved_fds is not None:
-                fd = selectors._fileobj_to_fd(fd)
-                old = self._saved_fds[0].pop(fd, None)
-                if old is not None:
-                    old.cancel()
             return False
         else:
             mask, (reader, writer) = key.events, key.data
@@ -508,12 +500,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         self._check_closed()
         handle = Handle(callback, args, {}, self, True)
         writer = self._set_write_handle(fd, handle)
-        if self._token is None:
-            fd = selectors._fileobj_to_fd(fd)
-            self._saved_fds[1][fd] = handle
-            return
         if writer is not None:
             writer.cancel()
+        if self._token is None:
+            return
         self._nursery.start_soon(self._writer_loop, fd, handle)
 
     def _remove_writer(self, fd):
@@ -522,11 +512,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         try:
             key = self._selector.get_key(fd)
         except KeyError:
-            if self._saved_fds is not None:
-                fd = selectors._fileobj_to_fd(fd)
-                old = self._saved_fds[1].pop(fd, None)
-                if old is not None:
-                    old.cancel()
             return False
         else:
             mask, (reader, writer) = key.events, key.data
@@ -578,26 +563,18 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     if not handle._cancelled:
                         if handle._scope is not None:
                             handle._scope.cancel()
-                        saved[flag][fd] = handle
-
-        self._saved_fds = saved
-        self._selector = _TrioSelector()
 
     async def _restore_fds(self):
-        if not self._saved_fds:
-            return
-        for flag,fds in enumerate(self._saved_fds):
-            for fd,handle in fds.items():
-                if handle._cancelled:
-                    continue
-                if flag:
-                    old = self._set_write_handle(fd, handle)
-                    await self._nursery.start(self._writer_loop, fd, handle)
-                else:
-                    old = self._set_read_handle(fd, handle)
-                    await self._nursery.start(self._reader_loop, fd, handle)
-                assert old is None
-        self._saved_fds = None
+        for fd,key in list(self._selector.get_map().items()):
+            for flag in (0,1):
+                if key.events & (1<<flag):
+                    handle = key.data[flag]
+                    assert handle is not None
+                    if not handle._cancelled:
+                        if flag:
+                            await self._nursery.start(self._writer_loop, fd, handle)
+                        else:
+                            await self._nursery.start(self._reader_loop, fd, handle)
 
     # Trio-based main loop
 
@@ -768,13 +745,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         super().close()
 
-        if self._saved_fds is not None:
-            for fds in self._saved_fds:
-                for handle in fds.values():
-                    if handle._cancelled:
-                        continue
-                    handle.cancel()
-            self._saved_fds = None
         if forgot_stop:
             raise RuntimeError("You need to stop the loop before closing it")
 
