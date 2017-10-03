@@ -1753,7 +1753,7 @@ class RunningLoopTests(unittest.TestCase):
         outer_loop = asyncio.new_event_loop()
         try:
             with self.assertRaisesRegex(RuntimeError,
-                                        'call run.. from inside a run'):
+                                        'while another loop is running'):
                 outer_loop.run_until_complete(runner(loop))
         finally:
             loop.close()

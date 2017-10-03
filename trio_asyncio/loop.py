@@ -8,6 +8,7 @@ import asyncio
 import math
 import heapq
 import signal
+import threading
 
 import logging
 logger = logging.getLogger(__name__)
@@ -193,7 +194,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         # internals disabled by default
         del self._clock_resolution
         del self._current_handle
-        del self._coroutine_wrapper_set
 
     def time(self):
         """Trio's idea of the current time.
@@ -390,8 +390,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     def _timer_handle_cancelled(self, handle):
         pass
-    def _run_once(self):
-        raise NotImplementedError
 
     def _handle_sig(self, sig, _):
         h = self._signal_handlers[sig]
@@ -536,10 +534,11 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         main code is asyncio-based.
         """
         try:
+            self._task = trio.hazmat.current_task()
+            self._task._runner.instrument("loop_start")
+
             async with trio.open_nursery() as nursery:
                 self._nursery = nursery
-                self._stopping = False
-                self._task = trio.hazmat.current_task()
                 self._token = trio.hazmat.current_trio_token()
                 await self._restore_fds()
 
@@ -550,7 +549,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                                 obj._abs_time()
                                 heapq.heappush(self._timers, obj)
                             else:
-                                obj._call_sync()
+                                self._q.put_nowait(obj)
                     self._delayed_calls = []
                     task_status.started()
 
@@ -604,25 +603,39 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     except AttributeError:
                         pass
                     del self._nursery
-                    self._stopping = True
                     self._token = None
-                    obj.set()
+                    if obj is not None:
+                        obj.set()
 
         except BaseException as exc:
             print(*trio.format_exception(type(exc),exc,exc.__traceback__))
 
     def run_task(self, proc,*a,**k):
         """Run a Trio task.
-        The asyncio main loop is started in parallel.
-        It is suspended when your task finishes.
-        """
-        trio.run(self.__run_task,proc,a,k)
 
-    async def __run_task(self,proc,a,k):
-        async with trio.open_nursery() as nursery:
-            await nursery.start(self.main_loop)
+        The asyncio main loop is running in parallel.
+        It is stopped when your task finishes.
+        """
+
+        if self.is_running():
+            raise RuntimeError("This loop is already running")
+        f = asyncio.Future(loop=self)
+        h = Handle(self.__run_task,(proc,f,a,k),{}, self,False)
+        self._delayed_calls.append(h)
+        self.run_forever()
+        return f.result()
+
+    async def __run_task(self,proc,f,a,k):
+        try:
             res = await proc(*a,**k)
-            await self.stop().wait()
+        except Exception as exc:
+            f.set_exception(exc)
+        except trio.Cancelled:
+            f.cancel()
+        else:
+            f.set_result(res)
+        finally:
+            self.stop()
 
     def run_forever(self):
         """Start the main loop
@@ -635,21 +648,35 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         libraries.
 
         Use ``main_loop()`` instead if you main code is trio-based.
+
+        Asyncio's ``run_forever()`` does quite a few setup/teardown things.
+        Thus, rather than re-implement all of them, our _run_once() method
+        actually implements the main event loop instead of just
+        single-stepping.
         """
-        self._check_closed()
-        trio.run(self.main_loop)
+        super().run_forever()
         
+    def _run_once(self):
+        trio.run(self.main_loop) # , instruments=[Tracer()])
+
     def stop(self):
         """Halt the main loop.
 
         This returns a trio.Event which will trigger when the loop has
         terminated.
         """
+        self._stopping = True
+        # reset to False by asyncio's run_forever()
+
         e = trio.Event()
         self._q.put_nowait(e)
         return e
 
     def close(self):
+        forgot_stop = self.is_running()
+        if forgot_stop:
+            e = trio.Event()
+            self._q.put_nowait(e)
         super().close()
 
         if self._saved_fds:
@@ -658,6 +685,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     del fds[self._selfpipes[flag]]
                 except (IndexError,KeyError):
                     pass
+        if forgot_stop:
+            raise RuntimeError("You need to stop the loop before closing it")
 
         
 class TrioPolicy(asyncio.unix_events._UnixDefaultEventLoopPolicy):
