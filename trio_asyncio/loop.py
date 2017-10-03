@@ -598,7 +598,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     old = self._set_read_handle(fd, handle)
                     await self._nursery.start(self._reader_loop, fd, handle)
                 assert old is None
-        self._saved_fds = []
+        self._saved_fds = None
 
     # Trio-based main loop
 
@@ -746,7 +746,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         super().run_forever()
         
     def _run_once(self):
-        trio.run(self.main_loop) # , instruments=[Tracer()])
+        trio.run(self.main_loop)
 
     def stop(self):
         """Halt the main loop.
