@@ -430,6 +430,14 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         pass
 
     def run_in_executor(self, executor, func, *args):
+        """
+        Delegate running a synchronous function to another thread.
+
+        Limitation:
+        The executor must be None, or a (subclass of) ``TrioExecutor``.
+
+        Returns an asyncio.Future.
+        """
         self._check_callback(func, 'run_in_executor')
         self._check_closed()
         if executor is None:
