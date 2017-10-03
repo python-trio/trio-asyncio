@@ -175,7 +175,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     This code implements a semi-efficient way to run asyncio code within Trio.
     """
-    _saved_fds = None
+    _saved_fds = [{},{}]
     _token = None
 
     def __init__(self):
@@ -594,6 +594,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                         self._delayed_calls.append(tm)
                     self._timers.clear()
 
+                    # Save open file descriptors (but not the self-pipe)
                     try:
                         self._selfpipes = (self._ssock.fileno(),self._csock.fileno())
                     except AttributeError:
@@ -679,12 +680,13 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             self._q.put_nowait(e)
         super().close()
 
-        if self._saved_fds:
-            for flag,fds in enumerate(self._saved_fds):
-                try:
-                    del fds[self._selfpipes[flag]]
-                except (IndexError,KeyError):
-                    pass
+        if self._saved_fds is not None:
+            for fds in self._saved_fds:
+                for handle in fds.values():
+                    if handle._cancelled:
+                        continue
+                    handle.cancel()
+            self._saved_fds = None
         if forgot_stop:
             raise RuntimeError("You need to stop the loop before closing it")
 
