@@ -252,7 +252,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         return await self.wait_for(f)
 
     def call_trio(self, p,*a,**k):
-        """Call an asynchronous Trio-ish function from asyncio.
+        """Call an asynchronous Trio function from asyncio.
 
         Returns a Future with the result / exception.
 
@@ -275,7 +275,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                 res = await proc(*args,**h._kwargs)
         except trio.Cancelled:
             f.cancel()
-        except BaseException as exc:
+        except Exception as exc:
             f.set_exception(exc)
         else:
             f.set_result(res)
@@ -305,7 +305,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             res = proc(*args,**h._kwargs)
         except trio.Cancelled: # should probably never happen, but …
             f.cancel()
-        except BaseException as exc:
+        except Exception as exc:
             f.set_exception(exc)
         else:
             f.set_result(res)
@@ -548,7 +548,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     handle._call_sync()
                     await self._sync()
             except Exception as exc:
-                logger.exception("writing %d: Calling %s %s", fd, callback, args)
+                logger.exception("writing %d: Calling %s", fd, handle)
             finally:
                 handle._scope = None
 
@@ -652,6 +652,11 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                                 logger.exception("Calling %s:", repr(obj))
                         else:
                             nursery.start_soon(obj._call_async)
+                except Exception as exc:
+                    logger.exception("Error in main loop")
+                    raise
+                except trio.Cancelled:
+                    logger.fatal("Mainloop was cancelled directly")
                 finally:
 
                     # Save open file descriptors (but not the self-pipe)
