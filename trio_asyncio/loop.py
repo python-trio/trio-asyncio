@@ -45,6 +45,12 @@ def _format_callback_source(func, args, kwargs):
         func_repr += ' at %s:%s' % source
     return func_repr
 
+class _QuitEvent(trio.Event):
+    """Used to signal the mainloop to stop,
+    as opposed to a "normal" event used for syncing.
+    """
+    pass
+
 class _TrioHandle:
     """
     This extends asyncio.Handle by providing:
@@ -255,10 +261,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         """
         f = asyncio.Future(loop=self)
         h = Handle(self.__call_trio,(f,p,)+a,k,self,None)
-        if self._token is None:
-            self._delayed_calls.append(Handle(self._q.put_nowait,(h,),{},self,False))
-        else:
-            self._q.put_nowait(h)
+        self._queue_handle(h)
         f.add_done_callback(h._cb_future_cancel)
         return f
 
@@ -288,15 +291,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         You might need to use this method if your code needs access to
         features which are only available when Trio is running, such as
         global task-specific variables or the current time.
-        Otherwise, simply call the code in question directly.
+        (Otherwise you should simply call the code in question directly.)
         """
         f = asyncio.Future(loop=self)
-        if self._token is None:
-            h = Handle(self.__call_trio_sync,(f,p,)+a,k,self,None)
-            self._delayed_calls.append(h)
-        else:
-            h = Handle(p,a,k,self,False)
-            self._q.put_nowait(h)
+        self._queue_handle(Handle(self.__call_trio_sync,(f,p,)+a,k,self,None))
         return f
 
     async def __call_trio_sync(self, h):
@@ -340,6 +338,13 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         if not h._cancelled:
             callback(*args, **h._kwargs)
 
+    def _queue_handle(self, handle):
+        if self._token is None:
+            self._delayed_calls.append(handle)
+        else:
+            self._q.put_nowait(handle)
+        return handle
+
     def call_at(self, when, callback, *args):
         """asyncio's time-based delay
 
@@ -347,16 +352,12 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         """
         self._check_callback(callback, 'call_at')
         self._check_closed()
-        h = TimerHandle(when, callback, args, {}, self, True)
-        self._q.put_nowait(h)
-        return h
+        return self._queue_handle(TimerHandle(when, callback, args, {}, self, True))
 
     def call_soon(self, callback, *args):
         self._check_callback(callback, 'call_soon')
         self._check_closed()
-        h = Handle(callback, args, {}, self, True)
-        self._q.put_nowait(h)
-        return h
+        return self._queue_handle(Handle(callback, args, {}, self, True))
 
     def call_soon_threadsafe(self, callback, *args):
         self._check_callback(callback, 'call_soon_threadsafe')
@@ -369,8 +370,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         return h
         
     def call_soon_async(self, callback, *args):
-        h = Handle(callback, args, {}, self, False)
-        self._q.put_nowait(h)
+        return self._queue_handle(Handle(callback, args, {}, self, False))
 
     # supersede some built-ins which should not be used
 
