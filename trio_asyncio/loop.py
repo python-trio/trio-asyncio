@@ -398,6 +398,11 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         else:
             self._token.run_sync_soon(self._q.put_nowait,h)
 
+    async def _sync(self):
+        w = trio.Event()
+        self._q.put_nowait(w)
+        await w.wait()
+
     def add_signal_handler(self, sig, callback, *args):
         self._check_signal(sig)
         self._check_closed()
@@ -573,7 +578,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                                 continue
 
                             if isinstance(obj, trio.Event):
-                                break
+                                if isinstance(obj, _QuitEvent):
+                                    break
+                                obj.set()
+                                continue
                             if isinstance(obj,TimerHandle):
                                 obj._abs_time()
                                 heapq.heappush(self._timers, obj)
@@ -669,15 +677,16 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         self._stopping = True
         # reset to False by asyncio's run_forever()
 
-        e = trio.Event()
+        e = _QuitEvent()
         self._q.put_nowait(e)
         return e
 
     def close(self):
         forgot_stop = self.is_running()
         if forgot_stop:
-            e = trio.Event()
+            e = _QuitEvent()
             self._q.put_nowait(e)
+
         super().close()
 
         if self._saved_fds is not None:
