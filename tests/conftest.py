@@ -27,7 +27,7 @@ def loop(request):
 #        import pdb;pdb.set_trace()
 #    assert loop._q.qsize() == 0
     assert not loop._timers
-    assert not loop._delayed_calls
+    assert not list(x for x in loop._delayed_calls if not getattr(x,'_cancelled',False))
     if not loop.is_closed():
         loop.run_task(trio._core.wait_all_tasks_blocked)
         loop.close()
