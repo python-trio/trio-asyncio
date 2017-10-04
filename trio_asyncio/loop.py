@@ -250,18 +250,22 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         else:
             return trio.current_time()
 
-    async def wait_for(self, future):
+    async def wait_for(self, future, _scope=None):
         """Wait for an asyncio future in Trio code.
 
-        Cancellations will be propagated bidirectionally.
+        Cancellations will be propagated bidirectionally;
+        the default for propagating asyncio cancellations
+        to Trio is the inner-most cancel scope. If that's
+        not what you need, pass in an explicit scope`.
         """
         current_task = trio.hazmat.current_task()
         assert self._task is not current_task
 
         def is_done(f):
             if f.cancelled():
-                scope.cancel()
+                _scope.cancel()
                 return
+
             exc = f.exception()
             if exc is None:
                 res = trio.hazmat.Value(f.result())
@@ -276,18 +280,28 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             return trio.hazmat.Abort.SUCCEEDED
 
         future.add_done_callback(is_done)
-        with trio.open_cancel_scope() as scope:
-            return await trio.hazmat.wait_task_rescheduled(is_aborted)
+        if _scope is None:
+            _scope = trio.hazmat.current_task()._cancel_stack[-1]
+        return await trio.hazmat.wait_task_rescheduled(is_aborted)
 
-    async def call_asyncio(self, p,*a,**k):
+    async def call_asyncio(self, p,*a, _scope=None, **k):
         """Call an asyncio function or method from Trio.
         
         Returns/Raises: whatever the procedure does.
 
         Cancellations will be propagated bidirectionally.
         """
-        f = asyncio.ensure_future(p(*a,**k), loop=self)
-        return await self.wait_for(f)
+        if _scope is None:
+            _scope = trio.hazmat.current_task()._cancel_stack[-1]
+
+        try:
+            f = asyncio.ensure_future(p(*a), loop=self)
+        except asyncio.CancelledError:
+            _scope.cancel()
+            await trio.sleep(0)
+            raise RuntimeError("cancel didn't kill me")
+
+        return await self.wait_for(f, _scope)
 
     def call_trio(self, p,*a,**k):
         """Call an asynchronous Trio function from asyncio.
@@ -311,8 +325,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             with trio.open_cancel_scope() as scope:
                 h._scope = scope
                 res = await proc(*args,**h._kwargs)
-        except trio.Cancelled:
-            f.cancel()
+            if scope.cancelled_caught:
+                f.cancel()
+                return
         except Exception as exc:
             f.set_exception(exc)
         else:
