@@ -106,14 +106,8 @@ class _TrioHandle:
     def _call_sync(self):
         assert self._is_sync
         assert not self._cancelled
-        try:
-            res = self._callback(*self._args, **self._kwargs)
-        except Exception as exc:
-            logger.exception("Sync call %s", self)
-            raise
-        else:
-            logger.debug("Sync result %s: %s", self, repr(res))
-            return res
+        res = self._callback(*self._args, **self._kwargs)
+        return res
         
     async def _call_async(self):
         logger.debug("Start call: %s", self)
@@ -126,14 +120,6 @@ class _TrioHandle:
                     res = await self._callback(self)
                 else:
                     res = await self._callback(*self._args, **self._kwargs)
-        except Exception as exc:
-            logger.exception("Async call %s", self)
-            raise
-        except trio.Cancelled as exc:
-            logger.debug("Async call %s: cancelled", self)
-            raise
-        else:
-            logger.debug("Async result %s: %s", self, repr(res))
             return res
         finally:
             self._scope = None
@@ -545,8 +531,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     await trio.hazmat.wait_readable(fd)
                     handle._call_sync()
                     await self._sync()
-            except Exception as exc:
-                logger.exception("Reading %d: Calling %s", fd, handle)
             finally:
                 handle._scope = None
 
@@ -603,8 +587,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     await trio.hazmat.wait_writable(fd)
                     handle._call_sync()
                     await self._sync()
-            except Exception as exc:
-                logger.exception("writing %d: Calling %s", fd, handle)
             finally:
                 handle._scope = None
 
@@ -694,15 +676,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                         if obj._cancelled:
                             continue
                         if getattr(obj, '_is_sync', True) is True:
-                            try:
-                                obj._callback(*obj._args, **getattr(obj, '_kwargs', {}))
-                            except Exception as exc:
-                                logger.exception("Calling %s:", repr(obj))
+                            obj._callback(*obj._args, **getattr(obj, '_kwargs', {}))
                         else:
                             nursery.start_soon(obj._call_async)
-                except Exception as exc:
-                    logger.exception("Error in main loop")
-                    raise
                 except trio.Cancelled:
                     logger.fatal("Mainloop was cancelled directly")
                     raise
