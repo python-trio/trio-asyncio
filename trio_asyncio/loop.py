@@ -705,6 +705,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     raise
                 except trio.Cancelled:
                     logger.fatal("Mainloop was cancelled directly")
+                    raise
                 finally:
 
                     # Save open file descriptors (but not the self-pipe)
@@ -753,6 +754,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             f.set_exception(exc)
         except trio.Cancelled:
             f.cancel()
+            raise
         else:
             f.set_result(res)
         finally:
