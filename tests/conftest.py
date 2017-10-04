@@ -13,6 +13,7 @@ import trio
 import trio.asyncio
 import asyncio
 
+
 @pytest.fixture(scope="function", autouse=True)
 def loop(request):
 
@@ -23,14 +24,17 @@ def loop(request):
     yield loop
 
     # check that the loop really is idle
-#    if loop._q.qsize():
-#        import pdb;pdb.set_trace()
-#    assert loop._q.qsize() == 0
+    #    if loop._q.qsize():
+    #        import pdb;pdb.set_trace()
+    #    assert loop._q.qsize() == 0
     assert not loop._timers
-    assert not list(x for x in loop._delayed_calls if not getattr(x,'_cancelled',False))
+    assert not list(
+        x for x in loop._delayed_calls if not getattr(x, '_cancelled', False)
+    )
     if not loop.is_closed():
         loop.run_task(trio._core.wait_all_tasks_blocked)
         loop.close()
+
 
 # FIXME: split off into a package (or just make part of trio's public
 # interface?), with config file to enable? and I guess a mark option too; I

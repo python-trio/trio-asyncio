@@ -1,4 +1,3 @@
-
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
@@ -20,25 +19,32 @@ from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
 __all = ['TrioEventLoop']
 
+
 class _Clear:
     def clear(self):
         pass
 
+
 class _AddHandle(_Clear):
     __slots__ = ('_loop',)
+
     def __init__(self, loop):
         self._loop = loop
-    
+
     def append(self, handle):
         assert self._loop == handle._loop
         handle._loop._q.put_nowait(handle)
 
+
 _tag = 1
+
+
 def _next_tag():
     global _tag
     _tag += 1
     return _tag
-    
+
+
 def _format_callback_source(func, args, kwargs):
     func_repr = _format_callback(func, args, kwargs)
     source = _get_function_source(func)
@@ -46,11 +52,13 @@ def _format_callback_source(func, args, kwargs):
         func_repr += ' at %s:%s' % source
     return func_repr
 
+
 class _QuitEvent(trio.Event):
     """Used to signal the mainloop to stop,
     as opposed to a "normal" event used for syncing.
     """
     pass
+
 
 class _TrioHandle:
     """
@@ -97,7 +105,11 @@ class _TrioHandle:
         if self._cancelled:
             info.append('cancelled')
         if self._callback is not None:
-            info.append(_format_callback_source(self._callback, self._args, self._kwargs))
+            info.append(
+                _format_callback_source(
+                    self._callback, self._args, self._kwargs
+                )
+            )
         if self._source_traceback:
             frame = self._source_traceback[-1]
             info.append('created at %s:%s' % (frame[0], frame[1]))
@@ -108,7 +120,7 @@ class _TrioHandle:
         assert not self._cancelled
         res = self._callback(*self._args, **self._kwargs)
         return res
-        
+
     async def _call_async(self):
         logger.debug("Start call: %s", self)
         assert not self._is_sync
@@ -123,35 +135,46 @@ class _TrioHandle:
             return res
         finally:
             self._scope = None
-        
+
+
 class Handle(_TrioHandle, asyncio.Handle):
     def __init__(self, callback, args, kwargs, loop, is_sync):
         super().__init__(callback, args, loop)
-        self._init(kwargs,is_sync)
+        self._init(kwargs, is_sync)
+
 
 class DeltaTime:
-    __slots__= ('delta')
-    def __init__(self,delta=0):
+    __slots__ = ('delta')
+
+    def __init__(self, delta=0):
         self.delta = delta
+
     def __add__(self, x):
         return DeltaTime(self.delta + x)
+
     def __iadd__(self, x):
-        self.delta +=x
+        self.delta += x
+
     def __sub__(self, x):
-        if isinstance(x,DeltaTime):
+        if isinstance(x, DeltaTime):
             return self.delta - x.delta
         return DeltaTime(self.delta - x)
+
     def __isub__(self, x):
-        self.delta -=x
+        self.delta -= x
+
 
 class TimerHandle(_TrioHandle, asyncio.TimerHandle):
-    def __init__(self, when, callback, args, kwargs, loop, is_sync, is_relative=False):
+    def __init__(
+            self, when, callback, args, kwargs, loop, is_sync,
+            is_relative=False
+    ):
         super().__init__(when, callback, args, loop)
         if isinstance(when, DeltaTime):
             assert not is_relative
             when = when.delta
             is_relative = True
-        self._init(kwargs,is_sync)
+        self._init(kwargs, is_sync)
         self._relative = is_relative
 
     def _abs_time(self):
@@ -164,39 +187,48 @@ class TimerHandle(_TrioHandle, asyncio.TimerHandle):
             self._when -= self._loop.time()
             self._relative = True
 
+
 class _TrioSelector(_BaseSelectorImpl):
     """A selector that hooks into a ``TrioEventLoop``.
 
     In fact it's just a basic selector that disables the actual
     ``select()`` method, as that is controlled by the event loop.
     """
+
     def select(self, timeout=None):
         raise NotImplementedError
-    def _select(self, r,w,x, timeout=None):
+
+    def _select(self, r, w, x, timeout=None):
         raise NotImplementedError
-    
+
+
 class TrioExecutor:
     def __init__(self, limiter=None):
         self._running = True
-        self._limiter = limiter 
-    async def submit(self, func,*args):
+        self._limiter = limiter
+
+    async def submit(self, func, *args):
         if not self._running:
             raise RuntimeError("Executor is down")
-        return await trio.run_sync_in_worker_thread(self._runner, func, *args, limiter=self._limiter)
+        return await trio.run_sync_in_worker_thread(
+            self._runner, func, *args, limiter=self._limiter
+        )
+
     def shutdown(self, wait=None):
         self._running = False
 
     def _runner(self, func, *args):
         import os
         try:
-            logger.debug("THREAD START %d %s %s",os.getpid(), func,args)
+            logger.debug("THREAD START %d %s %s", os.getpid(), func, args)
             res = func(*args)
         except BaseException as exc:
-            logger.exception("THREAD ERROR %d",os.getpid())
+            logger.exception("THREAD ERROR %d", os.getpid())
             raise
         else:
-            logger.debug("THREAD RES %s %s",os.getpid(), repr(res))
+            logger.debug("THREAD RES %s %s", os.getpid(), repr(res))
             return res
+
 
 class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
     """An asyncio mainloop for trio
@@ -257,7 +289,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                 res = trio.hazmat.Value(f.result())
             else:
                 res = trio.hazmat.Error(exc)
-            trio.hazmat.reschedule(current_task, next_send = res)
+            trio.hazmat.reschedule(current_task, next_send=res)
 
         def is_aborted(raise_cancel):
             if not future.cancelled():
@@ -270,7 +302,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             _scope = trio.hazmat.current_task()._cancel_stack[-1]
         return await trio.hazmat.wait_task_rescheduled(is_aborted)
 
-    async def call_asyncio(self, p,*a, _scope=None, **k):
+    async def call_asyncio(self, p, *a, _scope=None, **k):
         """Call an asyncio function or method from Trio.
         
         Returns/Raises: whatever the procedure does.
@@ -289,7 +321,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         return await self.wait_for(f, _scope)
 
-    def call_trio(self, p,*a,**k):
+    def call_trio(self, p, *a, **k):
         """Call an asynchronous Trio function from asyncio.
 
         Returns a Future with the result / exception.
@@ -298,7 +330,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         or prevent it from starting if that is stil possible.
         """
         f = asyncio.Future(loop=self)
-        h = Handle(self.__call_trio,(f,p,)+a,k,self,None)
+        h = Handle(self.__call_trio, (
+            f,
+            p,
+        ) + a, k, self, None)
         self._queue_handle(h)
         f.add_done_callback(h._cb_future_cancel)
         return f
@@ -310,7 +345,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         try:
             with trio.open_cancel_scope() as scope:
                 h._scope = scope
-                res = await proc(*args,**h._kwargs)
+                res = await proc(*args, **h._kwargs)
             if scope.cancelled_caught:
                 f.cancel()
                 return
@@ -319,7 +354,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         else:
             f.set_result(res)
 
-    def call_trio_sync(self, p,*a,**k):
+    def call_trio_sync(self, p, *a, **k):
         """Call a synchronous function from asyncio.
 
         Returns a Future with the result / exception.
@@ -333,7 +368,12 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         (Otherwise you should simply call the code in question directly.)
         """
         f = asyncio.Future(loop=self)
-        self._queue_handle(Handle(self.__call_trio_sync,(f,p,)+a,k,self,None))
+        self._queue_handle(
+            Handle(self.__call_trio_sync, (
+                f,
+                p,
+            ) + a, k, self, None)
+        )
         return f
 
     async def __call_trio_sync(self, h):
@@ -341,8 +381,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         if f.cancelled():
             return
         try:
-            res = proc(*args,**h._kwargs)
-        except trio.Cancelled: # should probably never happen, but …
+            res = proc(*args, **h._kwargs)
+        except trio.Cancelled:  # should probably never happen, but …
             f.cancel()
         except Exception as exc:
             f.set_exception(exc)
@@ -365,7 +405,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             self._q.put_nowait(h)
         return h
 
-        h = Handle(self.__call_later, (delay,callback)+args, {}, self, None)
+        h = Handle(self.__call_later, (delay, callback) + args, {}, self, None)
         self._q.put_nowait(h)
         return h
 
@@ -391,7 +431,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         """
         self._check_callback(callback, 'call_at')
         self._check_closed()
-        return self._queue_handle(TimerHandle(when, callback, args, {}, self, True))
+        return self._queue_handle(
+            TimerHandle(when, callback, args, {}, self, True)
+        )
 
     def call_soon(self, callback, *args):
         self._check_callback(callback, 'call_soon')
@@ -405,9 +447,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         if self._token is None:
             self._delayed_calls.append(h)
         else:
-            self._token.run_sync_soon(self._q.put_nowait,h)
+            self._token.run_sync_soon(self._q.put_nowait, h)
         return h
-        
+
     def call_soon_async(self, callback, *args):
         return self._queue_handle(Handle(callback, args, {}, self, False))
 
@@ -420,12 +462,14 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         assert not isinstance(handle, TimerHandle)
 
         if via_token:
-            self._token.run_sync_soon(self._q.put_nowait,h)
+            self._token.run_sync_soon(self._q.put_nowait, h)
         else:
             self._q.put_nowait(h)
 
     def _add_callback_signalsafe(self, handle):
-        self._add_callback(handle, _via_token = (self._task is not trio.hazmat.current_task()))
+        self._add_callback(
+            handle, _via_token=(self._task is not trio.hazmat.current_task())
+        )
 
     def _timer_handle_cancelled(self, handle):
         pass
@@ -445,14 +489,14 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             executor = self._default_executor
         else:
             assert isinstance(executor, TrioExecutor)
-        return self.call_trio(executor.submit,func,*args)
-        
+        return self.call_trio(executor.submit, func, *args)
+
     def _handle_sig(self, sig, _):
         h = self._signal_handlers[sig]
         if self._token is None:
             self._delayed_calls.append(h)
         else:
-            self._token.run_sync_soon(self._q.put_nowait,h)
+            self._token.run_sync_soon(self._q.put_nowait, h)
 
     async def _sync(self):
         w = trio.Event()
@@ -465,7 +509,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         if sig == signal.SIGKILL:
             raise RuntimeError("SIGKILL cannot be caught")
         h = Handle(callback, args, {}, self, True)
-        assert sig not in self._signal_handlers, "Signal %d is already caught" % (sig,)
+        assert sig not in self._signal_handlers, "Signal %d is already caught" % (
+            sig,
+        )
         self._orig_signals[sig] = signal.signal(sig, self._handle_sig)
         self._signal_handlers[sig] = h
 
@@ -581,7 +627,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
             task_status.started()
-            self._task._runner.instrument("start_io_task","write",fd,handle)
+            self._task._runner.instrument("start_io_task", "write", fd, handle)
             try:
                 while not handle._cancelled:
                     await trio.hazmat.wait_writable(fd)
@@ -592,10 +638,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     def _save_fds(self):
         map = self._selector.get_map()
-        saved = [{},{}]
-        for fd,key in list(self._selector.get_map().items()):
-            for flag in (0,1):
-                if key.events & (1<<flag):
+        saved = [{}, {}]
+        for fd, key in list(self._selector.get_map().items()):
+            for flag in (0, 1):
+                if key.events & (1 << flag):
                     handle = key.data[flag]
                     assert handle is not None
                     if not handle._cancelled:
@@ -603,16 +649,20 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                             handle._scope.cancel()
 
     async def _restore_fds(self):
-        for fd,key in list(self._selector.get_map().items()):
-            for flag in (0,1):
-                if key.events & (1<<flag):
+        for fd, key in list(self._selector.get_map().items()):
+            for flag in (0, 1):
+                if key.events & (1 << flag):
                     handle = key.data[flag]
                     assert handle is not None
                     if not handle._cancelled:
                         if flag:
-                            await self._nursery.start(self._writer_loop, fd, handle)
+                            await self._nursery.start(
+                                self._writer_loop, fd, handle
+                            )
                         else:
-                            await self._nursery.start(self._reader_loop, fd, handle)
+                            await self._nursery.start(
+                                self._reader_loop, fd, handle
+                            )
 
     # Trio-based main loop
 
@@ -636,8 +686,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
                 try:
                     for obj in self._delayed_calls:
-                        if not getattr(obj,'_cancelled',False):
-                            if isinstance(obj,TimerHandle):
+                        if not getattr(obj, '_cancelled', False):
+                            if isinstance(obj, TimerHandle):
                                 obj._abs_time()
                                 heapq.heappush(self._timers, obj)
                             else:
@@ -669,14 +719,16 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                                     break
                                 obj.set()
                                 continue
-                            if isinstance(obj,TimerHandle):
+                            if isinstance(obj, TimerHandle):
                                 obj._abs_time()
                                 heapq.heappush(self._timers, obj)
                                 continue
                         if obj._cancelled:
                             continue
                         if getattr(obj, '_is_sync', True) is True:
-                            obj._callback(*obj._args, **getattr(obj, '_kwargs', {}))
+                            obj._callback(
+                                *obj._args, **getattr(obj, '_kwargs', {})
+                            )
                         else:
                             nursery.start_soon(obj._call_async)
                 except trio.Cancelled:
@@ -686,7 +738,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
                     # Save open file descriptors (but not the self-pipe)
                     try:
-                        self._selfpipes = (self._ssock.fileno(),self._csock.fileno())
+                        self._selfpipes = (
+                            self._ssock.fileno(), self._csock.fileno()
+                        )
                     except AttributeError:
                         self._selfpipe_fds = {}
                     try:
@@ -706,9 +760,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                         obj.set()
 
         except BaseException as exc:
-            print(*trio.format_exception(type(exc),exc,exc.__traceback__))
+            print(*trio.format_exception(type(exc), exc, exc.__traceback__))
 
-    def run_task(self, proc,*a,**k):
+    def run_task(self, proc, *a, **k):
         """Run a Trio task.
 
         The asyncio main loop is running in parallel.
@@ -718,14 +772,14 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         if self.is_running():
             raise RuntimeError("This loop is already running")
         f = asyncio.Future(loop=self)
-        h = Handle(self.__run_task,(proc,f,a,k),{}, self,False)
+        h = Handle(self.__run_task, (proc, f, a, k), {}, self, False)
         self._delayed_calls.append(h)
         self.run_forever()
         return f.result()
 
-    async def __run_task(self,proc,f,a,k):
+    async def __run_task(self, proc, f, a, k):
         try:
-            res = await proc(*a,**k)
+            res = await proc(*a, **k)
         except Exception as exc:
             f.set_exception(exc)
         except trio.Cancelled:
@@ -754,7 +808,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         single-stepping.
         """
         super().run_forever()
-        
+
     def _run_once(self):
         trio.run(self.main_loop)
 
@@ -782,9 +836,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         if forgot_stop:
             raise RuntimeError("You need to stop the loop before closing it")
 
-        
+
 class TrioPolicy(asyncio.unix_events._UnixDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
+
 
 asyncio.set_event_loop_policy(TrioPolicy())
 if not isinstance(asyncio.get_event_loop(), TrioEventLoop):
