@@ -256,7 +256,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         Cancellations will be propagated bidirectionally.
         """
         current_task = trio.hazmat.current_task()
-        assert self._task is not trio.hazmat.current_task()
+        assert self._task is not current_task
 
         def is_done(f):
             if f.cancelled():
