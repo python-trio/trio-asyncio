@@ -573,6 +573,7 @@ class TaskTests(test_utils.TestCase):
         self.assertFalse(t._must_cancel)  # White-box test.
         self.assertFalse(t.cancel())
 
+    @unittest.skipIf(sys.version_info < (3,6), "Fixed in 3.6")
     def test_cancel_at_end(self):
         """coroutine end right after task is cancelled"""
         loop = asyncio.new_event_loop()
@@ -1828,6 +1829,7 @@ class TaskTests(test_utils.TestCase):
         })
         mock_handler.reset_mock()
 
+    @unittest.skipIf(sys.version_info < (3,6), "Fixed in 3.6")
     @mock.patch('asyncio.base_events.logger')
     def test_tb_logger_not_called_after_cancel(self, m_log):
         loop = asyncio.new_event_loop()

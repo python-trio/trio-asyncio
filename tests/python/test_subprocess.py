@@ -459,6 +459,7 @@ class SubprocessMixin:
                     self.loop.run_until_complete(create)
                 self.assertEqual(warns, [])
 
+    @unittest.skipIf(sys.version_info < (3,6), "Fixed in 3.6")
     def test_read_stdout_after_process_exit(self):
         @asyncio.coroutine
         def execute():

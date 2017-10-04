@@ -2203,7 +2203,12 @@ else:
                     None, _test_get_event_loop_new_process__sub_proc)
                 return result
 
-            self.unpatch_get_running_loop()
+            try:
+                unpatch = self.unpatch_get_running_loop
+            except AttributeError:
+                pass
+            else:
+                unpatch()
 
             self.assertEqual(
                 self.loop.run_until_complete(main()),

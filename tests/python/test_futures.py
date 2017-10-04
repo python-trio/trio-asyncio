@@ -314,6 +314,7 @@ class FutureTests(test_utils.TestCase):
         del fut
         self.assertFalse(m_log.error.called)
 
+    @unittest.skipIf(sys.version_info < (3,6), "Changed in 3.6")
     @mock.patch('asyncio.base_events.logger')
     def test_tb_logger_not_called_after_cancel(self, m_log):
         fut = asyncio.Future(loop=self.loop)

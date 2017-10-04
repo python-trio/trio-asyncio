@@ -3,6 +3,7 @@
 import unittest
 from unittest import mock
 import re
+import sys
 
 import asyncio
 from asyncio import test_utils
@@ -176,6 +177,7 @@ class LockTests(test_utils.TestCase):
         self.assertTrue(tb.cancelled())
         self.assertTrue(tc.done())
 
+    @unittest.skipIf(sys.version_info < (3,6), "Changed in 3.6")
     def test_finished_waiter_cancelled(self):
         lock = asyncio.Lock(loop=self.loop)
 
