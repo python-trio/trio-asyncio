@@ -277,7 +277,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
         future.add_done_callback(is_done)
         with trio.open_cancel_scope() as scope:
-            await trio.hazmat.wait_task_rescheduled(is_aborted)
+            return await trio.hazmat.wait_task_rescheduled(is_aborted)
 
     async def call_asyncio(self, p,*a,**k):
         """Call an asyncio function or method from Trio.
