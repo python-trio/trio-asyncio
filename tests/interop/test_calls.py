@@ -170,3 +170,33 @@ class CallTests(aiotest.TestCase):
         seen = Seen()
         res = self.loop.run_task(cancel_trio, seen)
         assert seen.flag == 1 | 2 | 8
+
+
+    def test_trio_asyncio_cancel_direct(self):
+        def in_asyncio(started, seen):
+            # This is intentionally not async
+            seen.flag |= 1
+            raise asyncio.CancelledError()
+
+        async def cancel_trio(seen):
+            started = trio.Event()
+            async with trio.open_nursery() as nursery:
+                nursery.start_soon(self.call_t_a, in_asyncio, started, seen)
+                await started.wait()
+                nursery.cancel_scope.cancel()
+            seen.flag |= 8
+
+        seen = Seen()
+        res = self.loop.run_task(cancel_trio, seen)
+        assert seen.flag == 1 | 8
+
+
+    def test_trio_asyncio_error_direct(self):
+        def err_asyncio():
+            # This is intentionally not async
+            raise RuntimeError("I has an owie")
+
+        with pytest.raises(RuntimeError) as err:
+            res = self.loop.run_task(self.call_t_a, err_asyncio)
+        assert err.value.args[0] == "I has an owie"
+
