@@ -208,7 +208,7 @@ class TrioExecutor:
         self._limiter = limiter
 
     async def submit(self, func, *args):
-        if not self._running:
+        if not self._running:  # pragma: no cover
             raise RuntimeError("Executor is down")
         return await trio.run_sync_in_worker_thread(
             self._runner, func, *args, limiter=self._limiter
@@ -235,7 +235,11 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     This code implements a semi-efficient way to run asyncio code within Trio.
     """
+    # for calls from other threads
     _token = None
+
+    # to propagate exceptions raised in the main loop
+    _exc = None
 
     def __init__(self):
         # Processing queue
@@ -725,6 +729,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                             )
                         else:
                             nursery.start_soon(obj._call_async)
+                except Exception as exc:
+                    # The asyncio mainloop would swallow this
+                    self._exc = exc
+                    return
                 except trio.Cancelled:
                     logger.fatal("Mainloop was cancelled directly")
                     raise
@@ -752,6 +760,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     self._token = None
                     if isinstance(obj, trio.Event):
                         obj.set()
+                    self._stopping = True
 
         except BaseException as exc:
             print(*trio.format_exception(type(exc), exc, exc.__traceback__))
@@ -803,8 +812,22 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         """
         super().run_forever()
 
+    async def __main_loop(self):
+        """
+        Required to propagate an exception raised in the main loop
+        """
+        self._exc = None
+        try:
+            res = await self.main_loop()
+        except Exception as exc:
+            self._exc = exc
+
     def _run_once(self):
         trio.run(self.main_loop)
+
+        # An exception in the main loop needs to be propagated
+        if self._exc is not None:
+            raise self._exc
 
     def stop(self):
         """Halt the main loop.
@@ -822,13 +845,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
     def close(self):
         forgot_stop = self.is_running()
         if forgot_stop:
-            e = _QuitEvent()
-            self._q.put_nowait(e)
+            raise RuntimeError("You need to stop the loop before closing it")
 
         super().close()
-
-        if forgot_stop:
-            raise RuntimeError("You need to stop the loop before closing it")
 
 
 class TrioPolicy(asyncio.unix_events._UnixDefaultEventLoopPolicy):
