@@ -612,7 +612,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
             task_status.started()
-            self._task._runner.instrument("start_io_task", "write", fd, handle)
             try:
                 while not handle._cancelled:
                     await trio.hazmat.wait_writable(fd)
@@ -662,7 +661,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         """
         try:
             self._task = trio.hazmat.current_task()
-            self._task._runner.instrument("loop_start")
 
             async with trio.open_nursery() as nursery:
                 self._nursery = nursery
