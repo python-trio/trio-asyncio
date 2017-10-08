@@ -35,17 +35,17 @@ Trio main loop
 Typically, you start with a Trio program which you need to extend with
 asyncio code.
 
-* before:
+* before::
 
     import trio
     trio.run(your_code, \*args)
 
 
-* after:
+* after::
 
     import trio_asyncio
     import asyncio
-
+    
     loop = asyncio.get_event_loop()
     loop.run_task(your_code, \*args)
 
@@ -61,7 +61,7 @@ Alternately, you may start with an asyncio mainloop.
 Starting up
 -----------
 
-This is the easy part:
+This is the easy part::
 
     import trio_asyncio
     import asyncio
@@ -74,7 +74,7 @@ I.e. your code does not change at all, other than importing trio_asyncio.
 Interrupting the loop
 ---------------------
 
-You might have been doing something like this:
+You might have been doing something like this::
 
     loop.run_until_complete(startup_code())
     loop.run_until_complete(main_code())
@@ -83,7 +83,7 @@ You might have been doing something like this:
 The Trio event loop that runs ``trio_asyncio`` is restarted between these
 calls. While that is supported, it's generally not advisable.
 
-Instead, you should use a single async main function:
+Instead, you should use a single async main function::
 
     async def main_code():
         try:
@@ -111,6 +111,8 @@ or whatever.
 
 Both unnamed and keyword arguments are supported.
 
+::
+
     async def some_trio_code(foo):
         await trio.sleep(1)
         return foo*2
@@ -122,6 +124,8 @@ Both unnamed and keyword arguments are supported.
 If the function is not asyncronous but still needs to run within the Trio
 main loop for some reason (for instance, it might call ``trio.time()``),
 use ``loop.call_trio_sync()``. This also returns a Future.
+
+::
 
     def some_trio_code(foo):
         return foo*2
@@ -138,6 +142,8 @@ conforms to Trio's standard task semantics.
 
 Both unnamed and keyword arguments are supported.
 
+::
+
     async def some_asyncio_code(foo):
         await asyncio.sleep(1, loop=loop)
         return foo*20
@@ -146,6 +152,8 @@ Both unnamed and keyword arguments are supported.
     assert res == 420
 
 If you already have a future you need to await, call ``loop.wait_for()``:
+
+::
 
     async def some_asyncio_code(foo):
         await asyncio.sleep(1, loop=loop)
