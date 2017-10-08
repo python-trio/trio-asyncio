@@ -389,10 +389,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             self._q.put_nowait(h)
         return h
 
-        h = Handle(self.__call_later, (delay, callback) + args, {}, self, None)
-        self._q.put_nowait(h)
-        return h
-
     def _queue_handle(self, handle):
         if self._token is None:
             self._delayed_calls.append(handle)
@@ -507,27 +503,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             return
         self._nursery.start_soon(self._reader_loop, fd, handle)
 
-    def _remove_reader(self, fd):
-        if self.is_closed():
-            return False
-        try:
-            key = self._selector.get_key(fd)
-        except KeyError:
-            return False
-        else:
-            mask, (reader, writer) = key.events, key.data
-            mask &= ~asyncio.selectors.EVENT_READ
-            if not mask:
-                self._selector.unregister(fd)
-            else:
-                self._selector.modify(fd, mask, (None, writer))
-
-            if reader is not None:
-                reader.cancel()
-                return True
-            else:  # pragma: no cover
-                return False
-
     def _set_read_handle(self, fd, handle):
         try:
             key = self._selector.get_key(fd)
@@ -566,27 +541,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         if self._token is None:
             return
         self._nursery.start_soon(self._writer_loop, fd, handle)
-
-    def _remove_writer(self, fd):
-        if self.is_closed():
-            return False
-        try:
-            key = self._selector.get_key(fd)
-        except KeyError:
-            return False
-        else:
-            mask, (reader, writer) = key.events, key.data
-            mask &= ~asyncio.selectors.EVENT_WRITE
-            if not mask:
-                self._selector.unregister(fd)
-            else:
-                self._selector.modify(fd, mask, (reader, None))
-
-            if writer is not None:
-                writer.cancel()
-                return True
-            else:
-                return False
 
     def _set_write_handle(self, fd, handle):
         try:
