@@ -153,6 +153,7 @@ class DeltaTime:
 
     def __iadd__(self, x):
         self.delta += x
+        return self
 
     def __sub__(self, x):
         if isinstance(x, DeltaTime):
@@ -161,6 +162,7 @@ class DeltaTime:
 
     def __isub__(self, x):
         self.delta -= x
+        return self
 
 
 class TimerHandle(_TrioHandle, asyncio.TimerHandle):
