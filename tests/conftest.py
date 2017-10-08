@@ -10,14 +10,14 @@ import inspect
 from trio._core.tests.conftest import trio_test, MockClock
 
 import trio
-import trio.asyncio
+import trio_asyncio
 import asyncio
 
 
 @pytest.fixture(scope="function", autouse=True)
 def loop(request):
 
-    loop = trio.asyncio.TrioEventLoop()
+    loop = trio_asyncio.TrioEventLoop()
     request.instance.loop = loop
     asyncio.set_event_loop(loop)
 

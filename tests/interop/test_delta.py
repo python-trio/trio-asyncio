@@ -1,10 +1,10 @@
 import unittest
 import pytest
-import trio.asyncio
+import trio_asyncio
 import asyncio
 from trio.tests.asyncio import aiotest
 
-DT = trio.asyncio.DeltaTime
+DT = trio_asyncio.DeltaTime
 
 class TestDeltaTime(aiotest.TestCase):
     def test_do(self):

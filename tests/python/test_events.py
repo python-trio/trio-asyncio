@@ -2261,8 +2261,8 @@ else:
                                test_utils.TestCase):
 
         def create_event_loop(self):
-            import trio.asyncio
-            return trio.asyncio.TrioEventLoop()
+            import trio_asyncio
+            return trio_asyncio.TrioEventLoop()
 
 
 def noop(*args, **kwargs):

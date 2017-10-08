@@ -808,4 +808,4 @@ class TrioPolicy(asyncio.unix_events._UnixDefaultEventLoopPolicy):
 
 asyncio.set_event_loop_policy(TrioPolicy())
 if not isinstance(asyncio.get_event_loop(), TrioEventLoop):  # pragma: no cover
-    raise ImportError("You imported trio.asyncio too late.")
+    raise ImportError("You imported trio_asyncio too late.")

@@ -1,6 +1,6 @@
 import unittest
 import pytest
-import trio.asyncio
+import trio_asyncio
 import asyncio
 import os
 from trio.tests.asyncio import aiotest

@@ -1,6 +1,6 @@
 import unittest
 import pytest
-import trio.asyncio
+import trio_asyncio
 import asyncio
 from trio.tests.asyncio import aiotest
 
@@ -23,7 +23,7 @@ class CallTests(aiotest.TestCase):
         return self.loop.call_trio_sync(proc, *args)
 
     def test_call_at(self):
-        from trio.asyncio.loop import DeltaTime
+        from trio_asyncio.loop import DeltaTime
         async def delay(t):
             done = asyncio.Event(loop=self.loop)
             self.loop.call_at(t, done.set)
