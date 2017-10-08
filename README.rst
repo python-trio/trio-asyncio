@@ -60,7 +60,7 @@ asyncio code.
 * before::
 
     import trio
-    trio.run(your_code, \*args)
+    trio.run(your_code, *args)
 
 
 * after::
@@ -69,7 +69,7 @@ asyncio code.
     import asyncio
     
     loop = asyncio.get_event_loop()
-    loop.run_task(your_code, \*args)
+    loop.run_task(your_code, *args)
 
 
 Within ``your_code``, the asyncio mainloop is active. It will be stopped
