@@ -262,6 +262,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             exc = f.exception()
             if exc is None:
                 res = trio.hazmat.Value(f.result())
+            elif isinstance(exc, asyncio.CancelledError):
+                _scope.cancel()
+                return
             else:
                 res = trio.hazmat.Error(exc)
             trio.hazmat.reschedule(current_task, next_send=res)
