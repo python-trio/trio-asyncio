@@ -15,8 +15,12 @@ class CallTests(aiotest.TestCase):
         return await self.loop.call_asyncio(proc, *args, _scope=_scope)
 
     async def call_a_t(self, proc, *args):
-        """called from asyncio"""
+        """call from asyncio to an async trio function"""
         return await self.loop.call_trio(proc, *args)
+
+    def call_a_ts(self, proc, *args):
+        """called from asyncio to a sync trio function"""
+        return self.loop.call_trio_sync(proc, *args)
 
     def test_asyncio_trio(self):
         """Call asyncio from trio"""
@@ -28,6 +32,18 @@ class CallTests(aiotest.TestCase):
 
         seen = Seen()
         res = self.loop.run_until_complete(self.call_a_t(dly_trio, seen))
+        assert res == 8
+        assert seen.flag == 2
+
+    def test_asyncio_trio_sync(self):
+        """Call asyncio from trio"""
+
+        def dly_trio(seen):
+            seen.flag |= 2
+            return 8
+
+        seen = Seen()
+        res = self.loop.run_until_complete(self.call_a_ts(dly_trio, seen))
         assert res == 8
         assert seen.flag == 2
 
