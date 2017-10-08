@@ -2,20 +2,42 @@
  trio-asyncio
 ==============
 
-`trio-asyncio` is a re-implementation of the `asyncio` mainloop on top of
+``trio-asyncio`` is a re-implementation of the ``asyncio`` mainloop on top of
 Trio.
 
 +++++++++++
  Rationale
 +++++++++++
 
-There are quite a few asyncio-compatible libraries. Trio, not so much.
+There are quite a few asyncio-compatible libraries.
 
 On the other hand, Trio has native concepts of tasks and task cancellation.
 Asyncio, on the other hand, is based on chaining Future objects, albeit
 with nicer syntax.
 
-Thus, Trio should be able to use asyncio libraries.
+Thus, being able to use asyncio libraries from Trio is useful.
+
+--------------------------------------
+ Transparent vs. explicit translation
+--------------------------------------
+
+``trio_asyncio`` does not try to magically allow you to call ``await
+trio_code()`` from asyncio, nor vice versa. There are multiple reasons for
+this, among them
+
+* "Explicit is better than implicit" is one of Python's core design guidelines.
+
+* Semantic differences need to be resolved at the asyncio>trio and trio>asyncio 
+  boundary. However, there is no good way to automatically find these
+  boundaries, much less insert code into them.
+
+* Even worse, a trio>asyncio>trio transition (or vice versa) would be
+  invisible without traversing the call chain at every non-trivial event;
+  that would impact performance unacceptably.
+
+Therefore, an attempt to execute such a cross-domain call will result in an
+irrecoverable error. You need to keep your code's ``asyncio`` and ``trio`` domains
+rigidly separate.
 
 +++++++
  Usage
