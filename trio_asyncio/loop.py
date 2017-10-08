@@ -260,8 +260,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
     def time(self):
         """Trio's idea of the current time.
 
-        Unlike asyncio.loop's version, this function may only be called
-        while the loop is running.
+        Trio returns an error when you try to access the current time when
+        the asyncio loop is not running. In that case, this function
+        returns a DeltaTime object, which represents the time at which
+        the loop is restarted.
         """
         if self._token is None:
             return DeltaTime()
