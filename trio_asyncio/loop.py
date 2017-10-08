@@ -122,7 +122,6 @@ class _TrioHandle:
         return res
 
     async def _call_async(self):
-        logger.debug("Start call: %s", self)
         assert not self._is_sync
         assert not self._cancelled
         try:
@@ -211,23 +210,11 @@ class TrioExecutor:
         if not self._running:  # pragma: no cover
             raise RuntimeError("Executor is down")
         return await trio.run_sync_in_worker_thread(
-            self._runner, func, *args, limiter=self._limiter
+            func, *args, limiter=self._limiter
         )
 
     def shutdown(self, wait=None):
         self._running = False
-
-    def _runner(self, func, *args):
-        import os
-        try:
-            logger.debug("THREAD START %d %s %s", os.getpid(), func, args)
-            res = func(*args)
-        except BaseException as exc:
-            logger.exception("THREAD ERROR %d", os.getpid())
-            raise
-        else:
-            logger.debug("THREAD RES %s %s", os.getpid(), repr(res))
-            return res
 
 
 class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
