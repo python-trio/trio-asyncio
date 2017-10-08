@@ -22,6 +22,17 @@ class CallTests(aiotest.TestCase):
         """called from asyncio to a sync trio function"""
         return self.loop.call_trio_sync(proc, *args)
 
+    def test_call_at(self):
+        from trio.asyncio.loop import DeltaTime
+        async def delay(t):
+            done = asyncio.Event(loop=self.loop)
+            self.loop.call_at(t, done.set)
+            await done.wait()
+
+        t = self.loop.time()+0.1
+        assert isinstance(t,DeltaTime)
+        self.loop.run_until_complete(delay(t))
+
     def test_asyncio_trio(self):
         """Call asyncio from trio"""
 
@@ -66,6 +77,15 @@ class CallTests(aiotest.TestCase):
         with pytest.raises(RuntimeError) as err:
             res = self.loop.run_until_complete(self.call_a_t(err_trio))
         assert err.value.args[0] == "I has another owie"
+
+    def test_asyncio_trio_sync_error(self):
+        def err_trio_sync():
+            t = self.loop.time() # verify that the loop is running
+            raise RuntimeError("I has more owie")
+
+        with pytest.raises(RuntimeError) as err:
+            res = self.loop.run_until_complete(self.call_a_ts(err_trio_sync))
+        assert err.value.args[0] == "I has more owie"
 
     def test_trio_asyncio_error(self):
         async def err_asyncio():

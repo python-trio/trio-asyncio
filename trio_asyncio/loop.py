@@ -153,7 +153,7 @@ class TimerHandle(_TrioHandle, asyncio.TimerHandle):
         super().__init__(when, callback, args, loop)
         if isinstance(when, DeltaTime):
             assert not is_relative
-            when = when.delta
+            self._when = when.delta
             is_relative = True
         self._init(kwargs, is_sync)
         self._relative = is_relative
