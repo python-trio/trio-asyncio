@@ -750,7 +750,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
                     del self._nursery
                     self._token = None
-                    if obj is not None:
+                    if isinstance(obj, trio.Event):
                         obj.set()
 
         except BaseException as exc:
