@@ -343,9 +343,11 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                 f.cancel()
                 return
         except Exception as exc:
-            f.set_exception(exc)
+            if not f.cancelled():
+                f.set_exception(exc)
         else:
-            f.set_result(res)
+            if not f.cancelled():
+                f.set_result(res)
 
     def call_trio_sync(self, p, *a, **k):
         """Call a synchronous function from asyncio.
