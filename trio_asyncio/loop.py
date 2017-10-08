@@ -25,26 +25,6 @@ class _Clear:
         pass
 
 
-class _AddHandle(_Clear):
-    __slots__ = ('_loop',)
-
-    def __init__(self, loop):
-        self._loop = loop
-
-    def append(self, handle):
-        assert self._loop == handle._loop
-        handle._loop._q.put_nowait(handle)
-
-
-_tag = 1
-
-
-def _next_tag():
-    global _tag
-    _tag += 1
-    return _tag
-
-
 def _format_callback_source(func, args, kwargs):
     func_repr = _format_callback(func, args, kwargs)
     source = _get_function_source(func)
@@ -241,7 +221,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         super().__init__(_TrioSelector())
 
         # replaced internal data
-        self._ready = _AddHandle(self)
+        self._ready = _Clear()
         self._scheduled = _Clear()
         self._default_executor = TrioExecutor()
 
@@ -439,26 +419,16 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             self._token.run_sync_soon(self._q.put_nowait, h)
         return h
 
-    def call_soon_async(self, callback, *args):
-        return self._queue_handle(Handle(callback, args, {}, self, False))
-
     # supersede some built-ins which should not be used
 
     def _add_callback(self, handle, _via_token=False):
-        assert isinstance(handle, Handle), 'A Handle is required here'
-        if handle._cancelled:
-            return
-        assert not isinstance(handle, TimerHandle)
+        raise RuntimeError("_add_callback() should always be superseded")
 
-        if via_token:
-            self._token.run_sync_soon(self._q.put_nowait, h)
-        else:
-            self._q.put_nowait(h)
+    def _add_callback_signalsafe(self, handle):  # pragma: no cover
+        raise RuntimeError("_add_callback_signalsafe() should always be superseded")
 
-    def _add_callback_signalsafe(self, handle):
-        self._add_callback(
-            handle, _via_token=(self._task is not trio.hazmat.current_task())
-        )
+    def _handle_signal(self, signum):
+        raise RuntimeError("_handle_signal() should always be superseded")
 
     def _timer_handle_cancelled(self, handle):
         pass
@@ -722,18 +692,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     # The asyncio mainloop would swallow this
                     self._exc = exc
                     return
-                except trio.Cancelled:
-                    logger.fatal("Mainloop was cancelled directly")
-                    raise
-                finally:
 
-                    # Save open file descriptors (but not the self-pipe)
-                    try:
-                        self._selfpipes = (
-                            self._ssock.fileno(), self._csock.fileno()
-                        )
-                    except AttributeError:
-                        self._selfpipe_fds = {}
+                finally:
+                    # Save open file descriptors
                     try:
                         self._save_fds()
                     except AttributeError:
@@ -800,16 +761,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         single-stepping.
         """
         super().run_forever()
-
-    async def __main_loop(self):
-        """
-        Required to propagate an exception raised in the main loop
-        """
-        self._exc = None
-        try:
-            res = await self.main_loop()
-        except Exception as exc:
-            self._exc = exc
 
     def _run_once(self):
         trio.run(self.main_loop)
