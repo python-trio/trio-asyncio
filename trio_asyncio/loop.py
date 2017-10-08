@@ -373,7 +373,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         else:
             f.set_result(res)
 
-    def call_later(self, delay, callback, *args):
+    def call_later(self, delay, callback, *args, **kwargs):
         """asyncio's timer-based delay
 
         Note that the callback is a sync function.
@@ -381,11 +381,11 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         self._check_callback(callback, 'call_later')
         self._check_closed()
         assert delay >= 0, delay
-        h = TimerHandle(delay, callback, args, {}, self, True, True)
+        h = TimerHandle(delay, callback, args, kwargs, self, True, True)
         if self._token is None:
             self._delayed_calls.append(h)
         else:
-            h = TimerHandle(delay, callback, args, {}, self, True, True)
+            h = TimerHandle(delay, callback, args, kwargs, self, True, True)
             self._q.put_nowait(h)
         return h
 
@@ -400,7 +400,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             self._q.put_nowait(handle)
         return handle
 
-    def call_at(self, when, callback, *args):
+    def call_at(self, when, callback, *args, **kwargs):
         """asyncio's time-based delay
 
         Note that the callback is a sync function.
@@ -408,18 +408,18 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         self._check_callback(callback, 'call_at')
         self._check_closed()
         return self._queue_handle(
-            TimerHandle(when, callback, args, {}, self, True)
+            TimerHandle(when, callback, args, kwargs, self, True)
         )
 
-    def call_soon(self, callback, *args):
+    def call_soon(self, callback, *args, **kwargs):
         self._check_callback(callback, 'call_soon')
         self._check_closed()
-        return self._queue_handle(Handle(callback, args, {}, self, True))
+        return self._queue_handle(Handle(callback, args, kwargs, self, True))
 
-    def call_soon_threadsafe(self, callback, *args):
+    def call_soon_threadsafe(self, callback, *args, **kwargs):
         self._check_callback(callback, 'call_soon_threadsafe')
         self._check_closed()
-        h = Handle(callback, args, {}, self, True)
+        h = Handle(callback, args, kwargs, self, True)
         if self._token is None:
             self._delayed_calls.append(h)
         else:
@@ -440,7 +440,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
     def _timer_handle_cancelled(self, handle):
         pass
 
-    def run_in_executor(self, executor, func, *args):
+    def run_in_executor(self, executor, func, *args, **kwargs):
         """
         Delegate running a synchronous function to another thread.
 
@@ -454,6 +454,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         if executor is None: # pragma: no branch
             executor = self._default_executor
         assert isinstance(executor, TrioExecutor)
+        if kwargs:
+            func = patial(func, **kwargs)
         return self.call_trio(executor.submit, func, *args)
 
     def _handle_sig(self, sig, _):
@@ -468,12 +470,12 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         self._q.put_nowait(w)
         await w.wait()
 
-    def add_signal_handler(self, sig, callback, *args):
+    def add_signal_handler(self, sig, callback, *args, **kwargs):
         self._check_signal(sig)
         self._check_closed()
         if sig == signal.SIGKILL:
             raise RuntimeError("SIGKILL cannot be caught")
-        h = Handle(callback, args, {}, self, True)
+        h = Handle(callback, args, kwargs, self, True)
         assert sig not in self._signal_handlers, "Signal %d is already caught" % (
             sig,
         )
@@ -491,9 +493,13 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         del self._orig_signals[sig]
         return True
 
-    def _add_reader(self, fd, callback, *args):
+    def add_reader(self, fd, callback, *args, **kwargs):
+        self._ensure_fd_no_transport(fd)
+        return self._add_reader(fd, callback, *args, **kwargs)
+
+    def _add_reader(self, fd, callback, *args, **kwargs):
         self._check_closed()
-        handle = Handle(callback, args, {}, self, True)
+        handle = Handle(callback, args, kwargs, self, True)
         reader = self._set_read_handle(fd, handle)
         if reader is not None:
             reader.cancel()
@@ -547,9 +553,13 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     # writing to a file descriptor
 
-    def _add_writer(self, fd, callback, *args):
+    def add_writer(self, fd, callback, *args, **kwargs):
+        self._ensure_fd_no_transport(fd)
+        return self._add_writer(fd, callback, *args, **kwargs)
+
+    def _add_writer(self, fd, callback, *args, **kwargs):
         self._check_closed()
-        handle = Handle(callback, args, {}, self, True)
+        handle = Handle(callback, args, kwargs, self, True)
         writer = self._set_write_handle(fd, handle)
         if writer is not None:
             writer.cancel()
