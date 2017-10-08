@@ -826,8 +826,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         trio.run(self.main_loop)
 
         # An exception in the main loop needs to be propagated
-        if self._exc is not None:
-            raise self._exc
+        # (but only once)
+        exc,self._exc = self._exc,None
+        if exc is not None:
+            raise exc
 
     def stop(self):
         """Halt the main loop.
