@@ -409,14 +409,6 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         self._q.put_nowait(h)
         return h
 
-    async def __call_later(self, h):
-        delay = h._args[0]
-        callback = h._args[1]
-        args = h._args[2:]
-        await trio.sleep(delay)
-        if not h._cancelled:
-            callback(*args, **h._kwargs)
-
     def _queue_handle(self, handle):
         if self._token is None:
             self._delayed_calls.append(handle)
