@@ -37,16 +37,16 @@ asyncio code.
 
 * before:
 
-	import trio
+    import trio
     trio.run(your_code, \*args)
 
 
 * after:
 
-	import trio_asyncio
-	import asyncio
+    import trio_asyncio
+    import asyncio
 
-	loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()
     loop.run_task(your_code, \*args)
 
 
@@ -63,10 +63,10 @@ Starting up
 
 This is the easy part:
 
-	import trio_asyncio
-	import asyncio
+    import trio_asyncio
+    import asyncio
 
-	loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(your_code())
 
 I.e. your code does not change at all, other than importing trio_asyncio.
@@ -76,22 +76,22 @@ Interrupting the loop
 
 You might have been doing something like this:
 
-	loop.run_until_complete(startup_code())
-	loop.run_until_complete(main_code())
-	loop.run_until_complete(cleanup_code())
+    loop.run_until_complete(startup_code())
+    loop.run_until_complete(main_code())
+    loop.run_until_complete(cleanup_code())
 
 The Trio event loop that runs ``trio_asyncio`` is restarted between these
 calls. While that is supported, it's generally not advisable.
 
 Instead, you should use a single async main function:
 
-	async def main_code():
-		try:
-			await startup_code()
-			await main_code()
-		finally:
-			await cleanup_code()
-	loop.run_until_complete(main_code())
+    async def main_code():
+        try:
+            await startup_code()
+            await main_code()
+        finally:
+            await cleanup_code()
+    loop.run_until_complete(main_code())
 
 Stopping
 --------
@@ -111,24 +111,24 @@ or whatever.
 
 Both unnamed and keyword arguments are supported.
 
-	async def some_trio_code(foo):
-		await trio.sleep(1)
-		return foo*2
-	
-	future = loop.call_trio(some_trio_code, 21)
-	res = await future
-	assert res == 42
+    async def some_trio_code(foo):
+        await trio.sleep(1)
+        return foo*2
+    
+    future = loop.call_trio(some_trio_code, 21)
+    res = await future
+    assert res == 42
 
 If the function is not asyncronous but still needs to run within the Trio
 main loop for some reason (for instance, it might call ``trio.time()``),
 use ``loop.call_trio_sync()``. This also returns a Future.
 
-	def some_trio_code(foo):
-		return foo*2
-	
-	future = loop.call_trio(some_trio_code, 21)
-	res = await future
-	assert res == 42
+    def some_trio_code(foo):
+        return foo*2
+    
+    future = loop.call_trio(some_trio_code, 21)
+    res = await future
+    assert res == 42
 
 Calling asyncio from Trio
 +++++++++++++++++++++++++
@@ -138,22 +138,22 @@ conforms to Trio's standard task semantics.
 
 Both unnamed and keyword arguments are supported.
 
-	async def some_asyncio_code(foo):
-		await asyncio.sleep(1, loop=loop)
-		return foo*20
-	
-	res = await loop.call_asyncio(some_trio_code, 21, _scope=…)
-	assert res == 420
+    async def some_asyncio_code(foo):
+        await asyncio.sleep(1, loop=loop)
+        return foo*20
+    
+    res = await loop.call_asyncio(some_trio_code, 21, _scope=…)
+    assert res == 420
 
 If you already have a future you need to await, call ``loop.wait_for()``:
 
-	async def some_asyncio_code(foo):
-		await asyncio.sleep(1, loop=loop)
-		return foo*20
-	
-	fut = asyncio.ensure_future(some_asyncio_code(21), loop=loop)
-	res = await loop.wait_for(fut, _scope=…)
-	assert res == 420
+    async def some_asyncio_code(foo):
+        await asyncio.sleep(1, loop=loop)
+        return foo*20
+    
+    fut = asyncio.ensure_future(some_asyncio_code(21), loop=loop)
+    res = await loop.wait_for(fut, _scope=…)
+    assert res == 420
 
 You'll notice the ``_scope`` argument. This is a Trio cancellation scope.
 If you don't pass one in, the inner-most scope of the current task will be
