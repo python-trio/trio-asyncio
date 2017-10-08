@@ -28,7 +28,7 @@ class _Clear:
 def _format_callback_source(func, args, kwargs):
     func_repr = _format_callback(func, args, kwargs)
     source = _get_function_source(func)
-    if source:
+    if source:  # pragma: no cover
         func_repr += ' at %s:%s' % source
     return func_repr
 
@@ -159,12 +159,12 @@ class TimerHandle(_TrioHandle, asyncio.TimerHandle):
         self._relative = is_relative
 
     def _abs_time(self):
-        if self._relative:
+        if self._relative:  # pragma: no branch
             self._when += self._loop.time()
             self._relative = False
 
     def _rel_time(self):
-        if not self._relative:
+        if not self._relative:  # pragma: no branch
             self._when -= self._loop.time()
             self._relative = True
 
@@ -176,10 +176,10 @@ class _TrioSelector(_BaseSelectorImpl):
     ``select()`` method, as that is controlled by the event loop.
     """
 
-    def select(self, timeout=None):
+    def select(self, timeout=None):  # pragma: no cover
         raise NotImplementedError
 
-    def _select(self, r, w, x, timeout=None):
+    def _select(self, r, w, x, timeout=None):  # pragma: no cover
         raise NotImplementedError
 
 
@@ -273,7 +273,8 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             return trio.hazmat.Abort.SUCCEEDED
 
         future.add_done_callback(is_done)
-        if _scope is None:
+        if _scope is None:  # pragma: no cover
+            # TODO: just forbid calling without a scope?
             _scope = trio.hazmat.current_task()._cancel_stack[-1]
         return await trio.hazmat.wait_task_rescheduled(is_aborted)
 
@@ -292,7 +293,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         except asyncio.CancelledError:
             _scope.cancel()
             await trio.sleep(0)
-            raise RuntimeError("cancel didn't kill me")
+            raise RuntimeError("cancel didn't kill me")  # pragma: no cover
 
         return await self.wait_for(f, _scope)
 
@@ -315,7 +316,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     async def __call_trio(self, h):
         f, proc, *args = h._args
-        if f.cancelled():
+        if f.cancelled():  # pragma: no cover
             return
         try:
             with trio.open_cancel_scope() as scope:
@@ -325,10 +326,10 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                 f.cancel()
                 return
         except Exception as exc:
-            if not f.cancelled():
+            if not f.cancelled():  # pragma: no branch
                 f.set_exception(exc)
         else:
-            if not f.cancelled():
+            if not f.cancelled():  # pragma: no branch
                 f.set_result(res)
 
     def call_trio_sync(self, p, *a, **k):
@@ -355,12 +356,15 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     async def __call_trio_sync(self, h):
         f, proc, *args = h._args
-        if f.cancelled():
+        if f.cancelled():  # pragma: no cover
             return
         try:
             res = proc(*args, **h._kwargs)
-        except trio.Cancelled:  # should probably never happen, but …
+        except trio.Cancelled:  # pragma: no cover
+            raise RuntimeError("Can't cancel sync code")
+        except asyncio.CancelledError:  # pragma: no cover
             f.cancel()
+            raise
         except Exception as exc:
             f.set_exception(exc)
         else:
@@ -444,10 +448,9 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         """
         self._check_callback(func, 'run_in_executor')
         self._check_closed()
-        if executor is None:
+        if executor is None: # pragma: no branch
             executor = self._default_executor
-        else:
-            assert isinstance(executor, TrioExecutor)
+        assert isinstance(executor, TrioExecutor)
         return self.call_trio(executor.submit, func, *args)
 
     def _handle_sig(self, sig, _):
@@ -513,7 +516,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             if reader is not None:
                 reader.cancel()
                 return True
-            else:
+            else:  # pragma: no cover
                 return False
 
     def _set_read_handle(self, fd, handle):
@@ -532,7 +535,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
             try:
-                while not handle._cancelled:
+                while not handle._cancelled:  # pragma: no branch
                     await trio.hazmat.wait_readable(fd)
                     handle._call_sync()
                     await self._sync()
@@ -587,7 +590,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             handle._scope = scope
             task_status.started()
             try:
-                while not handle._cancelled:
+                while not handle._cancelled:  # pragma: no branch
                     await trio.hazmat.wait_writable(fd)
                     handle._call_sync()
                     await self._sync()
@@ -602,7 +605,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                 if key.events & (1 << flag):
                     handle = key.data[flag]
                     assert handle is not None
-                    if not handle._cancelled:
+                    if not handle._cancelled:  # pragma: no branch
                         if handle._scope is not None:
                             handle._scope.cancel()
 
@@ -612,7 +615,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                 if key.events & (1 << flag):
                     handle = key.data[flag]
                     assert handle is not None
-                    if not handle._cancelled:
+                    if not handle._cancelled:  # pragma: no branch
                         if flag:
                             await self._nursery.start(
                                 self._writer_loop, fd, handle
@@ -697,7 +700,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     # Save open file descriptors
                     try:
                         self._save_fds()
-                    except AttributeError:
+                    except AttributeError:  ## pragma: no cover
                         pass
 
                     # save timers, by converting them back to relative time
@@ -735,9 +738,16 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             res = await proc(*a, **k)
         except Exception as exc:
             f.set_exception(exc)
-        except trio.Cancelled:
-            f.cancel()
-            raise
+        except trio.Cancelled as exc:  # pragma: no cover
+            # No, I am not going to write a test for this
+            # Trio is likely to catch the problem internally
+            # but better safe than sorry
+            try:
+                raise RuntimeError("Did you cancel the wrong scope?") from exc
+            except RuntimeError as exc:
+                if not f.cancelled():
+                    f.set_exception(res)
+                raise
         else:
             f.set_result(res)
         finally:
