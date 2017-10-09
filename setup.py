@@ -67,6 +67,8 @@ setup(
     include_package_data=True,
     python_requires=">=3.5",
     keywords=["async", "io", "trio", "asyncio", "trio-asyncio"],
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest'],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
