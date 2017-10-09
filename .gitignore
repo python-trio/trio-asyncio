@@ -1,0 +1,7 @@
+*.swp
+
+/.cache/
+/.eggs/
+/build/
+__pycache__/
+/trio_asyncio.egg-info/
