@@ -1,4 +1,4 @@
-from trio.tests.asyncio import aiotest
+from tests import aiotest
 
 class ThreadTests(aiotest.TestCase):
     @classmethod

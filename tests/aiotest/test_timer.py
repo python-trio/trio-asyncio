@@ -1,5 +1,5 @@
 import datetime
-from trio.tests.asyncio import aiotest
+from tests import aiotest
 
 class TimerTests(aiotest.TestCase):
     def test_display_date(self):

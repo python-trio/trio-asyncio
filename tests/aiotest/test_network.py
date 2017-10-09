@@ -1,4 +1,4 @@
-from trio.tests.asyncio import aiotest
+from tests import aiotest
 
 def create_classes(config):
     asyncio = config.asyncio

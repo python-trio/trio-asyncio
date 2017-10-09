@@ -1,4 +1,4 @@
-from trio.tests.asyncio import aiotest
+from tests import aiotest
 import signal
 
 class CallbackTests(aiotest.TestCase):

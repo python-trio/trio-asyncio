@@ -2,7 +2,7 @@ import unittest
 import pytest
 import trio_asyncio
 import asyncio
-from trio.tests.asyncio import aiotest
+from tests import aiotest
 
 DT = trio_asyncio.DeltaTime
 

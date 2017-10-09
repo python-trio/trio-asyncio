@@ -1,4 +1,4 @@
-from trio.tests.asyncio import aiotest
+from tests import aiotest
 
 async def hello_world(asyncio, result, delay):
     result.append("Hello")

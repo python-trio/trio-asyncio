@@ -2,7 +2,8 @@ import unittest
 import pytest
 import trio_asyncio
 import asyncio
-from trio.tests.asyncio import aiotest
+import trio
+from tests import aiotest
 
 
 class Seen:

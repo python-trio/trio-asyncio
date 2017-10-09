@@ -1,6 +1,6 @@
 from __future__ import absolute_import
-from trio.tests.asyncio.aiotest import socketpair
-from trio.tests.asyncio import aiotest
+from tests.aiotest import socketpair
+from tests import aiotest
 
 class AddReaderTests(aiotest.TestCase):
     def test_add_reader(self):
