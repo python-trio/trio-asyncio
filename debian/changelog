@@ -1,0 +1,5 @@
+trio-asyncio (0.2-1) unstable; urgency=low
+
+  * initial packaging
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Mon, 09 Oct 2017 11:36:30 +0200
