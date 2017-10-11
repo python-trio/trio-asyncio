@@ -1,3 +1,9 @@
+trio-asyncio (0.2-2) unstable; urgency=medium
+
+  * ignore .pybuild
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Wed, 11 Oct 2017 11:37:32 +0200
+
 trio-asyncio (0.2-1) unstable; urgency=low
 
   * initial packaging
