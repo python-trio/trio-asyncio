@@ -178,7 +178,7 @@ use ``loop.call_trio_sync()``. This also returns a Future.
     def some_trio_code(foo):
         return foo*2
     
-    future = loop.call_trio(some_trio_code, 21)
+    future = loop.call_trio_sync(some_trio_code, 21)
     res = await future
     assert res == 42
 

@@ -17,7 +17,7 @@ from functools import partial
 from asyncio.events import _format_callback, _get_function_source
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
-__all = ['TrioEventLoop']
+__all__ = ['TrioEventLoop']
 
 
 class _Clear:
