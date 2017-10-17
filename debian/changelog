@@ -1,3 +1,10 @@
+trio-asyncio (0.3-1) unstable; urgency=medium
+
+  * Version 0.3
+  * added trio2aio and aio2trio decorators
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Tue, 17 Oct 2017 12:57:23 +0200
+
 trio-asyncio (0.2-2) unstable; urgency=medium
 
   * ignore .pybuild

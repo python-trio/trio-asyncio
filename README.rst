@@ -178,9 +178,31 @@ use ``loop.call_trio_sync()``. This also returns a Future.
     def some_trio_code(foo):
         return foo*2
     
-    future = loop.call_trio(some_trio_code, 21)
+    future = loop.call_trio_sync(some_trio_code, 21)
     res = await future
     assert res == 42
+
+If the code in question will always be called from asyncio *and* if the code
+in question is a method of an object which has the main loop as member, you
+can also use the ``aio2trio`` decorator.
+
+::
+
+    class SomeThing:
+        def __init__(self,loop):
+            self.loop = loop
+        @aio2trio
+        async def some_trio_code(self, foo):
+            await trio.sleep(1)
+            return foo+33
+
+    loop = asyncio.get_event_loop()
+    sth = SomeThing(loop)
+    res = loop.run_until_complete(sth.some_trio_code(9))
+    assert res == 42
+
+You can use ``@aio2trio('_loop')`` (or whatever) if the loop's name is
+different.
 
 Calling asyncio from Trio
 +++++++++++++++++++++++++
@@ -214,6 +236,28 @@ If you already have a future you need to await, call ``loop.wait_for()``:
 You'll notice the ``_scope`` argument. This is a Trio cancellation scope.
 If you don't pass one in, the inner-most scope of the current task will be
 used. This may or may not be what you want.
+
+If the code in question will always be called from Trio *and* if the code
+in question is a method of an object which has the main loop as member, you
+can also use the ``trio2aio`` decorator.
+
+::
+
+    class SomeThing:
+        def __init__(self,loop):
+            self.loop = loop
+        @trio2aio
+        async def some_asyncio_code(self, foo):
+            await asyncio.sleep(1, loop=self.loop)
+            return foo+33
+
+    loop = asyncio.get_event_loop()
+    sth = SomeThing(loop)
+    res = loop.run_task(sth.some_asyncio_code, 9)
+    assert res == 42
+
+You can use ``@trio2aio('_loop')`` (or whatever) if the loop's name is
+different.
 
 Errors and cancellations
 ++++++++++++++++++++++++
