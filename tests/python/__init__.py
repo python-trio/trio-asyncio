@@ -9,5 +9,7 @@ def load_tests(*args):
 
 ## 
 ## this code is from
-## git@github.com:python/cpython.git # 0fcc03367
+## git@github.com:python/cpython.git
+## Revision d48ecebad
+## Python 3.6.4
 ## 
