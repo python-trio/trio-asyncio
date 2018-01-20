@@ -4,7 +4,7 @@ import trio_asyncio
 import asyncio
 from tests import aiotest
 
-DT = trio_asyncio.DeltaTime
+DT = trio_asyncio.loop.DeltaTime
 
 class TestDeltaTime(aiotest.TestCase):
     def test_do(self):
