@@ -514,7 +514,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             self._selector.modify(fd, mask | EVENT_READ, (handle, writer))
             return reader
 
-    async def _reader_loop(self, fd, handle, task_status=trio.STATUS_IGNORED):
+    async def _reader_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
         task_status.started()
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
@@ -552,7 +552,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
             self._selector.modify(fd, mask | EVENT_WRITE, (reader, handle))
             return writer
 
-    async def _writer_loop(self, fd, handle, task_status=trio.STATUS_IGNORED):
+    async def _writer_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
             task_status.started()
@@ -594,7 +594,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
 
     # Trio-based main loop
 
-    async def main_loop(self, task_status=trio.STATUS_IGNORED):
+    async def main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """This is the Trio replacement of the asyncio loop's main loop.
 
         Run this method as a standard Trio thread if your main code is
