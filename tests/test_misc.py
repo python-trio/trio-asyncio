@@ -69,7 +69,7 @@ class MiscTests(aiotest.TestCase):
         def has_data():
             nonlocal data
             data += os.read(r,99)
-        def send_data(x):
+        def send_data():
             os.write(w,b'hip')
             self.loop.call_soon(self.loop.remove_writer,w)
 
