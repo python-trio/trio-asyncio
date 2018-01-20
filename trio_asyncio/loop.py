@@ -9,6 +9,7 @@ import heapq
 import signal
 import threading
 import selectors
+import traceback
 
 import logging
 logger = logging.getLogger(__name__)
@@ -683,7 +684,7 @@ class TrioEventLoop(asyncio.unix_events._UnixSelectorEventLoop):
                     self._stopping = True
 
         except BaseException as exc:
-            print(*trio.format_exception(type(exc), exc, exc.__traceback__))
+            print(*traceback.format_exception(type(exc), exc, exc.__traceback__))
 
     def run_task(self, proc, *a, **k):
         """Run a Trio task.
