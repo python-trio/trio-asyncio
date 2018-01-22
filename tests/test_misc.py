@@ -4,48 +4,102 @@ import trio_asyncio
 import asyncio
 import os
 import trio
-from tests import aiotest
+#from tests import aiotest
 
 
 class Seen:
     flag = 0
 
 
-class MiscTests(aiotest.TestCase):
-    def test_close_no_stop(self):
-        def close_no_stop():
-            self.loop.close()
-        self.loop.call_soon(close_no_stop)
-
+class TestMisc:
+    @pytest.mark.trio
+    async def test_close_no_stop(self):
         with pytest.raises(RuntimeError) as err:
-            res = self.loop.run_forever()
-        assert "before closing" in err.value.args[0]
+            async with trio_asyncio.open_loop() as loop:
+                def close_no_stop():
+                    loop.close()
+                loop.call_soon(close_no_stop)
 
-    def test_err(self):
-        async def err():
+                await loop.wait_closed()
+
+    async def test_err(self, loop):
+        async def raise_err():
             raise RuntimeError("Foo")
 
         with pytest.raises(RuntimeError) as err:
-            res = self.loop.run_task(err)
+            res = await loop.run_asyncio(raise_err)
         assert err.value.args[0] == "Foo"
 
-    def test_err(self):
+    @pytest.mark.trio
+    async def test_err(self, loop):
         owch = 0
 
         async def nest():
             nonlocal owch
             owch = 1
-            raise Exception("should not run")
+            raise RuntimeError("Hello")
 
         async def call_nested():
             with pytest.raises(RuntimeError) as err:
-                self.loop.run_task(next)
-            assert "already running" in err.value.args[0]
+                await loop.run_trio(nest)
+            assert err.value.args[0] == "Hello"
 
-        self.loop.run_task(call_nested)
-        assert not owch
+        await loop.run_asyncio(call_nested)
+        assert owch
 
-    def test_cancel_sleep(self):
+    @pytest.mark.trio
+    async def test_run(self, loop):
+        owch = 0
+
+        async def nest():
+            nonlocal owch
+            owch = 1
+
+        async def call_nested():
+            await loop.run_trio(nest)
+
+        await loop.run_asyncio(call_nested)
+        assert owch
+
+    @pytest.mark.trio
+    async def test_err2(self, loop):
+        owch = 0
+
+        async def nest():
+            nonlocal owch
+            owch = 1
+            raise RuntimeError("Hello")
+
+        async def call_nested():
+            await loop.run_asyncio(nest)
+
+        async def call_more_nested():
+            with pytest.raises(RuntimeError) as err:
+                await loop.run_trio(call_nested)
+            assert err.value.args[0] == "Hello"
+
+        await loop.run_asyncio(call_more_nested)
+        assert owch
+
+    @pytest.mark.trio
+    async def test_run2(self, loop):
+        owch = 0
+
+        async def nest():
+            nonlocal owch
+            owch = 1
+
+        async def call_nested():
+            await loop.run_asyncio(nest)
+
+        async def call_more_nested():
+            await loop.run_trio(call_nested)
+
+        await loop.run_asyncio(call_more_nested)
+        assert owch
+
+    @pytest.mark.trio
+    async def test_cancel_sleep(self, loop):
         owch = 0
 
         def do_not_run():
@@ -54,38 +108,11 @@ class MiscTests(aiotest.TestCase):
             raise Exception("should not run")
 
         async def cancel_sleep():
-            h = self.loop.call_later(0.1, do_not_run)
-            await trio.sleep(0.05)
+            h = loop.call_later(0.1, do_not_run)
+            await asyncio.sleep(0.05, loop=loop)
             h.cancel()
-            await trio.sleep(0.2)
+            await asyncio.sleep(0.2, loop=loop)
 
-        self.loop.run_task(cancel_sleep)
+        await loop.run_asyncio(cancel_sleep)
         assert owch == 0
-
-    def test_restore_fds(self):
-        data = b""
-        r,w = os.pipe()
-
-        def has_data():
-            nonlocal data
-            data += os.read(r,99)
-        def send_data():
-            os.write(w,b'hip')
-            self.loop.call_soon(self.loop.remove_writer,w)
-
-        async def x1():
-            self.loop.add_reader(r,has_data)
-        async def x2():
-            self.loop.add_writer(w,send_data)
-        async def x3():
-            await asyncio.sleep(0.2, loop=self.loop)
-            assert not self.loop.remove_writer(r)
-            assert self.loop.remove_reader(r)
-        async def x4():
-            assert not self.loop.remove_reader(r)
-
-        self.loop.run_until_complete(x1())
-        self.loop.run_until_complete(x2())
-        self.loop.run_until_complete(x3())
-        self.loop.run_until_complete(x4())
 

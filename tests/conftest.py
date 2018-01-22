@@ -15,25 +15,22 @@ import asyncio
 
 
 @pytest.fixture(scope="function", autouse=True)
-def loop(request):
+async def loop(request,nursery):
 
-    loop = trio_asyncio.TrioEventLoop()
-    request.instance.loop = loop
-    asyncio.set_event_loop(loop)
+    async with trio_asyncio.open_loop() as loop:
 
-    yield loop
-
-    # check that the loop really is idle
-    #    if loop._q.qsize():
-    #        import pdb;pdb.set_trace()
-    #    assert loop._q.qsize() == 0
-    assert not loop._timers
-    assert not list(
-        x for x in loop._delayed_calls if not getattr(x, '_cancelled', False)
-    )
-    if not loop.is_closed():
-        loop.run_task(trio._core.wait_all_tasks_blocked)
-        loop.close()
+        try:
+            yield loop
+        finally:
+            await loop.stop().wait()
+            ## check that the loop really is idle
+            #if loop._q.qsize():
+            #    import pdb;pdb.set_trace()
+            #    assert loop._q.qsize() == 0
+            assert not loop._timers
+            if not loop.is_closed():
+                await trio._core.wait_all_tasks_blocked()
+            loop.close()
 
 
 # FIXME: split off into a package (or just make part of trio's public
@@ -43,4 +40,4 @@ def loop(request):
 @pytest.hookimpl(tryfirst=True)
 def pytest_pyfunc_call(pyfuncitem):
     if inspect.iscoroutinefunction(pyfuncitem.obj):
-        pyfuncitem.obj = trio_test(pyfuncitem.obj)
+        pyfuncitem.obj = pytest.mark.trio(pyfuncitem.obj)

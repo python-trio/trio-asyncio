@@ -18,10 +18,9 @@ from functools import partial
 from asyncio.events import _format_callback, _get_function_source
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
-from trio import acontextmanager
-from async_generator import async_generator, yield_
+from async_generator import async_generator, yield_, asynccontextmanager
 
-__all__ = ['TrioEventLoop']
+__all__ = ['open_loop', 'run_trio','run_future','run_coroutine','run_asyncio']
 
 
 class _Clear:
@@ -121,10 +120,7 @@ class Handle(_TrioHandle, asyncio.Handle):
 
 
 class TimerHandle(_TrioHandle, asyncio.TimerHandle):
-    def __init__(
-            self, when, callback, args, loop, is_sync,
-            is_relative=False
-    ):
+    def __init__(self, when, callback, args, loop, is_sync):
         super().__init__(when, callback, args, loop)
         self._init(is_sync)
 
@@ -174,6 +170,9 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
     # Set by .stop() to an event; triggered when actually stopped
     _stopped = None
 
+    # required by asyncio
+    _closed = False
+
     def __init__(self, nursery):
         # Processing queue
         self._q = trio.Queue(9999)
@@ -199,41 +198,47 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         """
         return trio.current_time()
 
-    async def run_future(self, future, scope=None):
+    async def run_future(self, future):
         """Wait for an asyncio future/coroutine from Trio code.
 
         Cancelling the (current or explicit) Trio scope will
-        always cancel the future/coroutine.
+        cancel the future/coroutine.
 
-        Cancelling the future will propagate to Trio if you pass in an
-        explicit cancel scope; otherwise an ``asyncio.CancelledError``
-        will be raised.
+        Cancelling the future/coroutine will cause an ``asyncio.CancelledError``.
         """
-        def is_done(f):
-            if f.cancelled() and scope is not None:
-                scope.cancel()
-                return
+        task = trio.hazmat.current_task()
+        raise_cancel = None
 
-            try:
-                res = trio.hazmat.Value(f.result())
-            except Exception as exc:
-                res = trio.hazmat.Error(exc)
-            trio.hazmat.reschedule(current_task, next_send=res)
+        def done_cb(_):
+            trio.hazmat.reschedule(task, trio.hazmat.Result.capture(future.result))
 
-        def is_aborted(raise_cancel):
-            if not future.cancelled():
-                future.remove_done_callback(is_done)
-                future.cancel()
-            elif future.done():
-                return trio.hazmat.Abort.FAILED
-            return trio.hazmat.Abort.SUCCEEDED
+        future.add_done_callback(done_cb)
 
-        future.add_done_callback(is_done)
-        return await trio.hazmat.wait_task_rescheduled(is_aborted)
+        def abort_cb(raise_cancel_arg):
+            # Save the cancel-raising function
+            nonlocal raise_cancel
+            raise_cancel = raise_cancel_arg
+            # Attempt to cancel our future
+            future.cancel()
+            # Keep waiting
+            return trio.hazmat.Abort.FAILED
+
+        try:
+            res = await trio.hazmat.wait_task_rescheduled(abort_cb)
+            return res
+        except asyncio.CancelledError as exc:
+            if raise_cancel is not None:
+                try:
+                    raise_cancel()
+                finally:
+                    # Try to preserve the exception chain for more detailed tracebacks
+                    sys.exc_info()[1].__cause__ = exc
+            else:
+                raise
 
     run_coroutine = run_future
 
-    async def run_asyncio(self, proc, *args, scope=None):
+    async def run_asyncio(self, proc, *args):
         """Call an asyncio function or method from Trio.
         
         Returns/Raises: whatever the procedure does.
@@ -241,7 +246,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         @scope: see ``run_future``.
         """
         f = asyncio.ensure_future(proc(*args), loop=self)
-        return await self.run_future(f, scope)
+        return await self.run_future(f)
 
     def run_trio(self, proc, *args):
         """Call an asynchronous Trio function from asyncio.
@@ -286,7 +291,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         self._check_callback(callback, 'call_later')
         self._check_closed()
         assert delay >= 0, delay
-        h = TimerHandle(delay, callback, args, self, True, True)
+        h = TimerHandle(delay + self.time(), callback, args, self, True)
         self._q.put_nowait(h)
         return h
 
@@ -369,7 +374,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         if sig == signal.SIGKILL:
             raise RuntimeError("SIGKILL cannot be caught")
         h = Handle(callback, args, self, True)
-        assert sig not in self._signal_handlers,
+        assert sig not in self._signal_handlers, \
             "Signal %d is already caught" % (sig,)
         self._orig_signals[sig] = signal.signal(sig, self._handle_sig)
         self._signal_handlers[sig] = h
@@ -533,12 +538,11 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
             self._cancel_timers()
 
             self._nursery = None
-            self._token = None
-            if isinstance(obj, trio.Event):
-                obj.set()
-            self.close()
+            self._task = None
 
             self._stopped.set()
+            self.close()
+
 
 
     def run_forever(self):
@@ -552,6 +556,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         
     async def wait_stopped(self):
         await self._stopped.wait()
+    wait_closed = wait_stopped #possible  TODO
 
     def stop(self):
         """Halt the main loop.
@@ -566,7 +571,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         return self._stopped
 
     def is_running(self):
-        return not self._stopping
+        return self._stopped is not None and not self._stopped.is_set()
 
     def close(self):
         forgot_stop = self.is_running()
@@ -581,7 +586,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
     def __exit__(a,b,c):
         raise RuntimeError("You need to use 'async with'.")
 
-class _TrioPolicy(asyncio.BaseDefaultEventLoopPolicy):
+class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
 
     def __init__(self):
@@ -601,16 +606,16 @@ class _TrioPolicy(asyncio.BaseDefaultEventLoopPolicy):
         Note that you cannot replace the running event loop.
         """
         task = trio.hazmat.current_task()
-        if self._local._loop is not None and \
+        if self._local._loop is not None and loop is not None and \
             self._local._task == task:
             raise RuntimeError('You cannot replace an event loop.')
         self._local._loop = loop
         self._local._task = task
 
-class TrioPolicy(_TrioPolicy, DefaultEventLoopPolicy):
+class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
     pass
 
-@acontextmanager
+@asynccontextmanager
 @async_generator
 async def open_loop():
     async with trio.open_nursery() as nursery:
@@ -620,25 +625,23 @@ async def open_loop():
             await nursery.start(loop._main_loop)
             await yield_(loop)
         finally:
-            await loop.stop().wait()
-            asyncio.set_event_loop(None)
-            loop.close()
+            try:
+                await loop.stop().wait()
+            finally:
+                asyncio.set_event_loop(None)
+                loop.close()
 
 async def run_asyncio(proc, *args, scope=None):
     loop = asyncio.get_event_loop()
-    if loop is None:
-        async with open_loop() as loop:
-            return await loop.run_asyncio(proc, *args, scope=scope)
-    else:
-        return await loop.run_asyncio(proc, *args, scope=scope)
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    return await loop.run_asyncio(proc, *args, scope=scope)
 
 async def run_future(fut, scope=None):
     loop = asyncio.get_event_loop()
-    if loop is None:
-        async with open_loop() as loop:
-            return await loop.run_future(fut, scope=scope)
-    else:
-        return await loop.run_future(fut, scope=scope)
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    return await loop.run_future(fut, scope=scope)
 
 run_coroutine = run_future
 
@@ -650,8 +653,9 @@ def run_trio(proc, *args):
     Cancelling the future will cancel the Trio task running your
     function, or prevent it from starting if that is still possible.
     """
-    return asyncio.get_event_loop().run_trio(proc, *args)
+    loop = asyncio.get_event_loop()
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    return loop.run_trio(proc, *args)
 
 asyncio.set_event_loop_policy(TrioPolicy())
-if not isinstance(asyncio.get_event_loop(), TrioEventLoop):  # pragma: no cover
-    raise ImportError("You imported trio_asyncio too late.")
