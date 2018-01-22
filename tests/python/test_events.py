@@ -1165,14 +1165,14 @@ class EventLoopTestsMixin:
             sslcontext_client.check_hostname = True
 
         # incorrect server_hostname
-        f_c = self.loop.create_connection(MyProto, host, port,
-                                          ssl=sslcontext_client)
         with mock.patch.object(self.loop, 'call_exception_handler'):
             with test_utils.disable_logger():
                 with self.assertRaisesRegex(
                         ssl.CertificateError,
                         "hostname '127.0.0.1' doesn't match 'localhost'"):
-                    self.loop.run_until_complete(f_c)
+                    self.loop.run_until_complete(
+                        self.loop.create_connection(MyProto, host, port,
+                                          ssl=sslcontext_client))
 
         # close connection
         proto.transport.close()
