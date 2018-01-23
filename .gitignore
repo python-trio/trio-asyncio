@@ -2,6 +2,7 @@
 
 /.cache/
 /.eggs/
+/.pybuild/
 /build/
 __pycache__/
 /trio_asyncio.egg-info/
