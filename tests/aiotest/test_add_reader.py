@@ -1,80 +1,84 @@
 from __future__ import absolute_import
 from tests.aiotest import socketpair
 from tests import aiotest
+import pytest
 
-class AddReaderTests(aiotest.TestCase):
-    def test_add_reader(self):
+class TestAddReader:
+    @pytest.mark.trio
+    async def test_add_reader(self, loop):
         result = {'received': None}
         rsock, wsock = socketpair()
-        self.addCleanup(rsock.close)
-        self.addCleanup(wsock.close)
+        try:
+            def reader():
+                data = rsock.recv(100)
+                result['received'] = data
+                loop.remove_reader(rsock)
+                loop.stop()
 
-        def reader():
-            data = rsock.recv(100)
-            result['received'] = data
-            self.loop.remove_reader(rsock)
-            self.loop.stop()
+            def writer():
+                loop.remove_writer(wsock)
+                loop.call_soon(wsock.send, b'abc')
 
-        def writer():
-            self.loop.remove_writer(wsock)
-            self.loop.call_soon(wsock.send, b'abc')
+            loop.add_reader(rsock, reader)
+            loop.add_writer(wsock, writer)
 
-        self.loop.add_reader(rsock, reader)
-        self.loop.add_writer(wsock, writer)
+            await loop.wait_stopped()
+            assert result['received'] == b'abc'
 
-        self.loop.run_forever()
-        self.assertEqual(result['received'], b'abc')
+        finally:
+            rsock.close()
+            wsock.close()
 
-    def check_add_replace(self, event):
-        socket = self.config.socket
+    async def check_add_replace(self, event, loop, config):
+        socket = config.socket
 
-        selector = self.loop._selector
+        selector = loop._selector
         if event == 'reader':
-            add_sock = self.loop.add_reader
-            remove_sock = self.loop.remove_reader
+            add_sock = loop.add_reader
+            remove_sock = loop.remove_reader
             def get_handle(fileobj):
                 return selector.get_key(fileobj).data[0]
         else:
-            add_sock = self.loop.add_writer
-            remove_sock = self.loop.remove_writer
+            add_sock = loop.add_writer
+            remove_sock = loop.remove_writer
             def get_handle(fileobj):
                 return selector.get_key(fileobj).data[1]
 
         sock = socket.socket()
-        self.addCleanup(sock.close)
+        try:
+            def func():
+                pass
 
-        def func():
-            pass
+            def func2():
+                pass
 
-        def func2():
-            pass
+            with pytest.raises(KeyError):
+                get_handle(sock)
 
-        self.assertRaises(KeyError, get_handle, sock)
+            add_sock(sock, func)
+            handle1 = get_handle(sock)
+            assert not handle1._cancelled
 
-        add_sock(sock, func)
-        handle1 = get_handle(sock)
-        self.assertFalse(handle1._cancelled)
+            add_sock(sock, func2)
+            handle2 = get_handle(sock)
+            assert handle1 is not handle2
+            assert handle1._cancelled
+            assert not handle2._cancelled
 
-        add_sock(sock, func2)
-        handle2 = get_handle(sock)
-        self.assertIsNot(handle1, handle2)
-        self.assertTrue(handle1._cancelled)
-        self.assertFalse(handle2._cancelled)
+            removed = remove_sock(sock)
+            assert removed
+            assert handle2._cancelled
 
-        removed = remove_sock(sock)
-        self.assertTrue(removed)
-        self.assertTrue(handle2._cancelled)
+            removed = remove_sock(sock)
+            assert not removed
+        finally:
+            sock.close()
 
-        removed = remove_sock(sock)
-        self.assertFalse(removed)
+    @pytest.mark.trio
+    async def test_add_reader_replace(self, loop, config):
+        await self.check_add_replace("reader", loop, config)
 
-    def test_add_reader_replace(self):
-        self.check_add_replace("reader")
+    @pytest.mark.trio
+    async def test_add_writer_replace(self, loop, config):
+        await self.check_add_replace("writer", loop, config)
 
-    def test_add_writer_replace(self):
-        self.check_add_replace("writer")
-
-
-if __name__ == '__main__':
-    import unittest
-    unittest.main()

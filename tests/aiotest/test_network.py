@@ -1,4 +1,5 @@
 from tests import aiotest
+import pytest
 
 def create_classes(config):
     asyncio = config.asyncio
@@ -60,30 +61,27 @@ def create_classes(config):
     return TcpEchoClientProtocol, TcpServer
 
 
-class NetworkTests(aiotest.TestCase):
-    def test_tcp_hello(self):
+class TestNetwork(aiotest.TestCase):
+    @pytest.mark.trio
+    async def test_tcp_hello(self, loop, config):
         return
         port = 8888
         host = '127.0.0.1'
         message = b'Hello World!'
 
-        event = self.config.threading.Event()
-        TcpEchoClientProtocol, TcpServer = create_classes(self.config)
+        event = config.threading.Event()
+        TcpEchoClientProtocol, TcpServer = create_classes(config)
         server = TcpServer(host, port, event)
         server.start()
         self.addCleanup(server.stop)
         event.wait()
 
-        proto = TcpEchoClientProtocol(message, self.loop)
-        coro = self.loop.create_connection(lambda: proto, host, port)
-        self.loop.run_until_complete(coro)
-        self.assertNotEqual(proto.state, 'new')
+        proto = TcpEchoClientProtocol(message, loop)
+        coro = loop.create_connection(lambda: proto, host, port)
+        await loop.run_coroutine(coro)
+        assert proto.state != 'new'
 
-        self.loop.run_forever()
-        self.assertEqual(proto.state, 'closed')
-        self.assertEqual(proto.received, message)
+        await loop.stop().wait()()
+        assert proto.state == 'closed'
+        assert proto.received == message
 
-
-if __name__ == '__main__':
-    import unittest
-    unittest.main()

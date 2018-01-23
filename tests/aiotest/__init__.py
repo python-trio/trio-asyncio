@@ -24,18 +24,6 @@ class TestConfig:
         # Run tests forever to catch sporadic errors
         self.forever = False
 
-        # Randomize test execution order
-        self.randomize = True
-
-        # Random seed, None means that a seed will be generated
-        self.random_seed = None
-
-        # Detect tests that leak memory
-        self.find_leaks = False
-
-        # Catch control-C and display results
-        self.catch_break = True
-
         # Verbosity 0..4: 0=less messages (CRITICAL), 4=more messages (DEBUG)
         self.verbosity = 0
 
@@ -55,9 +43,6 @@ class TestConfig:
         # functions
         self.socketpair = socketpair
         self.sleep = time.sleep
-
-        # function building a new event loop policy
-        self.new_event_pool_policy = _asyncio.DefaultEventLoopPolicy
 
         # features of the implementations
 
@@ -83,12 +68,11 @@ class TestConfig:
         #testcase.addCleanup(testcase.loop.close)
         #testcase.addCleanup(self.asyncio.set_event_loop, None)
 
-config = TestConfig()
-
-class TestCase(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.config = config
-
+class TestCase:
+    pass
+#    @classmethod
+#    def setUpClass(cls):
+#        cls.config = config
+#
 #    def setUp(self):
 #        self.config.prepare(self)

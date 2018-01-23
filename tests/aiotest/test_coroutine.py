@@ -1,37 +1,40 @@
 from tests import aiotest
+import pytest
 
-async def hello_world(asyncio, result, delay):
+async def hello_world(asyncio, result, delay, loop):
     result.append("Hello")
     # retrieve the event loop from the policy
-    await asyncio.sleep(delay)
+    await asyncio.sleep(delay, loop=loop)
     result.append('World')
     return "."
 
-class CoroutineTests(aiotest.TestCase):
-    def test_hello_world(self):
+class TestCoroutine(aiotest.TestCase):
+    @pytest.mark.trio
+    async def test_hello_world(self, loop, config):
         result = []
-        coro = hello_world(self.config.asyncio, result, 0.001)
-        self.loop.run_until_complete(coro)
-        self.assertEqual(result, ['Hello', 'World'])
+        coro = hello_world(config.asyncio, result, 0.001, loop)
+        await loop.run_coroutine(config.asyncio.ensure_future(coro, loop=loop))
+        assert result == ['Hello', 'World']
 
-    def test_waiter(self):
+    @pytest.mark.trio
+    async def run_hello_world(self, loop, config):
+        result = []
+        await loop.run_asyncio(hello_world,config.asyncio, result, 0.001, loop)
+        assert result == ['Hello', 'World']
+
+    @pytest.mark.trio
+    async def test_waiter(self, loop, config):
         async def waiter(asyncio, hello_world, result):
-            loop = asyncio.get_event_loop()
             fut = asyncio.Future(loop=loop)
             loop.call_soon(fut.set_result, "Future")
 
             value = await fut
             result.append(value)
 
-            value = await hello_world(asyncio, result, 0.001)
+            value = await hello_world(asyncio, result, 0.001, loop)
             result.append(value)
 
         result = []
-        coro = waiter(self.config.asyncio, hello_world, result)
-        self.loop.run_until_complete(coro)
-        self.assertEqual(result, ['Future', 'Hello', 'World', '.'])
+        await loop.run_asyncio(waiter, config.asyncio, hello_world, result)
+        assert result == ['Future', 'Hello', 'World', '.']
 
-
-if __name__ == '__main__':
-    import unittest
-    unittest.main()

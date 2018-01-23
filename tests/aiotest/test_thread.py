@@ -1,14 +1,18 @@
 from tests import aiotest
+import pytest
+import trio
+import trio_asyncio
 
-class ThreadTests(aiotest.TestCase):
+class TestThread(aiotest.TestCase):
     @classmethod
     def setUpClass(cls):
         super(ThreadTests, cls).setUpClass()
         if not cls.config.support_threads:
             raise aiotest.unittest.SkipTest("threads are not supported")
 
-    def test_ident(self):
-        threading = self.config.threading
+    @pytest.mark.trio
+    async def test_ident(self, loop, config):
+        threading = config.threading
         try:
             get_ident = threading.get_ident   # Python 3
         except AttributeError:
@@ -19,31 +23,33 @@ class ThreadTests(aiotest.TestCase):
         def work():
             result['ident'] = get_ident()
 
-        fut = self.loop.run_in_executor(None, work)
-        self.loop.run_until_complete(fut)
+        fut = loop.run_in_executor(None, work)
+        await loop.run_coroutine(fut)
 
         # ensure that work() was executed in a different thread
         work_ident = result['ident']
-        self.assertIsNotNone(work_ident)
-        self.assertNotEqual(work_ident, get_ident())
+        assert work_ident is not None
+        assert work_ident != get_ident()
 
-    def test_run_twice(self):
+    @pytest.mark.trio
+    async def test_run_twice(self, loop):
         result = []
 
         def work():
             result.append("run")
 
-        fut = self.loop.run_in_executor(None, work)
-        self.loop.run_until_complete(fut)
-        self.assertEqual(result, ["run"])
+        fut = loop.run_in_executor(None, work)
+        await loop.run_future(fut)
+        assert result == ["run"]
 
         # ensure that run_in_executor() can be called twice
-        fut = self.loop.run_in_executor(None, work)
-        self.loop.run_until_complete(fut)
-        self.assertEqual(result, ["run", "run"])
+        fut = loop.run_in_executor(None, work)
+        await loop.run_future(fut)
+        assert result == ["run", "run"]
 
-    def test_policy(self):
-        asyncio = self.config.asyncio
+    @pytest.mark.trio
+    async def test_policy(self, loop, config):
+        asyncio = config.asyncio
         result = {'loop': 'not set'}   # sentinel, different than None
 
         def work():
@@ -53,13 +59,14 @@ class ThreadTests(aiotest.TestCase):
                 result['loop'] = exc
 
         # get_event_loop() must return None in a different thread
-        fut = self.loop.run_in_executor(None, work)
-        self.loop.run_until_complete(fut)
-        self.assertIsInstance(result['loop'], (AssertionError, RuntimeError))
+        fut = loop.run_in_executor(None, work)
+        await loop.run_future(fut)
+        assert isinstance(result['loop'], (AssertionError, RuntimeError))
 
-    def test_run_in_thread(self):
-        asyncio = self.config.asyncio
-        threading = self.config.threading
+    @pytest.mark.trio
+    async def test_run_in_thread(self, config):
+        asyncio = config.asyncio
+        threading = config.threading
 
         class LoopThread(threading.Thread):
             def __init__(self, event):
@@ -67,17 +74,16 @@ class ThreadTests(aiotest.TestCase):
                 self.loop = None
                 self.event = event
 
-            def run(self):
-                self.loop = asyncio.new_event_loop()
-                try:
-                    self.loop.set_debug(True)
-                    asyncio.set_event_loop(self.loop)
+            async def _run(self):
+                async with trio_asyncio.open_loop() as loop:
+                    self.loop = loop
+                    loop.set_debug(True)
 
                     self.event.set()
-                    self.loop.run_forever()
-                finally:
-                    self.loop.close()
-                    asyncio.set_event_loop(None)
+                    await loop.wait_stopped()
+
+            def run(self):
+                trio.run(self._run)
 
         result = []
 
@@ -96,11 +102,7 @@ class ThreadTests(aiotest.TestCase):
         tid = thread.ident
         loop.call_soon_threadsafe(func, loop)
 
-        # stop the event loop
+        # wait for the other thread's event loop to terminate
         thread.join()
-        self.assertEqual(result, [tid])
+        assert result == [tid]
 
-
-if __name__ == '__main__':
-    import unittest
-    unittest.main()

@@ -29,7 +29,7 @@ class _Clear:
 
 
 def _format_callback_source(func, args):
-    func_repr = _format_callback(func, args)
+    func_repr = _format_callback(func, args, None)
     source = _get_function_source(func)
     if source:  # pragma: no cover
         func_repr += ' at %s:%s' % source
@@ -206,6 +206,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
 
         Cancelling the future/coroutine will cause an ``asyncio.CancelledError``.
         """
+        self._check_closed()
         task = trio.hazmat.current_task()
         raise_cancel = None
 
@@ -256,6 +257,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         Cancelling the future will cancel the Trio task running your
         function, or prevent it from starting if that is still possible.
         """
+        self._check_closed()
         f = asyncio.Future(loop=self)
         h = Handle(self.__run_trio, (
             f,
@@ -357,7 +359,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         if executor is None: # pragma: no branch
             executor = self._default_executor
         assert isinstance(executor, TrioExecutor)
-        return self.call_trio(executor.submit, func, *args)
+        return self.run_trio(executor.submit, func, *args)
 
     def _handle_sig(self, sig, _):
         h = self._signal_handlers[sig]

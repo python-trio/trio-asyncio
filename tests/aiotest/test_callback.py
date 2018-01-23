@@ -1,19 +1,22 @@
 from tests import aiotest
 import signal
+import pytest
 
-class CallbackTests(aiotest.TestCase):
-    def test_call_soon(self):
+class TestCallback(aiotest.TestCase):
+    @pytest.mark.trio
+    async def test_call_soon(self, loop):
         result = []
 
         def hello_world(loop):
             result.append('Hello World')
             loop.stop()
 
-        self.loop.call_soon(hello_world, self.loop)
-        self.loop.run_forever()
-        self.assertEqual(result, ['Hello World'])
+        loop.call_soon(hello_world, loop)
+        await loop.wait_stopped()
+        assert result == ['Hello World']
 
-    def test_call_soon_control(self):
+    @pytest.mark.trio
+    async def test_call_soon_control(self, loop):
         result = []
 
         def func(result, loop):
@@ -24,13 +27,14 @@ class CallbackTests(aiotest.TestCase):
             result.append(value)
             loop.stop()
 
-        self.loop.call_soon(func, result, self.loop)
-        self.loop.run_forever()
+        loop.call_soon(func, result, loop)
+        await loop.wait_stopped()
         # http://bugs.python.org/issue22875: Ensure that call_soon() does not
         # call append_result() immediatly, but when control returns to the
         # event loop, when func() is done.
-        self.assertEqual(result, ['[]', 'yes'])
+        assert result == ['[]', 'yes']
 
+    @pytest.mark.skip("can't restart the loop")
     def test_soon_stop_soon(self):
         result = []
 
@@ -39,31 +43,31 @@ class CallbackTests(aiotest.TestCase):
 
         def world():
             result.append("World")
-            self.loop.stop()
+            loop.stop()
 
-        self.loop.call_soon(hello)
-        self.loop.stop()
-        self.loop.call_soon(world)
+        loop.call_soon(hello)
+        loop.stop()
+        loop.call_soon(world)
 
-        if False: # self.config.stopping:
-            self.loop.run_forever()
-            self.assertEqual(result, ["Hello", "World"])
+        if False: # config.stopping:
+            loop.run_forever()
+            assert result == ["Hello", "World"]
         else:
-            self.loop.run_forever()
+            loop.run_forever()
             # ensure that world() is not called, since stop() was scheduled
             # before call_soon(world)
-            self.assertEqual(result, ["Hello"])
+            assert result == ["Hello"]
 
-            self.loop.run_forever()
-            self.assertEqual(result, ["Hello", "World"])
+            loop.run_forever()
+            assert result == ["Hello", "World"]
 
-    def test_close(self):
-        config = self.config
+    @pytest.mark.trio
+    async def test_close(self, loop, config):
         if not config.call_soon_check_closed:
             # http://bugs.python.org/issue22922 not implemented
             self.skipTest("call_soon() doesn't raise if the event loop is closed")
 
-        self.loop.close()
+        await loop.stop().wait()
 
         @config.asyncio.coroutine
         def test():
@@ -71,30 +75,27 @@ class CallbackTests(aiotest.TestCase):
 
         func = lambda: False
         coro = test()
-        self.addCleanup(coro.close)
+        try:
+            # operation blocked when the loop is closed
+            #with pytest.raises(RuntimeError):
+            #    loop.run_forever()
+            with pytest.raises(RuntimeError):
+                fut = config.asyncio.Future(loop=loop)
+                await loop.run_future(fut)
+            with pytest.raises(RuntimeError):
+                loop.call_soon(func)
+            with pytest.raises(RuntimeError):
+                loop.call_soon_threadsafe(func)
+            with pytest.raises(RuntimeError):
+                loop.call_later(1.0, func)
+            with pytest.raises(RuntimeError):
+                loop.call_at(loop.time() + .0, func)
+            with pytest.raises(RuntimeError):
+                loop.run_in_executor(None, func)
+            with pytest.raises(RuntimeError):
+                await loop.run_coroutine(coro)
+            with pytest.raises(RuntimeError):
+                loop.add_signal_handler(signal.SIGTERM, func)
+        finally:
+            coro.close()
 
-        # operation blocked when the loop is closed
-        with self.assertRaises(RuntimeError):
-            self.loop.run_forever()
-        with self.assertRaises(RuntimeError):
-            fut = config.asyncio.Future(loop=self.loop)
-            self.loop.run_until_complete(fut)
-        with self.assertRaises(RuntimeError):
-            self.loop.call_soon(func)
-        with self.assertRaises(RuntimeError):
-            self.loop.call_soon_threadsafe(func)
-        with self.assertRaises(RuntimeError):
-            self.loop.call_later(1.0, func)
-        with self.assertRaises(RuntimeError):
-            self.loop.call_at(self.loop.time() + .0, func)
-        with self.assertRaises(RuntimeError):
-            self.loop.run_in_executor(None, func)
-        with self.assertRaises(RuntimeError):
-            self.loop.create_task(coro)
-        with self.assertRaises(RuntimeError):
-            self.loop.add_signal_handler(signal.SIGTERM, func)
-
-
-if __name__ == '__main__':
-    import unittest
-    unittest.main()
