@@ -201,8 +201,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
     async def run_future(self, future):
         """Wait for an asyncio future/coroutine from Trio code.
 
-        Cancelling the (current or explicit) Trio scope will
-        cancel the future/coroutine.
+        Cancelling the current Trio scope will cancel the future/coroutine.
 
         Cancelling the future/coroutine will cause an ``asyncio.CancelledError``.
         """
@@ -480,7 +479,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
 
     def _cancel_timers(self):
         for tm in self._timers:
-            tm._cancel()
+            tm.cancel()
         self._timers.clear()
 
     # Trio-based main loop

@@ -23,18 +23,20 @@ class SomeThing:
         return 4
 
 
-class AdaptTests(aiotest.TestCase):
-    def test_asyncio_trio(self):
+class TestAdapt(aiotest.TestCase):
+    @pytest.mark.trio
+    async def test_asyncio_trio(self, loop):
         """Call asyncio from trio"""
 
-        sth = SomeThing(self.loop)
-        res = self.loop.run_until_complete(sth.dly_trio())
+        sth = SomeThing(loop)
+        res = await loop.run_asyncio(sth.dly_trio)
         assert res == 8
         assert sth.flag == 2
 
-    def test_trio_asyncio(self):
-        sth = SomeThing(self.loop)
-        res = self.loop.run_task(sth.dly_asyncio)
+    @pytest.mark.trio
+    async def test_trio_asyncio(self, loop):
+        sth = SomeThing(loop)
+        res = await sth.dly_asyncio()
         assert res == 4
         assert sth.flag == 1
 
