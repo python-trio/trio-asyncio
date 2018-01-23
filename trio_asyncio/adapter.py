@@ -23,9 +23,9 @@ __all__ = ['trio2aio','aio2trio']
 def trio2aio(loop='loop'):
     def adapter(proc):
         @wraps(proc)
-        async def call(self, *args, **kwargs):
+        async def call(self, *args):
             loop_ = getattr(self, loop)
-            return await loop_.call_asyncio(proc, self, *args, **kwargs)
+            return await loop_.run_asyncio(proc, self, *args)
         return call
     if callable(loop):
         proc,loop = loop,'loop'
@@ -37,9 +37,9 @@ def trio2aio(loop='loop'):
 def aio2trio(loop='loop'):
     def adapter(proc):
         @wraps(proc)
-        async def call(self, *args, **kwargs):
+        async def call(self, *args):
             loop_ = getattr(self, loop)
-            return await loop_.call_trio(proc, self, *args, **kwargs)
+            return await loop_.run_trio(proc, self, *args)
         return call
     if callable(loop):
         proc,loop = loop,'loop'
