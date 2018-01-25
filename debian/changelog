@@ -1,14 +1,15 @@
 trio-asyncio (0.3-2) smurf; urgency=medium
 
-  * foo
-
- -- Matthias Urlichs <matthias@urlichs.de>  Thu, 25 Jan 2018 12:00:22 +0100
-
-trio-asyncio (0.3-1) smurf; urgency=low
-
   * source package automatically created by stdeb 0.8.5
 
  -- Matthias Urlichs <matthias@urlichs.de>  Thu, 25 Jan 2018 12:00:10 +0100
+
+trio-asyncio (0.3-1) unstable; urgency=medium
+
+  * Version 0.3
+  * added trio2aio and aio2trio decorators
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Tue, 17 Oct 2017 12:57:23 +0200
 
 trio-asyncio (0.2-2) unstable; urgency=medium
 

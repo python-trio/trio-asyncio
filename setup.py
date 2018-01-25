@@ -55,7 +55,7 @@ setup(
     description="A re-implementation of the asyncio mainloop on top of Trio",
     long_description=LONG_DESC,
     author="Matthias Urlichs",
-    author_email="<matthias@urlichs.de>",
+    author_email="matthias@urlichs.de",
     url="https://github.com/smurfix/trio-asyncio",
     license="MIT -or- Apache License 2.0",
     packages=find_packages(),
