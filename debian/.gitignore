@@ -1,6 +1,6 @@
 /files
 /*.log
 /*.debhelper
-/*.debhelper-build-stamp
+/debhelper-build-stamp
 /*.substvars
 /python3-trio-asyncio
