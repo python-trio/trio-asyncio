@@ -76,12 +76,10 @@ class TestCallback(aiotest.TestCase):
         func = lambda: False
         coro = test()
         try:
-            # operation blocked when the loop is closed
+            # no longer depends on the loop
             #with pytest.raises(RuntimeError):
-            #    loop.run_forever()
-            with pytest.raises(RuntimeError):
-                fut = config.asyncio.Future(loop=loop)
-                await loop.run_future(fut)
+            #    fut = config.asyncio.Future(loop=loop)
+            #    await loop.run_future(fut)
             with pytest.raises(RuntimeError):
                 loop.call_soon(func)
             with pytest.raises(RuntimeError):
