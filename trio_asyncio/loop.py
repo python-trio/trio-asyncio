@@ -172,14 +172,17 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
     _stopped = None
 
     # required by asyncio
-    _closed = False
+    _closed = True
 
-    def __init__(self, nursery):
+    # Start sub-tasks in here
+    _nursery = None
+
+    # Is this loop running in as thread?
+    _thread = None
+
+    def __init__(self, close_files=None):
         # Processing queue
         self._q = trio.Queue(9999)
-
-        # Nursery
-        self._nursery = nursery
 
         # which files to close?
         self._close_files = set()
@@ -196,6 +199,9 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
 
         # we do our own timeout handling
         self._timers = []
+
+        # Marker whether the loop is actually running
+        self._stopped = trio.Event()
 
     def time(self):
         """Use Trio's idea of the current time.
@@ -467,28 +473,46 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
                     if not handle._cancelled:  # pragma: no branch
                         if handle._scope is not None:
                             handle._scope.cancel()
+            if fd in self._close_files:
+                os.close(fd)
 
     def _cancel_timers(self):
         for tm in self._timers:
             tm.cancel()
         self._timers.clear()
 
+    def autoclose(self, fd):
+        if hasattr(fd,'fileno'):
+            fd = fd.fileno()
+        self._close_files.add(fd)
+
+    def no_autoclose(self, fd):
+        if hasattr(fd,'fileno'):
+            fd = fd.fileno()
+        self._close_files.remove(fd)
+
     # Trio-based main loop
+
+    async def _main_loop_init(self, nursery):
+        if self._nursery is not None:
+            raise RuntimeError("You can't enter a loop twice")
+        self._nursery = nursery
+
+        self._stopping = False
+        self._stopped.clear()
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """This is the Trio replacement of the asyncio loop's main loop.
 
         Do not call this directly; use ``async with trio_asyncio.open_loop()`` instead.
         """
-        self._stopping = False
-        self._stopped = trio.Event()
+
+        self._task = trio.hazmat.current_task()
+        self._token = trio.hazmat.current_trio_token()
+
+        task_status.started()
 
         try:
-            self._task = trio.hazmat.current_task()
-            self._token = trio.hazmat.current_trio_token()
-
-            task_status.started()
-
             while True:
                 obj = None
                 if self._timers:
@@ -523,19 +547,24 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
                     await self._nursery.start(obj._call_async)
 
         finally:
-            self._stopping = True # it's false if there was an error
-
-            # Kill off open work
-            self._cancel_fds()
-            self._cancel_timers()
-
-            self._nursery = None
-            self._task = None
-
             self._stopped.set()
-            self.close()
+            if not self._thread:
+                await self._main_loop_exit()
 
+    async def _main_loop_exit(self):
+        if self._closed:
+            return
+        self._stopped.set()
+        self._stopping = True
 
+        # Kill off open work
+        self._cancel_fds()
+        self._cancel_timers()
+
+        self._nursery = None
+        self._task = None
+
+        self.close()
 
     def run_forever(self):
         """You cannot call into trio_asyncio from a non-async context.
@@ -620,17 +649,22 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
 @async_generator
 async def open_loop():
     async with trio.open_nursery() as nursery:
-        loop = TrioEventLoop(nursery)
+        old_loop = asyncio.get_event_loop()
+        loop = TrioEventLoop()
         try:
+            loop._closed = False
             asyncio.set_event_loop(loop)
+            await loop._main_loop_init(nursery)
             await nursery.start(loop._main_loop)
             await yield_(loop)
         finally:
             try:
                 await loop.stop().wait()
             finally:
-                asyncio.set_event_loop(None)
+                await loop._main_loop_exit()
                 loop.close()
+                asyncio.set_event_loop(old_loop)
+                nursery.cancel_scope.cancel()
 
 async def run_asyncio(proc, *args):
     loop = asyncio.get_event_loop()
@@ -672,4 +706,11 @@ def run_trio_task(proc, *args):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     loop.run_trio_task(proc, *args)
 
+class SyncTrioPolicy(TrioPolicy):
+    @property
+    def _loop_factory(self):
+        from .sync import SyncTrioEventLoop
+        return SyncTrioEventLoop
+
 asyncio.set_event_loop_policy(TrioPolicy())
+

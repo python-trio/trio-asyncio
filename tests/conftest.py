@@ -23,14 +23,6 @@ async def loop(request,nursery):
             yield loop
         finally:
             await loop.stop().wait()
-            ## check that the loop really is idle
-            #if loop._q.qsize():
-            #    import pdb;pdb.set_trace()
-            #    assert loop._q.qsize() == 0
-            assert not loop._timers
-            if not loop.is_closed():
-                await trio._core.wait_all_tasks_blocked()
-            loop.close()
 
 
 # FIXME: split off into a package (or just make part of trio's public
