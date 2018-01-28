@@ -7,23 +7,15 @@
 import pytest
 import inspect
 
-from trio._core.tests.conftest import trio_test, MockClock
-
-import trio
 import trio_asyncio
-import asyncio
-
 
 @pytest.fixture(scope="function", autouse=True)
 async def loop(request,nursery):
-
     async with trio_asyncio.open_loop() as loop:
-
         try:
             yield loop
         finally:
             await loop.stop().wait()
-
 
 # FIXME: split off into a package (or just make part of trio's public
 # interface?), with config file to enable? and I guess a mark option too; I
