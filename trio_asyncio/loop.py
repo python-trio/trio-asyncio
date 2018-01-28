@@ -181,6 +181,9 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         # Nursery
         self._nursery = nursery
 
+        # which files to close?
+        self._close_files = set()
+
         # set up
         super().__init__(_TrioSelector())
 
@@ -221,7 +224,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         @scope: see ``run_future``.
         """
         f = asyncio.ensure_future(proc(*args), loop=self)
-        return await self.run_future(f)
+        return await self.run_coroutine(f)
 
     def run_trio(self, proc, *args):
         """Call an asynchronous Trio function from asyncio.
@@ -230,6 +233,8 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
 
         Cancelling the future will cancel the Trio task running your
         function, or prevent it from starting if that is still possible.
+
+        You need to handle errors yourself.
         """
         self._check_closed()
         f = asyncio.Future(loop=self)
@@ -241,7 +246,18 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         f.add_done_callback(h._cb_future_cancel)
         return f
 
+    def run_trio_task(self, proc, *args):
+        """Call an asynchronous Trio function from asyncio.
+
+        This method starts the task in the background and returns immediately.
+        It does not return a value.
+
+        An uncaught error will propagate to, and terminate, the trio-asyncio loop.
+        """
+        self._nursery.start_soon(proc, *args)
+
     async def __run_trio(self, h):
+        """Helper for copying the result of a task to a future"""
         f, proc, *args = h._args
         if f.cancelled():  # pragma: no cover
             return
@@ -527,8 +543,11 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         """
         raise RuntimeError("replace with 'await loop.wait_stopped()'")
 
-    def run_until_complete(self):
-        raise RuntimeError("replace with 'await loop.wait_stopped()'")
+    def run_until_complete(self, *x):
+        """You cannot call into trio_asyncio from a non-async context.
+        Use 'await loop.run_asyncio()' instead.
+        """
+        raise RuntimeError("replace with 'await loop.run_asyncio(...)'")
         
     async def wait_stopped(self):
         await self._stopped.wait()
@@ -555,6 +574,12 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
             raise RuntimeError("You need to stop the loop before closing it")
 
         super().close()
+
+    def __aenter__():
+        raise RuntimeError("You need to use 'async with open_loop()'.")
+
+    def __aexit__(a,b,c):
+        raise RuntimeError("You need to use 'async with open_loop()'.")
 
     def __enter__():
         raise RuntimeError("You need to use 'async with'.")
@@ -607,11 +632,11 @@ async def open_loop():
                 asyncio.set_event_loop(None)
                 loop.close()
 
-async def run_asyncio(proc, *args, scope=None):
+async def run_asyncio(proc, *args):
     loop = asyncio.get_event_loop()
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
-    return await loop.run_asyncio(proc, *args, scope=scope)
+    return await loop.run_asyncio(proc, *args)
 
 async def run_coroutine(fut, scope=None):
     loop = asyncio.get_event_loop()
@@ -626,10 +651,25 @@ def run_trio(proc, *args):
 
     Cancelling the future will cancel the Trio task running your
     function, or prevent it from starting if that is still possible.
+
+    You need to handle errors yourself.
     """
     loop = asyncio.get_event_loop()
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return loop.run_trio(proc, *args)
+
+def run_trio_task(proc, *args):
+    """Call an asynchronous Trio function from asyncio.
+
+    This method starts the task in the background and returns immediately.
+    It does not return a value.
+
+    An uncaught error will propagate to, and terminate, the trio-asyncio loop.
+    """
+    loop = asyncio.get_event_loop()
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop.run_trio_task(proc, *args)
 
 asyncio.set_event_loop_policy(TrioPolicy())
