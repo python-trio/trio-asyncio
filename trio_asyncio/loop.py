@@ -290,7 +290,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         self._check_closed()
         assert delay >= 0, delay
         h = TimerHandle(delay + self.time(), callback, args, self, True)
-        self._q.put_nowait(h)
+        self._queue_handle(h)
         return h
 
     def _queue_handle(self, handle):
@@ -363,7 +363,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
 
     async def _sync(self):
         w = trio.Event()
-        self._q.put_nowait(w)
+        self._queue_handle(w)
         await w.wait()
 
     def add_signal_handler(self, sig, callback, *args):
@@ -550,6 +550,7 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
             self._stopped.set()
             if not self._thread:
                 await self._main_loop_exit()
+                self.close()
 
     async def _main_loop_exit(self):
         if self._closed:
@@ -563,8 +564,6 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
 
         self._nursery = None
         self._task = None
-
-        self.close()
 
     def run_forever(self):
         """You cannot call into trio_asyncio from a non-async context.
@@ -611,10 +610,10 @@ class TrioEventLoop(asyncio.SelectorEventLoop):
         raise RuntimeError("You need to use 'async with open_loop()'.")
 
     def __enter__():
-        raise RuntimeError("You need to use 'async with'.")
+        raise RuntimeError("You need to use 'async with open_loop()', or a SyncTrioEventLoop.")
 
     def __exit__(a,b,c):
-        raise RuntimeError("You need to use 'async with'.")
+        raise RuntimeError("You need to use 'async with open_loop()', or a SyncTrioEventLoop.")
 
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
