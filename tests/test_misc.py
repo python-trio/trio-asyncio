@@ -1,4 +1,3 @@
-import unittest
 import pytest
 import trio_asyncio
 import asyncio
