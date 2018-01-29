@@ -12,7 +12,7 @@ class TestCallback(aiotest.TestCase):
             loop.stop()
 
         loop.call_soon(hello_world, loop)
-        await loop.wait_stopped()
+        await loop.stop().wait()
         assert result == ['Hello World']
 
     @pytest.mark.trio
@@ -34,8 +34,7 @@ class TestCallback(aiotest.TestCase):
         # event loop, when func() is done.
         assert result == ['[]', 'yes']
 
-    @pytest.mark.skip("can't restart the loop")
-    def test_soon_stop_soon(self):
+    def test_soon_stop_soon(self, sync_loop):
         result = []
 
         def hello():
@@ -43,22 +42,20 @@ class TestCallback(aiotest.TestCase):
 
         def world():
             result.append("World")
-            loop.stop()
+            sync_loop.stop()
 
-        loop.call_soon(hello)
-        loop.stop()
-        loop.call_soon(world)
+        sync_loop.call_soon(hello)
+        sync_loop.stop()
+        sync_loop.call_soon(world)
 
         if False: # config.stopping:
-            loop.run_forever()
             assert result == ["Hello", "World"]
         else:
-            loop.run_forever()
             # ensure that world() is not called, since stop() was scheduled
             # before call_soon(world)
             assert result == ["Hello"]
 
-            loop.run_forever()
+            sync_loop.run_forever()
             assert result == ["Hello", "World"]
 
     @pytest.mark.trio
@@ -68,6 +65,7 @@ class TestCallback(aiotest.TestCase):
             self.skipTest("call_soon() doesn't raise if the event loop is closed")
 
         await loop.stop().wait()
+        loop.close()
 
         @config.asyncio.coroutine
         def test():
@@ -80,19 +78,23 @@ class TestCallback(aiotest.TestCase):
             #with pytest.raises(RuntimeError):
             #    fut = config.asyncio.Future(loop=loop)
             #    await loop.run_future(fut)
+            with pytest.raises(RuntimeError, match='Event loop is closed'):
+                loop.run_until_complete(None)
             with pytest.raises(RuntimeError):
+                loop.run_forever()
+            with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.call_soon(func)
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.call_soon_threadsafe(func)
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.call_later(1.0, func)
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.call_at(loop.time() + .0, func)
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.run_in_executor(None, func)
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError, match='Event loop is closed'):
                 await loop.run_coroutine(coro)
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.add_signal_handler(signal.SIGTERM, func)
         finally:
             coro.close()

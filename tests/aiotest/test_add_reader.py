@@ -2,18 +2,20 @@ from __future__ import absolute_import
 from tests.aiotest import socketpair
 from tests import aiotest
 import pytest
+import trio
 
 class TestAddReader:
     @pytest.mark.trio
     async def test_add_reader(self, loop):
         result = {'received': None}
         rsock, wsock = socketpair()
+        ready = trio.Event()
         try:
             def reader():
                 data = rsock.recv(100)
                 result['received'] = data
                 loop.remove_reader(rsock)
-                loop.stop()
+                ready.set()
 
             def writer():
                 loop.remove_writer(wsock)
@@ -22,7 +24,7 @@ class TestAddReader:
             loop.add_reader(rsock, reader)
             loop.add_writer(wsock, writer)
 
-            await loop.wait_stopped()
+            await ready.wait()
             assert result['received'] == b'abc'
 
         finally:

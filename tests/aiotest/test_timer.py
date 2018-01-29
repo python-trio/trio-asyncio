@@ -9,6 +9,7 @@ class TestTimer(aiotest.TestCase):
         result = []
         delay = 0.050
         count = 3
+        h = trio.Event()
 
         def display_date(end_time, loop):
             if not end_time:
@@ -17,10 +18,10 @@ class TestTimer(aiotest.TestCase):
             if (loop.time() + delay) < end_time[0]:
                 loop.call_later(delay, display_date, end_time, loop)
             else:
-                loop.stop()
+                loop.stop(h)
 
         loop.call_soon(display_date, [], loop)
-        await loop.wait_stopped()
+        await h.wait()
 
         assert len(result) == count, result
 

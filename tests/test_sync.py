@@ -42,7 +42,10 @@ class TestSync:
 
         loop = asyncio.new_event_loop()
         with pytest.raises(RuntimeError) as res:
-            loop.run_until_complete(foo())
+            try:
+                loop.run_until_complete(foo())
+            finally:
+                pass
         if res.value.args[0] != "bar":
             raise res.value
         loop.close()

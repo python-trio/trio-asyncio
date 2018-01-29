@@ -132,21 +132,32 @@ You don't need to pass around the ``loop`` argument since trio remembers it
 in its task structure: ``asyncio.get_event_loop()`` always works while
 your program is executing an ``async with open_loop():`` block.
 
-The Trio equivalent to ``loop.run_forever()`` is ``await loop.wait_stopped()``.
+There is no Trio equivalent to ``loop.run_forever()``. The loop terminates
+when you leave the ``async with`` block; it cannot be halted or restarted.
+
+This mode is called an "async loop" or "asynchronous loop" because it is
+started from an async (Trio) context.
 
 Compatibility mode
 ------------------
 
-You still can do things "the asyncio way": the code in the previous section
-which you should replace still works. However, behind the scenes a
-separate thread executes the Trio main loop. This thread runs in lock-step
-with the one that calls ``loop.run_forever()`` or
-``loop.run_until_complete()`` and signals etc. get
-delegated, so there should be no concurrency issues.
+You still can do things "the asyncio way": the code from the previous
+section (which you should replace) still works. However, behind the scenes
+a separate thread executes the Trio main loop. It runs in lock-step with
+the thread that calls ``loop.run_forever()`` or
+``loop.run_until_complete(coro)``. Signals etc. get
+delegated. Thus, there should be no concurrency issues.
 
-However, you may still experience problems, particularly if your code (or
+Caveat: you may still experience problems, particularly if your code (or
 a library you're calling) does not expect to suddenly run in a different
 thread.
+
+``loop.stop()`` tells the loop to suspend itself. You can restart it
+with another call to ``loop.run_forever()`` or ``loop.run_until_complete(coro)``
+just as with a regular asyncio loop.
+
+This mode is called a "sync loop" or "synchronous loop" because it is
+started from a traditional synchronous Python context.
 
 Stopping
 --------
@@ -155,6 +166,7 @@ You can call ``loop.stop()``, or simply leave the ``async with`` block.
 
 Unlike ``trio.run()``, which waits for all running tasks to complete,
 ``open_loop()`` will stop everything within its context as it terminates.
+
 
 ---------------
  Cross-calling

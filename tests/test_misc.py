@@ -19,6 +19,7 @@ class TestMisc:
                     loop.close()
                 loop.call_soon(close_no_stop)
 
+                await trio.sleep(0.1)
                 await loop.wait_closed()
 
     async def test_err(self, loop):

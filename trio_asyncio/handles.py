@@ -1,4 +1,4 @@
-
+import trio
 import asyncio
 from asyncio.events import _format_callback, _get_function_source
 

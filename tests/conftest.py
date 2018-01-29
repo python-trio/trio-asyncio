@@ -6,7 +6,7 @@
 
 import pytest
 import inspect
-
+import asyncio
 import trio_asyncio
 
 @pytest.fixture(scope="function", autouse=True)
@@ -16,6 +16,13 @@ async def loop(request,nursery):
             yield loop
         finally:
             await loop.stop().wait()
+
+@pytest.fixture
+def sync_loop():
+    loop = asyncio.new_event_loop()
+    with loop:
+        yield loop
+
 
 # FIXME: split off into a package (or just make part of trio's public
 # interface?), with config file to enable? and I guess a mark option too; I
