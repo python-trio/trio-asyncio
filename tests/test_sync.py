@@ -21,12 +21,17 @@ class TestSync:
         async def bar():
             return "baz"
 
+        print("_A")
         loop = asyncio.new_event_loop()
+        print("_B")
         res = loop.run_until_complete(foo())
         assert res == "bar"
+        print("_C")
         res = loop.run_until_complete(bar())
         assert res == "baz"
+        print("_close")
         loop.close()
+        print("_closed")
 
     def test_basic_errloop(self, sync_loop):
         async def foo():

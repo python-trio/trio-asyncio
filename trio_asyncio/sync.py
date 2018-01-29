@@ -54,6 +54,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
     def _queue_handle(self, handle):
         self._check_closed()
         def put(self,handle):
+            print("ENQ 1",handle)
             self._some_deferred -= 1
             self._q.put_nowait(handle)
             
@@ -64,13 +65,16 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         # processed) through self._token, any other requestss also must be
         # sent that way, otherwise they'd overtake each other.
         if self._token is not None and (self._some_deferred or threading.current_thread() != self._thread):
+            print("ENQ DEFER",handle)
             self._some_deferred += 1
             self._token.run_sync_soon(put,self, handle)
         else:
+            print("ENQ 2",handle)
             self._q.put_nowait(handle)
         return handle
 
     def run_forever(self):
+        print("RF A")
         self.__start_loop()
         try:
             #if self._stop_count == 0:
@@ -80,6 +84,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             #if self._stop_count > 0:
                 #self._stop_count -= 1
 
+        print("RF C")
 
     def run_until_complete(self, future):
         """Run until the Future is done.
@@ -102,13 +107,16 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
     def __run_in_thread(self, async_fn, *args, _start_loop=True):
         self._check_closed()
+        print("RIT RUN",async_fn,args)
         if not self._thread.is_alive():
             raise RuntimeError("The Trio thread is not running")
         self.__blocking_job_queue.put((async_fn, args, _start_loop))
         res = self.__blocking_result_queue.get()
+        print("RIT HAS",res)
         return res.unwrap()
 
     def __start_loop(self):
+        print("STOP CL 1")
         self._check_closed()
 
         if self._thread is None:
@@ -120,6 +128,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
     async def __trio_thread_main(self):
         # The non-context-manager equivalent of open_loop()
+        print("ON")
         async with trio.open_nursery() as nursery:
             asyncio.set_event_loop(self)
             await self._main_loop_init(nursery)
@@ -127,19 +136,25 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
             while not self._closed:
                 # This *blocks*
+                print("BLOCK")
                 req = self.__blocking_job_queue.get()
                 if req is None:
                     break
                 async_fn, args, start_loop = req
+                print("WORK",async_fn,args)
                 if start_loop and self._stopped.is_set():
                     await nursery.start(self._main_loop)
                     
                 result = await trio.hazmat.Result.acapture(async_fn, *args)
+                print("WORKED",result)
                 self.__blocking_result_queue.put(result)
+            print("OFF 1")
             self.stop()
             await self.wait_stopped()
             await self._main_loop_exit()
             self.__blocking_result_queue.put(None)
+            print("OFF 8")
+        print("OFF 9")
 
     def __enter__(self):
         if self._thread is not None:

@@ -498,6 +498,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._nursery = nursery
 
         self._stopping = False
+        print("STOP CL 2")
         self._stopped.clear()
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
@@ -514,6 +515,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         task_status.started()
         self._stopped.clear()
 
+        print("LOOP ON")
         try:
             while True:
                 obj = None
@@ -526,6 +528,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     timeout = math.inf
 
                 if obj is None:
+                    print("LOOP WAIT",timeout)
                     with trio.move_on_after(timeout) as cancel_scope:
                         obj = await self._q.get()
                     if cancel_scope.cancel_called: 
@@ -533,19 +536,24 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                         # so restart from the beginning.
                         continue
 
+                    print("LOOP HAS",obj)
                     if isinstance(obj, trio.Event):
                         # Events are used for synchronization.
                         # Simply set them.
                         if obj is self._stopped:
+                            print("STOP PED")
                             break
                         obj.set()
                         continue
 
                     if isinstance(obj, TimerHandle):
+                        print("LOOP LATER",obj._when-self.time())
                         # A TimerHandle is added to the list of timers.
                         heapq.heappush(self._timers, obj)
                         continue
 
+                else:
+                    print("LOOP DO",obj)
                 assert isinstance(obj, asyncio.Handle)
                 # Hopefully one of ours
                 # but it might be a standard asyncio handle
@@ -557,16 +565,23 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 # Don't go through the expensive nursery dance
                 # if this is a sync function.
                 if getattr(obj, '_is_sync', True):
+                    print("LOOP SYNC",obj)
                     obj._callback(*obj._args)
                 else:
+                    print("LOOP ASYNC",obj)
                     await self._nursery.start(obj._call_async)
 
         except StopIteration:
             # raised by .stop_me() to interrupt the loop
+            print("STOP ITER")
             pass
 
+        except Exception:
+            logger.exception("Loop died!") # print() - remove me
+            raise
         finally:
             # Signal that the loop is no longer running
+            print("LOOP OFF")
             self._stopped.set()
 
     async def _main_loop_exit(self):
@@ -574,6 +589,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if self._closed:
             return
 
+        print("STOP SE 2")
         self.stop()
         await self.wait_stopped()
 
