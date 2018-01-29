@@ -2,6 +2,7 @@ import math
 import trio
 import heapq
 import asyncio
+import signal
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
@@ -77,6 +78,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     # All sub-tasks are started in here
     _nursery = None
+
+    # (Trio) task this loop is running in
+    _task = None
 
     # (threading) Thread this loop is running in
     _thread = None
@@ -533,6 +537,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                         # so restart from the beginning.
                         continue
 
+                    print("LOOP HAS",obj)
                     if isinstance(obj, trio.Event):
                         # Events are used for synchronization.
                         # Simply set them.

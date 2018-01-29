@@ -3,4 +3,5 @@
 from .version import __version__
 
 from .loop import *
+from .sync import *
 from .adapter import *

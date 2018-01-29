@@ -81,6 +81,11 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                 #self._stop_count -= 1
 
 
+    def time(self):
+        if self._task is None:
+            self.__start_loop()
+        return super().time()
+
     def run_until_complete(self, future):
         """Run until the Future is done.
 
@@ -140,6 +145,10 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             await self.wait_stopped()
             await self._main_loop_exit()
             self.__blocking_result_queue.put(None)
+
+    def add_signal_handler(self, sig, callback, *args):
+        self.__start_loop()
+        return super().add_signal_handler(sig, callback, *args)
 
     def __enter__(self):
         if self._thread is not None:
