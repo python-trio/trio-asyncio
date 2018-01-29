@@ -111,9 +111,9 @@ automatically when that procedure exits.
 Asyncio main loop
 +++++++++++++++++
 
-Doesn't work. Sorry.
+Well … does work. Sort of.
 
-You need to transform this code::
+What you really want to do is to transform this code::
 
     def main():
         loop = asyncio.get_event_loop()
@@ -133,6 +133,20 @@ in its task structure: ``asyncio.get_event_loop()`` always works while
 your program is executing an ``async with open_loop():`` block.
 
 The Trio equivalent to ``loop.run_forever()`` is ``await loop.wait_stopped()``.
+
+Compatibility mode
+------------------
+
+You still can do things "the asyncio way": the code in the previous section
+which you should replace still works. However, behind the scenes a
+separate thread executes the Trio main loop. This thread runs in lock-step
+with the one that calls ``loop.run_forever()`` or
+``loop.run_until_complete()`` and signals etc. get
+delegated, so there should be no concurrency issues.
+
+However, you may still experience problems, particularly if your code (or
+a library you're calling) does not expect to suddenly run in a different
+thread.
 
 Stopping
 --------
