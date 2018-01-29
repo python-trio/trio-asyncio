@@ -20,6 +20,35 @@ class TrioEventLoop(BaseTrioEventLoop):
         self._q.put_nowait(handle)
         return handle
 
+    def default_exception_handler(self, context):
+        """Default exception handler.
+
+        This default handler simply re-raises an exception if there is one.
+
+        Rationale:
+
+        In traditional asyncio, there frequently is no context which the
+        exception is supposed to affect.
+
+        Trio-asyncio, however, collects the loop and all its tasks in a
+        nursery. Thus the context which must be aborted, and thus in which
+        the error needs to be raised, is known / can easily be controlled
+        by the programmer.
+
+        For maximum compatibility, this default handler is only used in
+        asynchronous loops.
+        """
+        # TODO: add context.get('handle') to the exception
+
+        exception = context.get('exception')
+        if exception is None:
+            message = context.get('message')
+            if not message:
+                message = 'Unhandled error in event loop'
+            raise RuntimeError(message)
+        else:
+            raise exception
+
     def stop(self, waiter=None):
         """Halt the main loop.
 
@@ -38,13 +67,13 @@ class TrioEventLoop(BaseTrioEventLoop):
         def stop_me():
             waiter.set()
             raise StopIteration
-        
+
         if self._stopped.is_set():
             waiter.set()
         else:
             self._queue_handle(Handle(stop_me,(),self,True))
         return waiter
-    
+
     def _close(self):
         """Hook for actually closing down things."""
         if not self._stopped.is_set():
