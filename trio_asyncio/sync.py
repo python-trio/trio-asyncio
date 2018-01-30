@@ -8,6 +8,9 @@ from functools import partial
 from .base import BaseTrioEventLoop
 from .handles import Handle
 
+async def _sync(proc, *args):
+    return proc(*args)
+
 class SyncTrioEventLoop(BaseTrioEventLoop):
     """
     This is the "compatibility mode" implementation of the Trio/asyncio
@@ -76,6 +79,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
     def run_forever(self):
         print("RF A")
         self.__start_loop()
+        if self._thread == threading.current_thread():
+            raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
         try:
             #if self._stop_count == 0:
             self.__run_in_thread(self.wait_stopped)
@@ -83,14 +88,30 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             pass
             #if self._stop_count > 0:
                 #self._stop_count -= 1
-
         print("RF C")
+
+    def is_running(self):
+        if self._closed:
+            return False
+        return self._thread is not None
 
     def time(self):
         if self._task is None:
             self.__start_loop()
         return super().time()
 
+    def _add_reader(self, fd, callback, *args):
+        if self._thread is None or self._thread == threading.current_thread():
+            super()._add_reader(fd, callback, *args)
+        else:
+            self.__run_in_thread(_sync, super()._add_reader, fd, callback, *args)
+
+    def _add_writer(self, fd, callback, *args):
+        if self._thread is None or self._thread == threading.current_thread():
+            super()._add_writer(fd, callback, *args)
+        else:
+            self.__run_in_thread(_sync, super()._add_writer, fd, callback, *args)
+        
     def run_until_complete(self, future):
         """Run until the Future is done.
 
@@ -104,6 +125,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         """
 
         self.__start_loop()
+        if self._thread == threading.current_thread():
+            raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
         try:
             return self.__run_in_thread(self.run_coroutine, future)
         finally:
