@@ -86,6 +86,18 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             self.__start_loop()
         return super().time()
 
+    def _add_reader(self, fd, callback, *args):
+        if self._thread is None or self._thread == threading.current_thread():
+            super()._add_reader(fd, callback, *args)
+        else:
+            self.__run_in_thread(super()._add_reader, fd, callback, *args)
+
+    def _add_writer(self, fd, callback, *args):
+        if self._thread is None or self._thread == threading.current_thread():
+            super()._add_writer(fd, callback, *args)
+        else:
+            self.__run_in_thread(super()._add_writer, fd, callback, *args)
+        
     def run_until_complete(self, future):
         """Run until the Future is done.
 
