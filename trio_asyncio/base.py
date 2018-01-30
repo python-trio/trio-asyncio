@@ -9,6 +9,8 @@ from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 from .handles import *
 from .util import run_future
 
+from functools import partial
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,25 @@ __all__ = ['BaseTrioEventLoop']
 class _Clear:
     def clear(self):
         pass
+
+def h_raise(handle, exc):
+    """
+    Convince a handle to raise an error.
+
+    trio-asyncio enhanced handles have a method to do this
+    but asyncio's native handles don't. Thus we need to fudge things.
+    """
+    if hasattr(handle,'_raise'):
+        handle._raise(exc)
+        return
+    def _raise(exc):
+        raise exc
+    cb, handle._callback = handle._callback, _raise
+    ar, handle._args = handle._args, (exc,)
+    try:
+        handle._run()
+    finally:
+        handle._callback, handle._args = cb, ar
 
 class _TrioSelector(_BaseSelectorImpl):
     """A selector that hooks into a ``TrioEventLoop``.
@@ -107,6 +128,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         # Marker whether the loop is actually running
         self._stopped = trio.Event()
+        self._stopped.set()
 
     def __repr__(self):
         try:
@@ -393,6 +415,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     await trio.hazmat.wait_readable(fd)
                     handle._call_sync()
                     await self._sync()
+            except Exception as exc:
+                h_raise(handle,exc)
+                return
             finally:
                 handle._scope = None
 
@@ -444,6 +469,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     await trio.hazmat.wait_writable(fd)
                     handle._call_sync()
                     await self._sync()
+            except Exception as exc:
+                h_raise(handle,exc)
+                return
             finally:
                 handle._scope = None
 
@@ -497,13 +525,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     async def _main_loop_init(self, nursery):
         """Set up the loop's internals"""
-        if self._nursery is not None:
+        if self._nursery is not None or not self._stopped.is_set():
             raise RuntimeError("You can't enter a loop twice")
         self._nursery = nursery
-
-        self._stopping = False
-        print("STOP CL 2")
-        self._stopped.clear()
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """Run the loop by processing its event queue.

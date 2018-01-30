@@ -49,6 +49,20 @@ class _TrioHandle:
         if f.cancelled():
             self.cancel()
 
+    def _raise(self, exc):
+        """This is a copy of the exception handling in asyncio.events.Handle._run()
+        """
+        cb = _format_callback_source(self._callback, self._args)
+        msg = 'Exception in callback {}'.format(cb)
+        context = {
+            'message': msg,
+            'exception': exc,
+            'handle': self,
+        }
+        if self._source_traceback:
+            context['source_traceback'] = self._source_traceback
+        self._loop.call_exception_handler(context)
+
     def _repr_info(self):
         info = [self.__class__.__name__]
         if self._cancelled:
@@ -68,8 +82,7 @@ class _TrioHandle:
         assert self._is_sync
         if self._cancelled:
             return
-        res = self._callback(*self._args)
-        return res
+        self._run()
 
     async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
         assert not self._is_sync
@@ -80,10 +93,11 @@ class _TrioHandle:
             with trio.open_cancel_scope() as scope:
                 self._scope = scope
                 if self._is_sync is None:
-                    res = await self._callback(self)
+                    await self._callback(self)
                 else:
-                    res = await self._callback(*self._args)
-            return res
+                    await self._callback(*self._args)
+        except Exception as exc:
+            self._raise(exc)
         finally:
             self._scope = None
 
