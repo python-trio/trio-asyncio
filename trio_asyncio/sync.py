@@ -128,10 +128,41 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         if self._thread == threading.current_thread():
             raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
         try:
-            return self.__run_in_thread(self.run_coroutine, future)
+            return self.__run_in_thread(self._run_coroutine, future)
         finally:
             self.stop()
 
+    async def _run_coroutine(self, future):
+        """Helper for run_until_complete().
+
+        We need to make sure that a RuntimeError is raised if the loop is stopped
+        before the future completes.
+        """
+        done = trio.Event()
+        result = None
+        future = asyncio.ensure_future(future, loop=self)
+
+        def is_done(_):
+            nonlocal result
+
+            result = trio.hazmat.Result.capture(future.result)
+            done.set()
+        future.add_done_callback(is_done)
+
+        async def monitor_stop(task_status=trio.TASK_STATUS_IGNORED):
+            nonlocal result
+
+            task_status.started()
+            await self.wait_stopped()
+            result = trio.hazmat.Error(RuntimeError('Event loop stopped before Future completed.'))
+            done.set()
+
+        async with trio.open_nursery() as nursery:
+            await nursery.start(monitor_stop)
+            await done.wait()
+            future.remove_done_callback(is_done)
+            nursery.cancel_scope.cancel()
+            return result.unwrap()
 
     def __run_in_thread(self, async_fn, *args, _start_loop=True):
         self._check_closed()
