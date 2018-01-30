@@ -107,6 +107,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         # Marker whether the loop is actually running
         self._stopped = trio.Event()
+        self._stopped.set()
 
     def __repr__(self):
         try:
@@ -393,6 +394,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     await trio.hazmat.wait_readable(fd)
                     handle._call_sync()
                     await self._sync()
+            except Exception as exc:
+                handle._raise(exc)
+                return
             finally:
                 handle._scope = None
 
@@ -444,6 +448,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     await trio.hazmat.wait_writable(fd)
                     handle._call_sync()
                     await self._sync()
+            except Exception as exc:
+                handle._raise(exc)
+                return
             finally:
                 handle._scope = None
 
@@ -497,12 +504,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     async def _main_loop_init(self, nursery):
         """Set up the loop's internals"""
-        if self._nursery is not None:
+        if self._nursery is not None or not self._stopped.is_set():
             raise RuntimeError("You can't enter a loop twice")
         self._nursery = nursery
-
-        self._stopping = False
-        self._stopped.clear()
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """Run the loop by processing its event queue.
