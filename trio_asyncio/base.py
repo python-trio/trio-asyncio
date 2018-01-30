@@ -9,6 +9,8 @@ from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 from .handles import *
 from .util import run_future
 
+from functools import partial
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,25 @@ __all__ = ['BaseTrioEventLoop']
 class _Clear:
     def clear(self):
         pass
+
+def h_raise(handle, exc):
+    """
+    Convince a handle to raise an error.
+
+    trio-asyncio enhanced handles have a method to do this
+    but asyncio's native handles don't. Thus we need to fudge things.
+    """
+    if hasattr(handle,'_raise'):
+        handle._raise(exc)
+        return
+    def _raise(exc):
+        raise exc
+    cb, handle._callback = handle._callback, _raise
+    ar, handle._args = handle._args, (exc,)
+    try:
+        handle._run()
+    finally:
+        handle._callback, handle._args = cb, ar
 
 class _TrioSelector(_BaseSelectorImpl):
     """A selector that hooks into a ``TrioEventLoop``.
@@ -395,7 +416,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     handle._call_sync()
                     await self._sync()
             except Exception as exc:
-                handle._raise(exc)
+                h_raise(handle,exc)
                 return
             finally:
                 handle._scope = None
@@ -449,7 +470,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     handle._call_sync()
                     await self._sync()
             except Exception as exc:
-                handle._raise(exc)
+                h_raise(handle,exc)
                 return
             finally:
                 handle._scope = None
