@@ -562,7 +562,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                         # so restart from the beginning.
                         continue
 
-                    print("LOOP HAS",obj)
                     if isinstance(obj, trio.Event):
                         # Events are used for synchronization.
                         # Simply set them.
