@@ -9,8 +9,8 @@ import inspect
 import asyncio
 import trio_asyncio
 
-@pytest.fixture(scope="function", autouse=True)
-async def loop(request,nursery):
+@pytest.fixture
+async def loop():
     async with trio_asyncio.open_loop() as loop:
         try:
             yield loop
