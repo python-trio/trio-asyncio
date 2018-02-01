@@ -1,14 +1,17 @@
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
+import os
 import trio
 import asyncio
+import warnings
 
 import logging
 logger = logging.getLogger(__name__)
 
 from .util import run_future
 from .handles import *
+from .base import *
 from .async import *
 
 __all__ = ['open_loop', 'run_trio','run_future','run_coroutine','run_asyncio']
@@ -78,7 +81,68 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         self._trio_local._task = task
 
 class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
-    pass
+    def _init_watcher(self):
+        with asyncio.events._lock:
+            if self._watcher is None:  # pragma: no branch
+                self._watcher = TrioChildWatcher()
+                if isinstance(threading.current_thread(),
+                              threading._MainThread):
+                    self._watcher.attach_loop(self._trio_local._loop)
+
+        if self._watcher is not None and \
+            isinstance(threading.current_thread(), threading._MainThread):
+            self._watcher.attach_loop(loop)
+
+    def set_child_watcher(self, watcher):
+        if watcher is not None:
+            if not isinstance(watcher, TrioChildWatcher):
+                # raise RuntimeError("You must use a TrioChildWatcher here. Sorry.")
+                warnings.warn("You must use a TrioChildWatcher.")
+                loop = watcher._loop # ugh.
+                watcher.close()
+                watcher = TrioChildWatcher()
+                watcher.attach_loop(loop)
+        super().set_child_watcher(watcher)
+
+class TrioChildWatcher(asyncio.AbstractChildWatcher):
+    def __init__(self):
+        super().__init__()
+        self._callbacks = {} # pid => handler
+
+    def attach_loop(self, loop):
+        self._loop = loop
+
+    async def _waitpid(self, pid, callback, *args):
+        os.write(2,b"SIGI CALL_WAIT A\n")
+        returncode = await trio.wait_for_child(pid)
+        os.write(2,b"SIGI CALL_WAIT B\n")
+        callback(pid, returncode, *args)
+        os.write(2,b"SIGI CALL_WAIT C\n")
+
+    def add_child_handler(self, pid, callback, *args):
+        h = self._loop.run_trio(self._waitpid, pid, callback, *args)
+        self._callbacks[pid] = h
+
+    def remove_child_handler(self, pid):
+        h = self._callbacks.pop(pod, None)
+        if h is None:
+            return False
+        h.cancel()
+        return True
+
+    def close(self):
+        for pid in list(self._callbacks):
+            h = self._callbacks.pop(pid, None)
+            if h is None:
+                continue
+            h.cancel()
+        self._loop = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *tb):
+        self.close()
 
 async def run_asyncio(proc, *args):
     loop = asyncio.get_event_loop()
