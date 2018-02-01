@@ -113,11 +113,8 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher):
         self._loop = loop
 
     async def _waitpid(self, pid, callback, *args):
-        os.write(2,b"SIGI CALL_WAIT A\n")
         returncode = await trio.wait_for_child(pid)
-        os.write(2,b"SIGI CALL_WAIT B\n")
         callback(pid, returncode, *args)
-        os.write(2,b"SIGI CALL_WAIT C\n")
 
     def add_child_handler(self, pid, callback, *args):
         h = self._loop.run_trio(self._waitpid, pid, callback, *args)
