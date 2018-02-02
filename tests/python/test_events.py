@@ -1657,72 +1657,107 @@ class EventLoopTestsMixin:
     # older than 10.6 (Snow Leopard)
     @support.requires_mac_ver(10, 6)
     def test_bidirectional_pty(self):
+        print("XXXXX 01")
         master, read_slave = os.openpty()
+        print("XXXXX 03")
         write_slave = os.dup(read_slave)
+        print("XXXXX 05")
         tty.setraw(read_slave)
+        print("XXXXX 07")
 
         slave_read_obj = io.open(read_slave, 'rb', 0)
+        print("XXXXX 09")
         read_proto = MyReadPipeProto(loop=self.loop)
+        print("XXXXX 11")
         read_connect = self.loop.connect_read_pipe(lambda: read_proto,
                                                    slave_read_obj)
+        print("XXXXX 13")
         read_transport, p = self.loop.run_until_complete(read_connect)
+        print("XXXXX 15")
         self.assertIs(p, read_proto)
         self.assertIs(read_transport, read_proto.transport)
         self.assertEqual(['INITIAL', 'CONNECTED'], read_proto.state)
         self.assertEqual(0, read_proto.nbytes)
 
 
+        print("XXXXX 17")
         slave_write_obj = io.open(write_slave, 'wb', 0)
+        print("XXXXX 19")
         write_proto = MyWritePipeProto(loop=self.loop)
+        print("XXXXX 21")
         write_connect = self.loop.connect_write_pipe(lambda: write_proto,
                                                      slave_write_obj)
+        print("XXXXX 23")
         write_transport, p = self.loop.run_until_complete(write_connect)
+        print("XXXXX 25")
         self.assertIs(p, write_proto)
         self.assertIs(write_transport, write_proto.transport)
         self.assertEqual('CONNECTED', write_proto.state)
 
+        print("XXXXX 27")
         data = bytearray()
         def reader(data):
             chunk = os.read(master, 1024)
             data += chunk
             return len(data)
 
+        print("XXXXX 29")
         write_transport.write(b'1')
+        print("XXXXX 31")
         test_utils.run_until(self.loop, lambda: reader(data) >= 1, timeout=10)
+        print("XXXXX 33")
         self.assertEqual(b'1', data)
         self.assertEqual(['INITIAL', 'CONNECTED'], read_proto.state)
         self.assertEqual('CONNECTED', write_proto.state)
 
+        print("XXXXX 35")
         os.write(master, b'a')
+        print("XXXXX 37")
         test_utils.run_until(self.loop, lambda: read_proto.nbytes >= 1,
                              timeout=10)
+        print("XXXXX 39")
         self.assertEqual(['INITIAL', 'CONNECTED'], read_proto.state)
         self.assertEqual(1, read_proto.nbytes)
         self.assertEqual('CONNECTED', write_proto.state)
 
+        print("XXXXX 41")
         write_transport.write(b'2345')
+        print("XXXXX 43")
         test_utils.run_until(self.loop, lambda: reader(data) >= 5, timeout=10)
+        print("XXXXX 45")
         self.assertEqual(b'12345', data)
         self.assertEqual(['INITIAL', 'CONNECTED'], read_proto.state)
         self.assertEqual('CONNECTED', write_proto.state)
 
+        print("XXXXX 47")
         os.write(master, b'bcde')
+        print("XXXXX 49")
         test_utils.run_until(self.loop, lambda: read_proto.nbytes >= 5,
                              timeout=10)
+        print("XXXXX 51")
         self.assertEqual(['INITIAL', 'CONNECTED'], read_proto.state)
         self.assertEqual(5, read_proto.nbytes)
         self.assertEqual('CONNECTED', write_proto.state)
 
+        print("XXXXX 53")
         os.close(master)
+        print("XXXXX 55")
 
+        import pdb;pdb.set_trace()
         read_transport.close()
+        print("XXXXX 57")
         self.loop.run_until_complete(read_proto.done)
+        print("XXXXX 59")
         self.assertEqual(
             ['INITIAL', 'CONNECTED', 'EOF', 'CLOSED'], read_proto.state)
+        print("XXXXX 61")
 
         write_transport.close()
+        print("XXXXX 63")
         self.loop.run_until_complete(write_proto.done)
+        print("XXXXX 65")
         self.assertEqual('CLOSED', write_proto.state)
+        print("*********************************************")
 
     def test_prompt_cancellation(self):
         r, w = test_utils.socketpair()

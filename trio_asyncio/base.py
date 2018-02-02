@@ -560,6 +560,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     if cancel_scope.cancel_called: 
                         # Timeout reached. Presumably now a timer is ready,
                         # so restart from the beginning.
+                        print("LOOP TIMER")
                         continue
 
                     if isinstance(obj, trio.Event):
@@ -567,6 +568,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                         # Simply set them.
                         if obj is self._stopped:
                             break
+                        print("LOOP EVENT",obj)
                         obj.set()
                         continue
 
@@ -581,6 +583,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
                 if obj._cancelled:
                     # simply skip cancelled handlers
+                    print("LOOP CANCELED",obj)
                     continue
 
                 # Don't go through the expensive nursery dance
@@ -592,6 +595,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         except StopIteration:
             # raised by .stop_me() to interrupt the loop
+            print("LOOP STOP_ITER")
             pass
 
         finally:

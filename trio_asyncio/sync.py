@@ -2,12 +2,13 @@ import trio
 import attr
 import asyncio
 import threading
+import traceback
 
 from functools import partial
 
 from .base import BaseTrioEventLoop
 from .handles import Handle
-from .acall import AsyncWorker
+from .acall import AsyncWorker,AsyncJob
 
 import logging
 logger = logging.getLogger(__name__)
@@ -15,12 +16,16 @@ logger = logging.getLogger(__name__)
 async def _sync(proc, *args):
     return proc(*args)
 
+class NoStartAsyncJob(AsyncJob):
+    pass
+
 class LoopAsyncWorker(AsyncWorker):
-    def __init__(self, main, nursery):
-        super().__init__(nursery)
+    def __init__(self, main, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.main = main
     async def run_job(self, job):
-        if self.main._stopped.is_set():
+        print("RUN",job,isinstance(self,NoStartAsyncJob),self.main._stopped.is_set())
+        if not isinstance(job,NoStartAsyncJob) and self.main._stopped.is_set():
             await self.nursery.start(self.main._main_loop)
         await super().run_job(job)
 
@@ -53,6 +58,14 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         # Synchronization
         self._some_deferred = 0
         #self._stop_count = 0
+
+    async def _main_loop(self, *args,**kwargs):
+        self._trio_worker.sync_off()
+        try:
+            await super()._main_loop(*args,**kwargs)
+        finally:
+            if self._trio_worker is not None:
+                self._trio_worker.sync_on()
 
     def stop(self, final=False):
         """Halt the main loop.
@@ -88,6 +101,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
     def _queue_handle(self, handle):
         self._check_closed()
+        if "_call_connection_lost" in repr(handle):
+            traceback.print_stack()
         def put(self,handle):
             self._some_deferred -= 1
             self._q.put_nowait(handle)
@@ -115,7 +130,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                 async with AsyncWorker(nursery) as worker:
                     try:
                         self._main_worker = worker
-                        return await self._trio_worker.submit(self._wait_stopped)
+                        return await self._trio_worker.run(self.wait_stopped)
                     finally:
                         self._main_worker = None
         return trio.run(delegate)
@@ -134,13 +149,25 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         if self._thread is None or self._thread == threading.current_thread():
             super()._add_reader(fd, callback, *args)
         else:
-            self._trio_worker.run_soon(super()._add_reader, fd, callback, *args)
+            self._trio_worker.run_soon(super()._add_reader, fd, callback, *args, sync=True, timeout=999)
+
+    def _remove_reader(self, fd):
+        if self._thread is None or self._thread == threading.current_thread():
+            super()._remove_reader(fd)
+        else:
+            self._trio_worker.run_soon(super()._remove_reader, fd, sync=True, timeout=999)
 
     def _add_writer(self, fd, callback, *args):
         if self._thread is None or self._thread == threading.current_thread():
             super()._add_writer(fd, callback, *args)
         else:
-            self._trio_worker.run_soon(super()._add_writer, fd, callback, *args)
+            self._trio_worker.run_soon(super()._add_writer, fd, callback, *args, sync=True, timeout=999)
+        
+    def _remove_writer(self, fd):
+        if self._thread is None or self._thread == threading.current_thread():
+            super()._remove_writer(fd)
+        else:
+            self._trio_worker.run_soon(super()._remove_writer, fd, sync=True, timeout=999)
         
     def run_until_complete(self, future):
         """Run until the Future is done.
@@ -228,7 +255,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         """
         try:
             async with trio.open_nursery() as nursery:
-                async with LoopAsyncWorker(self,nursery) as worker:
+                async with LoopAsyncWorker(self,nursery, sync=True) as worker:
                     try:
                         self._trio_worker = worker
 
@@ -236,6 +263,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                         await self._main_loop_init(nursery)
                         await nursery.start(self._main_loop)
                         self._startup_done.set()
+                        worker.sync_on()
+                        print("MAIN G")
                         await self._stop_thread.wait()
                         self._startup_done.clear()
                     finally:
@@ -279,13 +308,22 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         self.close()
         assert self._thread is None
 
+    def close(self):
+        super().close()
+
     def _close(self):
         """Hook to terminate the thread"""
+        print("CL A")
         if self._thread is not None:
             if self._thread == threading.current_thread():
                 raise RuntimeError("You can't close a sync loop from the inside")
+            print("CL B")
             self._trio_worker.run_soon(self._stop_thread.set)
+            print("CL C")
             self._thread.join()
+            print("CL D")
             self._thread = None
+        print("CL E")
         super()._close()
+        print("CL F")
 
