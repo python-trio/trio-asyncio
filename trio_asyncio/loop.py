@@ -1,6 +1,7 @@
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
+import os
 import trio
 import asyncio
 import warnings
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 from .util import run_future
 from .handles import *
+from .base import *
 from .async import *
 
 __all__ = ['open_loop', 'run_trio','run_future','run_coroutine','run_asyncio']
