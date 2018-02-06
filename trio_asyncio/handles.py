@@ -76,6 +76,8 @@ class _TrioHandle:
         if self._source_traceback:
             frame = self._source_traceback[-1]
             info.append('created at %s:%s' % (frame[0], frame[1]))
+        if self._scope is not None:
+            info.append('scope=%s' % repr(self._scope))
         return info
 
     def _call_sync(self):
