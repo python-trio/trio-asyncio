@@ -1,3 +1,4 @@
+import sys
 import math
 import trio
 import heapq
@@ -15,6 +16,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 __all__ = ['BaseTrioEventLoop']
+
+_mswindows = (sys.platform == "win32")
 
 class _Clear:
     def clear(self):
@@ -303,6 +306,44 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def _timer_handle_cancelled(self, handle):
         pass
+
+    ######## Subprocess handling
+
+    if not _mswindows:
+
+        async def _make_subprocess_transport(self, protocol, args, shell,
+                                       stdin, stdout, stderr, bufsize,
+                                       extra=None, **kwargs):
+            """Make a subprocess transport. Asyncio context."""
+
+            waiter = self.create_future()
+            transp = asyncio.unix_events._UnixSubprocessTransport(self, protocol, args, shell,
+                                              stdin, stdout, stderr, bufsize,
+                                              waiter=waiter, extra=extra,
+                                              **kwargs)
+
+            async def child_wait(transp):
+                returncode = await trio.hazmat.wait_for_child(transp.get_pid())
+                transp._process_exited(returncode)
+
+            f = self.run_trio(child_wait, transp)
+            # XXX error handling
+            try:
+                await waiter
+            except Exception as exc:
+                # Workaround CPython bug #23353: using yield/yield-from in an
+                # except block of a generator doesn't clear properly
+                # sys.exc_info()
+                err = exc
+            else:
+                err = None
+
+            if err is not None:
+                transp.close()
+                await transp._wait()
+                raise err
+
+            return transp
 
     ######## Thread handling
 
