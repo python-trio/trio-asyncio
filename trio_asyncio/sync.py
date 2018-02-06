@@ -172,6 +172,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
         if self._thread is None:
             self._thread = threading.Thread(
+                name="trio-asyncio-"+threading.current_thread().name,
                 target=trio.run,
                 args=(self.__trio_thread_main,))
             self._thread.start()
