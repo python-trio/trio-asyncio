@@ -159,6 +159,10 @@ just as with a regular asyncio loop.
 This mode is called a "sync loop" or "synchronous loop" because it is
 started from a traditional synchronous Python context.
 
+If you use a sync loop in a separate thread, you *must* stop and close it
+before exiting. Otherwise your thread will leak resources and your program
+will hang when it exits.
+
 Stopping
 --------
 
