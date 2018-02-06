@@ -181,7 +181,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_recv = mock.Mock()
 
         f = self.loop.sock_recv(sock, 1024)
-        self.assertIsInstance(f, asyncio.Future)
+        self.assertEqual(type(f).__name__, asyncio.Future.__name__)
         self.loop._sock_recv.assert_called_with(f, None, sock, 1024)
 
     def test_sock_recv_reconnection(self):
@@ -250,7 +250,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_sendall = mock.Mock()
 
         f = self.loop.sock_sendall(sock, b'data')
-        self.assertIsInstance(f, asyncio.Future)
+        self.assertEqual(type(f).__name__, asyncio.Future.__name__)
         self.assertEqual(
             (f, None, sock, b'data'),
             self.loop._sock_sendall.call_args[0])
@@ -260,7 +260,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_sendall = mock.Mock()
 
         f = self.loop.sock_sendall(sock, b'')
-        self.assertIsInstance(f, asyncio.Future)
+        self.assertEqual(type(f).__name__, asyncio.Future.__name__)
         self.assertTrue(f.done())
         self.assertIsNone(f.result())
         self.assertFalse(self.loop._sock_sendall.called)
@@ -492,7 +492,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_accept = mock.Mock()
 
         f = self.loop.sock_accept(sock)
-        self.assertIsInstance(f, asyncio.Future)
+        self.assertEqual(type(f).__name__, asyncio.Future.__name__)
         self.assertEqual(
             (f, False, sock), self.loop._sock_accept.call_args[0])
 

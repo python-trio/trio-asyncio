@@ -2299,7 +2299,7 @@ class FutureGatherTests(GatherTestsBase, test_utils.TestCase):
         asyncio.set_event_loop(self.one_loop)
         self.addCleanup(asyncio.set_event_loop, None)
         fut = asyncio.gather(*seq_or_iter)
-        self.assertIsInstance(fut, asyncio.Future)
+        self.assertEqual(type(fut).__name__, asyncio.Future.__name__)
         self.assertIs(fut._loop, self.one_loop)
         self._run_loop(self.one_loop)
         self.assertTrue(fut.done())
