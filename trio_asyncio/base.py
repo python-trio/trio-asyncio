@@ -63,9 +63,16 @@ class TrioExecutor:
     async def submit(self, func, *args):
         if not self._running:  # pragma: no cover
             raise RuntimeError("Executor is down")
-        return await trio.run_sync_in_worker_thread(
-            func, *args, limiter=self._limiter
-        )
+        print("### EXEC start %s %s",func,args)
+        try:
+            res = await trio.run_sync_in_worker_thread(
+                func, *args, limiter=self._limiter)
+        except BaseException as exc:
+            print("### EXEC dead %s",exc)
+            raise
+        else:
+            print("### EXEC res %s",res)
+            return res
 
     def shutdown(self, wait=None):
         self._running = False
