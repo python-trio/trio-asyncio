@@ -1,5 +1,7 @@
+import sys
 import trio
 import asyncio
+import traceback
 from asyncio.events import _format_callback, _get_function_source
 
 __all__ = ['Handle', 'TimerHandle']
@@ -33,8 +35,11 @@ class _TrioHandle:
         """
         self._is_sync = is_sync
         self._scope = None
+        print("H NEW:",id(self),repr(self))
 
     def cancel(self):
+        print("H KILL:",id(self),repr(self))
+        traceback.print_stack(file=sys.stdout)
         super().cancel()
         if self._scope is not None:
             self._scope.cancel()
@@ -76,6 +81,8 @@ class _TrioHandle:
         if self._source_traceback:
             frame = self._source_traceback[-1]
             info.append('created at %s:%s' % (frame[0], frame[1]))
+        if self._scope is not None:
+            info.append('scope=%s' % repr(self._scope))
         return info
 
     def _call_sync(self):

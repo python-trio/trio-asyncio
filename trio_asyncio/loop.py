@@ -120,10 +120,12 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher):
         os.write(2,b"SIGI CALL_WAIT C\n")
 
     def add_child_handler(self, pid, callback, *args):
+        print("CHILD ADD",pid,callback,args)
         h = self._loop.run_trio(self._waitpid, pid, callback, *args)
         self._callbacks[pid] = h
 
     def remove_child_handler(self, pid):
+        print("CHILD REM",pid)
         h = self._callbacks.pop(pod, None)
         if h is None:
             return False
