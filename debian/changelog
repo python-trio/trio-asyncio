@@ -1,4 +1,10 @@
-trio-asyncio (0.3-2) smurf; urgency=medium
+trio-asyncio (0.4-1) unstable; urgency=medium
+
+  * Pyhon 3.6.4 asyncio tests work
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Wed, 07 Feb 2018 20:26:48 +0100
+
+trio-asyncio (0.3-2) unstable; urgency=medium
 
   * source package automatically created by stdeb 0.8.5
 

@@ -145,7 +145,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         res = self.__blocking_result_queue.get()
         return res.unwrap()
 
-    def __start_loop(self):
+    def _start_loop(self):
         self._check_closed()
 
         if self._thread is None:

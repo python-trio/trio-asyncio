@@ -1736,7 +1736,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
 class RunningLoopTests(unittest.TestCase):
 
-    @pytest.mark.xfail(reason="TODO: not yet caught with trio-asyncio")
+    @pytest.mark.xfail(reason="TODO: not yet(?) caught by trio-asyncio")
     def test_running_loop_within_a_loop(self):
         @asyncio.coroutine
         def runner(loop):
