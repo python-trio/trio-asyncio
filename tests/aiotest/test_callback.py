@@ -48,6 +48,7 @@ class TestCallback(aiotest.TestCase):
         sync_loop.stop()
         sync_loop.call_soon(world)
 
+        sync_loop.run_forever()
         if False: # config.stopping:
             assert result == ["Hello", "World"]
         else:

@@ -114,7 +114,7 @@ class MyBaseProto(asyncio.Protocol):
             self.connected.set_result(None)
 
     def data_received(self, data):
-        assert self.state == 'CONNECTED', self.state
+        assert self.state == 'CONNECTED', (self.state,self.data)
         self.nbytes += len(data)
 
     def eof_received(self):
@@ -2200,6 +2200,8 @@ else:
     class UnixEventLoopTestsMixin(EventLoopTestsMixin):
         def setUp(self):
             super().setUp()
+            return
+            # This watcher is ignored anyway. Avoid the heap of warnings.
             watcher = asyncio.SafeChildWatcher()
             watcher.attach_loop(self.loop)
             asyncio.set_child_watcher(watcher)

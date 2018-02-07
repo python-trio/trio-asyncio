@@ -30,7 +30,8 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
             task = trio.hazmat.current_task()
         except RuntimeError:
             from .sync import SyncTrioEventLoop
-            return SyncTrioEventLoop()
+            loop = SyncTrioEventLoop()
+            return loop
         else:
             raise RuntimeError("You're within a Trio environment.\n"
                 "Use 'async with open_loop()' instead.")

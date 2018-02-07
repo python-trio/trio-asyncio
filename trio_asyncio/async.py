@@ -87,6 +87,10 @@ async def open_loop():
 
     # TODO: make sure that there is no asyncio loop already running
 
+    def _main_loop_exit(self):
+        super()._main_loop_exit()
+        self._thread = None
+
     async with trio.open_nursery() as nursery:
         old_loop = asyncio.get_event_loop()
         loop = TrioEventLoop()
