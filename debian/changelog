@@ -1,3 +1,9 @@
+trio-asyncio (0.4.1-1) unstable; urgency=medium
+
+  * Fixed a race condition
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Thu, 08 Feb 2018 04:12:38 +0100
+
 trio-asyncio (0.4-1) unstable; urgency=medium
 
   * Pyhon 3.6.4 asyncio tests work
