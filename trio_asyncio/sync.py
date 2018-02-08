@@ -11,6 +11,8 @@ from .handles import Handle
 async def _sync(proc, *args):
     return proc(*args)
 
+__all__ = ['SyncTrioEventLoop']
+
 class SyncTrioEventLoop(BaseTrioEventLoop):
     """
     This is the "compatibility mode" implementation of the Trio/asyncio
