@@ -599,7 +599,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 if obj is None:
                     with trio.move_on_after(timeout) as cancel_scope:
                         obj = await self._q.get()
-                    if cancel_scope.cancel_called: 
+                    if obj is None:
                         # Timeout reached. Presumably now a timer is ready,
                         # so restart from the beginning.
                         continue

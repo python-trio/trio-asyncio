@@ -38,11 +38,12 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
     def stop(self):
         """Halt the main loop.
+        
+        Any callbacks queued before this point are processed before
+        stopping.
 
-        If this method is called from the main thread, it will tell the
-        loop to stop after one pass.
         """
-        def kick():
+        def do_stop():
             raise StopIteration
 #        async def stop_me():
 #            def kick_():
@@ -52,7 +53,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 #        if threading.current_thread() != self._thread:
 #            self.__run_in_thread(stop_me)
 #        else:
-        self._queue_handle(Handle(kick,(),self,True))
+        self._queue_handle(Handle(do_stop,(),self,True))
 
 
     def _queue_handle(self, handle):
@@ -178,7 +179,6 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                     
                 result = await trio.hazmat.Result.acapture(async_fn, *args)
                 self.__blocking_result_queue.put(result)
-            await self.wait_stopped()
             await self._main_loop_exit()
             self.__blocking_result_queue.put(None)
 
