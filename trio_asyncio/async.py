@@ -80,12 +80,24 @@ class TrioEventLoop(BaseTrioEventLoop):
             raise RuntimeError("You need to stop the loop before closing it")
         super()._close()
 
+    def run_task(self, proc, *args):
+        """Runs the Trio task within a context that allows asyncio calls."""
+        trio.run(self._run_task, proc, args)
+
+    async def _run_task(self, proc, args):
+        async with open_loop() as loop:
+            await proc(*args)
+
 @asynccontextmanager
 @async_generator
 async def open_loop():
     """Main entry point: run an asyncio loop on top of Trio."""
 
     # TODO: make sure that there is no asyncio loop already running
+
+    def _main_loop_exit(self):
+        super()._main_loop_exit()
+        self._thread = None
 
     async with trio.open_nursery() as nursery:
         old_loop = asyncio.get_event_loop()

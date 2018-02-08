@@ -11,6 +11,8 @@ from .handles import Handle
 async def _sync(proc, *args):
     return proc(*args)
 
+__all__ = ['SyncTrioEventLoop']
+
 class SyncTrioEventLoop(BaseTrioEventLoop):
     """
     This is the "compatibility mode" implementation of the Trio/asyncio
@@ -32,26 +34,25 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         self._some_deferred = 0
         #self._stop_count = 0
 
+        self._start_loop()
+
     def stop(self):
         """Halt the main loop.
 
-        If this method is called from the main thread, it will wait until
-        the loop is stopped.
+        If this method is called from the main thread, it will tell the
+        loop to stop after one pass.
         """
-        #self._stop_count += 1
         def kick():
             raise StopIteration
-        async def stop_me():
-            h = trio.Event()
-            def kick_():
-                h.set()
-                raise StopIteration
-            self._queue_handle(Handle(kick_,(),self,True))
-            await h.wait()
-        if threading.current_thread() != self._thread:
-            self.__run_in_thread(stop_me)
-        else:
-            self._queue_handle(Handle(kick,(),self,True))
+#        async def stop_me():
+#            def kick_():
+#                raise StopIteration
+#            self._queue_handle(Handle(kick_,(),self,True))
+#            await self._main_loop()
+#        if threading.current_thread() != self._thread:
+#            self.__run_in_thread(stop_me)
+#        else:
+        self._queue_handle(Handle(kick,(),self,True))
 
 
     def _queue_handle(self, handle):
@@ -78,27 +79,15 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
     def run_forever(self):
         print("RF A")
-        self.__start_loop()
         if self._thread == threading.current_thread():
             raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
-        try:
-            #if self._stop_count == 0:
-            self.__run_in_thread(self.wait_stopped)
-        finally:
-            pass
-            #if self._stop_count > 0:
-                #self._stop_count -= 1
-        print("RF C")
+        self.__run_in_thread(self._main_loop)
+        print("RF Z")
 
     def is_running(self):
         if self._closed:
             return False
         return self._thread is not None
-
-    def time(self):
-        if self._task is None:
-            self.__start_loop()
-        return super().time()
 
     def _add_reader(self, fd, callback, *args):
         if self._thread is None or self._thread == threading.current_thread():
@@ -124,21 +113,18 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         Return the Future's result, or raise its exception.
         """
 
-        self.__start_loop()
         if self._thread == threading.current_thread():
             raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
-        try:
-            return self.__run_in_thread(self._run_coroutine, future)
-        finally:
-            self.stop()
+        return self.__run_in_thread(self._run_coroutine, future)
 
     async def _run_coroutine(self, future):
         """Helper for run_until_complete().
 
         We need to make sure that a RuntimeError is raised if the loop is stopped
         before the future completes.
+
+        This code runs in the Trio thread.
         """
-        done = trio.Event()
         result = None
         future = asyncio.ensure_future(future, loop=self)
 
@@ -146,45 +132,43 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             nonlocal result
 
             result = trio.hazmat.Result.capture(future.result)
-            done.set()
+            self.stop()
         future.add_done_callback(is_done)
-
-        async def monitor_stop(task_status=trio.TASK_STATUS_IGNORED):
-            nonlocal result
-
-            task_status.started()
-            await self.wait_stopped()
-            result = trio.hazmat.Error(RuntimeError('Event loop stopped before Future completed.'))
-            done.set()
-
-        async with trio.open_nursery() as nursery:
-            await nursery.start(monitor_stop)
-            await done.wait()
+        try:
+            await self._main_loop()
+        finally:
             future.remove_done_callback(is_done)
-            nursery.cancel_scope.cancel()
-            return result.unwrap()
+        if result is None:
+            result = trio.hazmat.Error(RuntimeError('Event loop stopped before Future completed.'))
+        return result.unwrap()
 
-    def __run_in_thread(self, async_fn, *args, _start_loop=True):
+    def __run_in_thread(self, async_fn, *args):
         self._check_closed()
         print("RIT RUN",async_fn,args)
+        if self._thread is None:
+            raise RuntimeError("You need to wrap your main code in a 'with loop:' statement.")
         if not self._thread.is_alive():
             raise RuntimeError("The Trio thread is not running")
-        self.__blocking_job_queue.put((async_fn, args, _start_loop))
+        self.__blocking_job_queue.put((async_fn, args))
         res = self.__blocking_result_queue.get()
         print("RIT HAS",res)
         return res.unwrap()
 
-    def __start_loop(self):
-        print("STOP CL 1")
+    def _start_loop(self):
         self._check_closed()
 
         if self._thread is None:
+            print("START CL 1")
             self._thread = threading.Thread(
                 name="trio-asyncio-"+threading.current_thread().name,
                 target=trio.run,
+                daemon=True,
                 args=(self.__trio_thread_main,))
             self._thread.start()
-            self.__run_in_thread(self._sync)
+            x = self.__blocking_result_queue.get()
+            if x is not True:
+                raise RuntimeError("Loop could not be started",x)
+            print("START CL 2")
 
     async def __trio_thread_main(self):
         # The non-context-manager equivalent of open_loop()
@@ -192,38 +176,33 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         async with trio.open_nursery() as nursery:
             asyncio.set_event_loop(self)
             await self._main_loop_init(nursery)
-            await nursery.start(self._main_loop)
+            self.__blocking_result_queue.put(True)
 
             while not self._closed:
                 # This *blocks*
                 print("BLOCK")
                 req = self.__blocking_job_queue.get()
                 if req is None:
+                    self.stop()
                     break
-                async_fn, args, start_loop = req
+                async_fn, args = req
                 print("WORK",async_fn,args)
-                if start_loop and self._stopped.is_set():
-                    await nursery.start(self._main_loop)
-                    
                 result = await trio.hazmat.Result.acapture(async_fn, *args)
                 print("WORKED",result)
                 self.__blocking_result_queue.put(result)
             print("OFF 1")
-            self.stop()
             await self.wait_stopped()
             await self._main_loop_exit()
             self.__blocking_result_queue.put(None)
             print("OFF 8")
         print("OFF 9")
 
-    def add_signal_handler(self, sig, callback, *args):
-        self.__start_loop()
-        return super().add_signal_handler(sig, callback, *args)
-
     def __enter__(self):
-        if self._thread is not None:
-            raise RuntimeError("This loop is already running.")
-        self.__start_loop()
+        ## I'd like to enforce this, but … no way
+        #if self._thread is not None:
+        #    raise RuntimeError("This loop is already running.")
+        #self._start_loop()
+        return self
         
     def __exit__(self, *tb):
         self.stop()

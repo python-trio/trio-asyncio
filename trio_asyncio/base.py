@@ -150,6 +150,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def time(self):
         """Return Trio's idea of the current time.
         """
+        if self._task is None:
+            raise RuntimeError("This loop is closed.")
         return self._task._runner.clock.current_time()
 
     # A future doesn't require a trio_asyncio loop
@@ -576,6 +578,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if self._nursery is not None or not self._stopped.is_set():
             raise RuntimeError("You can't enter a loop twice")
         self._nursery = nursery
+        self._task = trio.hazmat.current_task()
+        self._token = trio.hazmat.current_trio_token()
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """Run the loop by processing its event queue.
@@ -585,11 +589,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Do not call this directly.
         """
 
-        self._task = trio.hazmat.current_task()
-        self._token = trio.hazmat.current_trio_token()
-
-        task_status.started()
         self._stopped.clear()
+        task_status.started()
 
         print("LOOP ON")
         try:
@@ -675,7 +676,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         # clean core fields
         self._nursery = None
         self._task = None
-        self._thread = None
 
     def run_forever(self):
         """asyncio's method to run the loop until it is stopped.
