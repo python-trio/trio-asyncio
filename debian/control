@@ -2,32 +2,19 @@ Source: trio-asyncio
 Maintainer: Matthias Urlichs <matthias@urlichs.de>
 Section: python
 Priority: optional
-Build-Depends: dh-python, python3-setuptools, python3-all, debhelper (>= 9)
+Build-Depends: dh-python, python3-setuptools, python3-all, debhelper (>= 9),
+  python3-pytest-trio,
+  python3-trio (>= 0.3.0+dev),
 Standards-Version: 3.9.6
 Homepage: https://github.com/smurfix/trio-asyncio
 
 Package: python3-trio-asyncio
 Architecture: all
-Depends: ${misc:Depends}, ${python3:Depends}
+Depends: ${misc:Depends}, ${python3:Depends},
+  python3-trio (>= 0.3.0+dev)
 Description: A re-implementation of the asyncio mainloop on top of Trio
  ``trio-asyncio`` is a re-implementation of the ``asyncio`` mainloop on top of
  Trio.
  .
- Rationale
- =========
- .
- There are quite a few asyncio-compatible libraries.
- .
- On the other hand, Trio has native concepts of tasks and task cancellation.
- Asyncio, on the other hand, is based on chaining Future objects, albeit
- with nicer syntax.
- .
- Thus, being able to use asyncio libraries from Trio is useful.
- .
- Principle of operation
- ======================
- .
- The core of the "normal" asyncio main loop is the repeated execution of
- synchronous code that's submitted to ``call_soon`` or
- ``add_reader``/``add_writer``.
-
+ While this library features a compatibility mode, you are strongly
+ encouraged to convert your code so that it runs within a Trio loop.
