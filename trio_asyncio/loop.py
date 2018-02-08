@@ -98,7 +98,8 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
         if watcher is not None:
             if not isinstance(watcher, TrioChildWatcher):
                 # raise RuntimeError("You must use a TrioChildWatcher here. Sorry.")
-                warnings.warn("You must use a TrioChildWatcher.")
+                # warnings.warn("You must use a TrioChildWatcher.")
+                #
                 loop = watcher._loop # ugh.
                 watcher.close()
                 watcher = TrioChildWatcher()
