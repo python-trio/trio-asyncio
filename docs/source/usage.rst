@@ -20,14 +20,15 @@ Trio main loop
 Typically, you start with a Trio program which you need to extend with
 asyncio code.
 
-* before::
+Before::
 
     import trio
 
     trio.run(async_main, *args)
 
-* after::
+After::
 
+    import trio
     import trio_asyncio
     
     trio_asyncio.run(async_main, *args)
@@ -38,7 +39,7 @@ Equivalently, wrap your main loop in a :func:`trio_asyncio.open_loop` call ::
 
     async def async_main(*args):
         async with trio_asyncio.open_loop() as loop:
-            do_something()
+            await do_something()
 
 Within ``async_main``, the asyncio mainloop is active. You don't need to
 pass the ``loop`` argument around, as :func:`asyncio.get_event_loop` will
@@ -124,7 +125,7 @@ before terminating the thread. Otherwise your thread will leak resources.
    Compatibility mode has been added to verify that various test suites,
    most notably the one from asyncio itself, continue to work. In a
    real-world program with a long-running asyncio mainloop, you *really*
-   want to use a :ref`Trio mainloop <trio-loop>` instead.
+   want to use a :ref:`Trio mainloop <trio-loop>` instead.
 
    The authors reserve the right to not fix compatibility mode bugs if that
    would negatively impact trio-asyncio's core functions.
@@ -134,15 +135,24 @@ before terminating the thread. Otherwise your thread will leak resources.
 Stopping
 --------
 
-You can call ``loop.stop()``, or simply leave the ``async with`` block.
+Call ``loop.stop()`` as usual.
 
-Unlike ``trio.run()``, which waits for all running tasks to complete,
-stopping an asyncio loop will process all outstanding callbacks and then
-terminate.
+Before stopping, the loop will process all outstanding callbacks.
 
-You cannot restart an async loop, not would you want to. Sync loops can of
-course be re-entered by calling ``loop.run_forever()`` or
-``loop.run_until_complete(coro)`` again.
+Closing
+-------
+
+A synchronous loop starts a separate thread for running the asynchronous
+part of your code. You **must** call ``loop.close()`` before abandoning the
+loop.
+
+.. note::
+
+   This is not a problem in "normal" programs – when the program
+   terminates, the loop dies along with it. However, when testing you don't
+   want to leave 1000 asyncio threads lying around.
+   
+   This also applies in multi-threaded programs with more than one event loop.
 
 ---------------
  Cross-calling
