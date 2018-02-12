@@ -1,21 +1,21 @@
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
-import os
 import trio
 import asyncio
 import warnings
+import threading
+
+from .util import run_future
+from .async_ import TrioEventLoop
 
 import logging
 logger = logging.getLogger(__name__)
 
-from .util import run_future
-from .handles import *
-from .base import *
-from .async import *
-
-__all__ = ['open_loop', 'run_trio','run_future','run_coroutine','run_asyncio']
-
+__all__ = [
+    'run', 'run_trio_task', 'run_trio', 'run_future', 'run_coroutine', 'run_asyncio',
+    'TrioChildWatcher', 'TrioPolicy',
+]
 
 
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
@@ -27,14 +27,21 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
 
     def new_event_loop(self):
         try:
-            task = trio.hazmat.current_task()
+            trio.hazmat.current_task()
         except RuntimeError:
+            warnings.warn(
+                "trio_asyncio should be used from within a Trio event loop.",
+                DeprecationWarning,
+                stacklevel=2
+            )
             from .sync import SyncTrioEventLoop
             loop = SyncTrioEventLoop()
             return loop
         else:
-            raise RuntimeError("You're within a Trio environment.\n"
-                "Use 'async with open_loop()' instead.")
+            raise RuntimeError(
+                "You're within a Trio environment.\n"
+                "Use 'async with open_loop()' instead."
+            )
 
     def get_event_loop(self):
         """Get the current event loop.
@@ -49,8 +56,8 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         ``.current_event_loop`` property.
         """
         try:
-            task = trio.hazmat.current_task()
-        except RuntimeError: # no Trio task is active
+            trio.hazmat.current_task()
+        except RuntimeError:  # no Trio task is active
             # this creates a new loop in the main task
             return super().get_event_loop()
         else:
@@ -63,7 +70,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
             return self._trio_local._loop
         except RuntimeError:
             # in the main thread this would create a new loop
-            #return super().get_event_loop()
+            # return super().get_event_loop()
             return self._local._loop
 
     def set_event_loop(self, loop):
@@ -76,10 +83,11 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         # This test will not trigger if you create a new asyncio event loop
         # in a sub-task, which is exactly what we intend to be possible
         if self._trio_local._loop is not None and loop is not None and \
-            self._trio_local._task == task:
+                self._trio_local._task == task:
             raise RuntimeError('You cannot replace an event loop.')
         self._trio_local._loop = loop
         self._trio_local._task = task
+
 
 class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
     def _init_watcher(self):
@@ -91,25 +99,27 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
                     self._watcher.attach_loop(self._trio_local._loop)
 
         if self._watcher is not None and \
-            isinstance(threading.current_thread(), threading._MainThread):
-            self._watcher.attach_loop(loop)
+                isinstance(threading.current_thread(), threading._MainThread):
+            self._watcher.attach_loop(self._trio_local._loop)
 
     def set_child_watcher(self, watcher):
         if watcher is not None:
             if not isinstance(watcher, TrioChildWatcher):
-                # raise RuntimeError("You must use a TrioChildWatcher here. Sorry.")
+                # raise RuntimeError("You must use a TrioChildWatcher here. "
+                #                    "Sorry.")
                 # warnings.warn("You must use a TrioChildWatcher.")
                 #
-                loop = watcher._loop # ugh.
+                loop = watcher._loop  # ugh.
                 watcher.close()
                 watcher = TrioChildWatcher()
                 watcher.attach_loop(loop)
         super().set_child_watcher(watcher)
 
+
 class TrioChildWatcher(asyncio.AbstractChildWatcher):
     def __init__(self):
         super().__init__()
-        self._callbacks = {} # pid => handler
+        self._callbacks = {}  # pid => handler
 
     def attach_loop(self, loop):
         self._loop = loop
@@ -128,7 +138,7 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher):
 
     def remove_child_handler(self, pid):
         print("CHILD REM",pid)
-        h = self._callbacks.pop(pod, None)
+        h = self._callbacks.pop(pid, None)
         if h is None:
             return False
         h.cancel()
@@ -148,17 +158,20 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher):
     def __exit__(self, *tb):
         self.close()
 
+
 async def run_asyncio(proc, *args):
     loop = asyncio.get_event_loop()
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return await loop.run_asyncio(proc, *args)
 
+
 async def run_coroutine(fut, scope=None):
     loop = asyncio.get_event_loop()
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return await loop.run_coroutine(fut, scope=scope)
+
 
 def run_trio(proc, *args):
     """Call an asynchronous Trio function from asyncio.
@@ -175,6 +188,7 @@ def run_trio(proc, *args):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return loop.run_trio(proc, *args)
 
+
 def run_trio_task(proc, *args):
     """Call an asynchronous Trio function from asyncio.
 
@@ -188,5 +202,15 @@ def run_trio_task(proc, *args):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     loop.run_trio_task(proc, *args)
 
-asyncio.set_event_loop_policy(TrioPolicy())
 
+def run(proc, *args):
+    """Like :func:`trio.run`, but adds a context that supports asyncio.
+    """
+
+    loop = asyncio.get_event_loop()
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop.run_task(proc, *args)
+
+
+asyncio.set_event_loop_policy(TrioPolicy())

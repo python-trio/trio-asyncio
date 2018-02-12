@@ -1,0 +1,37 @@
+language: python
+python:
+  - 3.5.0
+  - 3.5.2
+  - 3.5-dev
+  - 3.6
+  - 3.6-dev
+  - 3.7-dev
+sudo: false
+dist: trusty
+
+matrix:
+  include:
+    - os: linux
+      language: generic
+      env: USE_PYPY_RELEASE_VERSION=5.9-beta
+    # Uncomment if you want to test on pypy nightly
+    # - os: linux
+    #   language: generic
+    #   env: USE_PYPY_NIGHTLY=1
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.5.4
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.3
+    - os: linux
+      language: python
+      python: 3.6
+      env: CHECK_DOCS=1
+    - os: linux
+      language: python
+      python: 3.6
+      env: CHECK_FORMATTING=1
+
+script:
+  - ci/travis.sh

@@ -79,7 +79,7 @@ class TestCallback(aiotest.TestCase):
             #with pytest.raises(RuntimeError):
             #    fut = config.asyncio.Future(loop=loop)
             #    await loop.run_future(fut)
-            with pytest.raises(RuntimeError, match='Event loop is closed'):
+            with pytest.raises(RuntimeError, match='not a sync loop'):
                 loop.run_until_complete(None)
             with pytest.raises(RuntimeError):
                 loop.run_forever()

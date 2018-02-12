@@ -1,0 +1,28 @@
+skip_tags: true
+
+os: Visual Studio 2015
+
+environment:
+  matrix:
+    - PYTHON: "C:\\Python35"
+    - PYTHON: "C:\\Python35-x64"
+    - PYTHON: "C:\\Python36"
+    - PYTHON: "C:\\Python36-x64"
+
+build_script:
+  - "git --no-pager log -n2"
+  - "echo %APPVEYOR_REPO_COMMIT%"
+  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;;%PATH%"
+  - "python --version"
+  - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
+  - "pip install ."
+  - "pip install -Ur test-requirements.txt"
+  - "pip install codecov"
+
+test_script:
+  - "mkdir empty"
+  - "cd empty"
+  # Make sure it's being imported from where we expect
+  - "python -c \"import os, trio_asyncio; print(os.path.dirname(trio_asyncio.__file__))\""
+  - "python -u -m pytest -W error -ra -v -s --pyargs trio_asyncio --cov=trio_asyncio --cov-config=../.coveragerc"
+  - "codecov"

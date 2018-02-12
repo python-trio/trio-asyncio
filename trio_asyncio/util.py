@@ -7,6 +7,7 @@ import sys
 
 __all__ = ['run_future']
 
+
 async def run_future(future):
     """Wait for an asyncio future/coroutine from Trio code.
 
@@ -51,9 +52,9 @@ async def run_future(future):
                 print("RUN_F CANCEL RE")
                 raise_cancel()
             finally:
-                # Try to preserve the exception chain for more detailed tracebacks
+                # Try to preserve the exception chain,
+                # for more detailed tracebacks
                 sys.exc_info()[1].__cause__ = exc
         else:
             print("RUN_F CANCEL PROP")
             raise
-

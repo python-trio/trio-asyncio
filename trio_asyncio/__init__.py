@@ -1,7 +1,8 @@
 # This code implements basic asyncio compatibility
 
-from .version import __version__
+from ._version import __version__  # noqa
 
-from .loop import *
-from .sync import *
-from .adapter import *
+from .base import *  # noqa
+from .loop import *  # noqa
+from .async_ import *  # noqa
+from .adapter import *  # noqa

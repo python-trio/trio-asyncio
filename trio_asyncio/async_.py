@@ -8,6 +8,7 @@ from .handles import Handle
 
 __all__ = ['TrioEventLoop', 'open_loop']
 
+
 class TrioEventLoop(BaseTrioEventLoop):
     """A Trio-compatible asyncio event loop.
 
@@ -56,7 +57,8 @@ class TrioEventLoop(BaseTrioEventLoop):
 
         :param waiter: an Event that is set when the loop is stopped.
         :type waiter: :class:`trio.Event`
-        :return: Either the Event instance that was passed in, or a newly-allocated one.
+        :return: Either the Event instance that was passed in,
+                 or a newly-allocated one.
 
         """
         if waiter is None:
@@ -71,7 +73,7 @@ class TrioEventLoop(BaseTrioEventLoop):
         if self._stopped.is_set():
             waiter.set()
         else:
-            self._queue_handle(Handle(stop_me,(),self,True))
+            self._queue_handle(Handle(stop_me, (), self, True))
         return waiter
 
     def _close(self):
@@ -85,13 +87,25 @@ class TrioEventLoop(BaseTrioEventLoop):
         trio.run(self._run_task, proc, args)
 
     async def _run_task(self, proc, args):
-        async with open_loop() as loop:
+        async with open_loop():
             await proc(*args)
+
 
 @asynccontextmanager
 @async_generator
 async def open_loop():
-    """Main entry point: run an asyncio loop on top of Trio."""
+    """Main entry point: run an asyncio loop on top of Trio.
+    
+    This is a context manager.
+
+    Example usage::
+
+            async def async_main(*args):
+                async with trio_asyncio.open_loop() as loop:
+                    pass
+                    # async part of your main program here
+
+    """
 
     # TODO: make sure that there is no asyncio loop already running
 
@@ -116,5 +130,3 @@ async def open_loop():
                 loop.close()
                 asyncio.set_event_loop(old_loop)
                 nursery.cancel_scope.cancel()
-
-
