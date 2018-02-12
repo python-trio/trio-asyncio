@@ -206,6 +206,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                 self.__blocking_result_queue.put(result)
             await self._main_loop_exit()
             self.__blocking_result_queue.put(None)
+            nursery.cancel_scope.cancel()
 
     def __enter__(self):
         # I'd like to enforce this, but … no way
