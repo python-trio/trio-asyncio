@@ -38,15 +38,15 @@ Equivalently, wrap your main loop in a :func:`trio_asyncio.open_loop` call ::
 
     async def async_main(*args):
         async with trio_asyncio.open_loop() as loop:
-            …
+            do_something()
 
 Within ``async_main``, the asyncio mainloop is active. You don't need to
 pass the ``loop`` argument around, as :func:`asyncio.get_event_loop` will
 do the right thing.
 
-.. autofunction:: open_loop
+.. autofunction:: trio_asyncio.open_loop
 
-.. autofunction:: run
+.. autofunction:: trio_asyncio.run
 
 Stopping
 --------
@@ -106,7 +106,7 @@ a library you're calling) does not expect to run in a different thread.
 .. [SIGCHLD] Python requires you to register SIGCHLD handlers in the main
    thread, but doesn't run them at all when waiting for another thread.
    
-   Use :func:`trio_asyncio.TrioEventLoop.add_child_handler`,
+   Use :meth:`trio_asyncio.TrioChildWatcher.add_child_handler`,
    :func:`trio.hazmat.wait_for_child`
    or :func:`trio.run_subprocess` instead.
 
@@ -323,8 +323,8 @@ You might consider converting code using these calls to native Trio tasks.
 Subprocesses
 ------------
 
-:meth:`asyncio.AbstractEventLoop.create_subprocess_exec` and
-:meth:`asyncio.AbstractEventLoop.create_subprocess_shell` work as usual.
+:func:`asyncio.create_subprocess_exec` and
+:func:`asyncio.create_subprocess_shell` work as usual.
 
 You might want to convert these calls to native Trio subprocesses.
 

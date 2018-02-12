@@ -15,7 +15,7 @@ from .util import run_future
 import logging
 logger = logging.getLogger(__name__)
 
-__all__ = ['BaseTrioEventLoop']
+__all__ = ['BaseTrioEventLoop', 'TrioExecutor']
 
 _mswindows = (sys.platform == "win32")
 

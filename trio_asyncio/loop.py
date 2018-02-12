@@ -13,7 +13,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'run_trio_task', 'run_trio', 'run_future', 'run_coroutine', 'run_asyncio'
+    'run', 'run_trio_task', 'run_trio', 'run_future', 'run_coroutine', 'run_asyncio',
+    'TrioChildWatcher', 'TrioPolicy',
 ]
 
 

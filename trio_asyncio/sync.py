@@ -17,10 +17,11 @@ __all__ = ['SyncTrioEventLoop']
 class SyncTrioEventLoop(BaseTrioEventLoop):
     """
     This is the "compatibility mode" implementation of the Trio/asyncio
-    event loop. It runs async code in a separate thread.
+    event loop. It runs synchronously, by delegating the Trio event loop to
+    a separate thread.
 
-    For best results, you should switch to the asynchronous
-    :class:`TrioEventLoop`.
+    For best results, you should use the asynchronous
+    :class:`trio_asyncio.TrioEventLoop` – if possible.
     """
 
     _thread = None
