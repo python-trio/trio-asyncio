@@ -29,6 +29,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         try:
             task = trio.hazmat.current_task()
         except RuntimeError:
+            warnings.warn("trio_asyncio should be used from within a Trio event loop.", DeprecationWarning, stacklevel=2)
             from .sync import SyncTrioEventLoop
             loop = SyncTrioEventLoop()
             return loop

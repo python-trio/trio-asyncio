@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-exec(open("trio_asyncio/version.py", encoding="utf-8").read())
+exec(open("trio_asyncio/_version.py", encoding="utf-8").read())
 
 LONG_DESC = """\
 ``trio-asyncio`` is a re-implementation of the ``asyncio`` mainloop on top of
