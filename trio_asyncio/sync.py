@@ -3,8 +3,6 @@ import queue
 import asyncio
 import threading
 
-from functools import partial
-
 from .base import BaseTrioEventLoop
 from .handles import Handle
 
@@ -21,7 +19,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
     This is the "compatibility mode" implementation of the Trio/asyncio
     event loop. It runs async code in a separate thread.
 
-    For best results, you should switch to the asynchronous :class:`TrioEventLoop`.
+    For best results, you should switch to the asynchronous
+    :class:`TrioEventLoop`.
     """
 
     _thread = None
@@ -35,13 +34,13 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
         # Synchronization
         self._some_deferred = 0
-        #self._stop_count = 0
+        # self._stop_count = 0
 
         self._start_loop()
 
     def stop(self):
         """Halt the main loop.
-        
+
         Any callbacks queued before this point are processed before
         stopping.
 
@@ -135,8 +134,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
     async def _run_coroutine(self, future):
         """Helper for run_until_complete().
 
-        We need to make sure that a RuntimeError is raised if the loop is stopped
-        before the future completes.
+        We need to make sure that a RuntimeError is raised
+        if the loop is stopped before the future completes.
 
         This code runs in the Trio thread.
         """
@@ -208,10 +207,10 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             self.__blocking_result_queue.put(None)
 
     def __enter__(self):
-        ## I'd like to enforce this, but … no way
-        #if self._thread is not None:
+        # I'd like to enforce this, but … no way
+        # if self._thread is not None:
         #    raise RuntimeError("This loop is already running.")
-        #self._start_loop()
+        # self._start_loop()
         return self
 
     def __exit__(self, *tb):

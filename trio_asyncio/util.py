@@ -40,7 +40,8 @@ async def run_future(future):
             try:
                 raise_cancel()
             finally:
-                # Try to preserve the exception chain for more detailed tracebacks
+                # Try to preserve the exception chain,
+                # for more detailed tracebacks
                 sys.exc_info()[1].__cause__ = exc
         else:
             raise

@@ -1,16 +1,16 @@
+import os
 import sys
 import math
 import trio
 import heapq
-import asyncio
 import signal
+import asyncio
+
+from .handles import Handle, TimerHandle
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
-from .handles import *
 from .util import run_future
-
-from functools import partial
 
 import logging
 logger = logging.getLogger(__name__)
@@ -164,7 +164,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         Cancelling the current Trio scope will cancel the future/coroutine.
 
-        Cancelling the future/coroutine will cause an ``asyncio.CancelledError``.
+        Cancelling the future/coroutine will cause an
+        ``asyncio.CancelledError``.
 
         This is a Trio coroutine.
         """
@@ -174,7 +175,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     async def run_asyncio(self, proc, *args):
         """Run an asyncio function or method from Trio.
-        
+
         :return: whatever the procedure returns.
         :raises: whatever the procedure raises.
 
@@ -212,7 +213,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         This method starts a task in the background and returns immediately.
 
-        Any uncaught error will propagate to, and thus terminate, the trio-asyncio loop.
+        Any uncaught error will propagate to, and thus terminate,
+        the trio-asyncio loop.
 
         :param proc: an async function or method, with Trio semantics.
         :return: a trio-asyncio Handle
@@ -241,7 +243,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             if not f.cancelled():  # pragma: no branch
                 f.set_result(res)
 
-    ######## Callback handling
+    # Callback handling #
 
     def _queue_handle(self, handle):
         """Queue a :class:`Handle` or :class:`TimerHandle` to be executed
@@ -319,7 +321,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def _timer_handle_cancelled(self, handle):
         pass
 
-    ######## Subprocess handling
+    # Subprocess handling #
 
     if not _mswindows:
 
@@ -356,7 +358,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 returncode = await trio.hazmat.wait_for_child(transp.get_pid())
                 transp._process_exited(returncode)
 
-            f = self.run_trio(child_wait, transp)
+            self.run_trio(child_wait, transp)
             # XXX error handling
             try:
                 await waiter
@@ -375,7 +377,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
             return transp
 
-    ######## Thread handling
+    # Thread handling #
 
     def run_in_executor(self, executor, func, *args):
         """
@@ -395,14 +397,14 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     async def _sync(self):
         """Synchronize with the main loop by passing an event through it.
-        
+
         This is a Trio coroutine.
         """
         w = trio.Event()
         self._queue_handle(w)
         await w.wait()
 
-    ######## Signal handling
+    # Signal handling #
 
     def _handle_sig(self, sig, _):
         """Helper to safely enqueue a signal handler."""
@@ -435,7 +437,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         del self._orig_signals[sig]
         return True
 
-    ######## File descriptor callbacks
+    # File descriptor callbacks #
 
     # reading from a file descriptor
 
@@ -568,9 +570,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def no_autoclose(self, fd):
         """
-        Un-mark a file descriptor so that it's no longer auto-closed along with this loop.
+        Un-mark a file descriptor so that it's no longer auto-closed
+        along with this loop.
 
-        Call this method either before closing the file descriptor, or when 
+        Call this method either before closing the file descriptor, or when
         passing it to code out of this loop's scope.
 
         :param fd: Either an integer (Unix file descriptor) or an object
@@ -584,7 +587,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     # drop all file descriptors, optionally close them
 
     def _cancel_fds(self):
-        map = self._selector.get_map()
         for fd, key in list(self._selector.get_map().items()):
             for flag in (0, 1):
                 if key.events & (1 << flag):
@@ -596,7 +598,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             if fd in self._close_files:
                 os.close(fd)
 
-    ######## The actual Trio-based main loop ########
+    # The actual Trio-based main loop #
 
     async def _main_loop_init(self, nursery):
         """Set up the loop's internals"""
@@ -608,8 +610,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """Run the loop by processing its event queue.
-        
-        This is the core of trio-asyncio's replacement of the asyncio main loop.
+
+        This is the core of trio-asyncio's replacement
+        of the asyncio main loop.
 
         Do not call this directly.
         """
@@ -629,7 +632,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     timeout = math.inf
 
                 if obj is None:
-                    with trio.move_on_after(timeout) as cancel_scope:
+                    with trio.move_on_after(timeout):
                         obj = await self._q.get()
                     if obj is None:
                         # Timeout reached. Presumably now a timer is ready,

@@ -18,7 +18,7 @@ class _TrioHandle:
     This extends asyncio.Handle by providing:
     * a way to cancel an async callback
     * a way to declare the type of the callback function
-    
+
     ``is_sync`` may be
     * True: sync function, use _call_sync()
     * False: async function, use _call_async()

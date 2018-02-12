@@ -57,7 +57,8 @@ class TrioEventLoop(BaseTrioEventLoop):
 
         :param waiter: an Event that is set when the loop is stopped.
         :type waiter: :class:`trio.Event`
-        :return: Either the Event instance that was passed in, or a newly-allocated one.
+        :return: Either the Event instance that was passed in,
+                 or a newly-allocated one.
 
         """
         if waiter is None:
@@ -86,7 +87,7 @@ class TrioEventLoop(BaseTrioEventLoop):
         trio.run(self._run_task, proc, args)
 
     async def _run_task(self, proc, args):
-        async with open_loop() as loop:
+        async with open_loop():
             await proc(*args)
 
 
