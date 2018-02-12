@@ -39,11 +39,11 @@ Equivalently, wrap your main loop in a :func:`trio_asyncio.open_loop` call ::
 
     async def async_main(*args):
         async with trio_asyncio.open_loop() as loop:
-            await do_something()
+            pass # async main code goes here
 
-Within ``async_main``, the asyncio mainloop is active. You don't need to
-pass the ``loop`` argument around, as :func:`asyncio.get_event_loop` will
-do the right thing.
+Within the ``async with`` block, the asyncio mainloop is active. You don't
+need to pass the ``loop`` argument around, as
+:func:`asyncio.get_event_loop` will do the right thing.
 
 .. autofunction:: trio_asyncio.open_loop
 

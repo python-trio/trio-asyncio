@@ -420,7 +420,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             raise RuntimeError("SIGKILL cannot be caught")
         h = Handle(callback, args, self, True)
         assert sig not in self._signal_handlers, \
-            "Signal %d is already caught" % (sig,)
+            "Signal %d is already being caught" % (sig,)
         self._orig_signals[sig] = signal.signal(sig, self._handle_sig)
         self._signal_handlers[sig] = h
 
@@ -587,6 +587,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     # drop all file descriptors, optionally close them
 
     def _cancel_fds(self):
+        """Clean up all of thsi loop's open read or write requests"""
         for fd, key in list(self._selector.get_map().items()):
             for flag in (0, 1):
                 if key.events & (1 << flag):
@@ -614,7 +615,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         This is the core of trio-asyncio's replacement
         of the asyncio main loop.
 
-        Do not call this directly.
+        Do not call this method directly.
         """
 
         self._stopped.clear()
@@ -696,8 +697,20 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """
         raise RuntimeError("This is not a sync loop")
 
+    def run_until_complete(self, coro_or_future):
+        """asyncio's method to run the loop until the coroutine returns /
+        the future completes.
+        """
+        raise RuntimeError("This is not a sync loop")
+
     async def wait_stopped(self):
         """Wait until the mainloop is halted.
+
+        Note that "the mainloop is halted" means "Trio tasks started within
+        the main loop's cancel scope have terminated". If you want to use
+        this method, you need to start the task it's running in with a
+        nursery that has been created outside the main loop's cancellation
+        scope.
 
         This is a Trio coroutine.
         """
