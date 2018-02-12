@@ -68,8 +68,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'trio-asyncio'
-copyright = 'The trio-asyncio authors'
-author = 'The trio-asyncio authors'
+copyright = '© 2018, Matthias Urlichs'
+author = 'Matthias Urlichs'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -140,7 +140,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'trio-asynciodoc'
+htmlhelp_basename = 'trio-asyncio-doc'
 
 
 # -- Options for LaTeX output ---------------------------------------------

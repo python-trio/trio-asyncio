@@ -197,4 +197,14 @@ def run_trio_task(proc, *args):
     loop.run_trio_task(proc, *args)
 
 
+def run(proc, *args):
+    """Like :func:`trio.run`, but adds a context that supports asyncio.
+    """
+
+    loop = asyncio.get_event_loop()
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop.run_task(proc, *args)
+
+
 asyncio.set_event_loop_policy(TrioPolicy())
