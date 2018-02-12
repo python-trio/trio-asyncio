@@ -1,3 +1,24 @@
+.. image:: https://img.shields.io/badge/chat-join%20now-blue.svg
+   :target: https://gitter.im/python-trio/general
+   :alt: Join chatroom
+
+.. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
+   :target: https://trio-asyncio.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+
+.. image:: https://travis-ci.org/python-trio/trio-asyncio.svg?branch=master
+   :target: https://travis-ci.org/python-trio/trio-asyncio
+   :alt: Automated test status (Linux and MacOS)
+
+.. image:: https://ci.appveyor.com/api/projects/status/github/python-trio/trio-asyncio?svg=true;branch=master
+   :target: https://ci.appveyor.com/project/python-trio/trio-asyncio/history
+   :alt: Automated test status (Windows)
+
+.. image:: https://codecov.io/gh/python-trio/trio-asyncio/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/python-trio/trio-asyncio
+   :alt: Test coverage
+
+
 ==============
  trio-asyncio
 ==============
