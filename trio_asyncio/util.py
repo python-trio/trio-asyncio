@@ -7,6 +7,7 @@ import sys
 
 __all__ = ['run_future']
 
+
 async def run_future(future):
     """Wait for an asyncio future/coroutine from Trio code.
 
@@ -43,4 +44,3 @@ async def run_future(future):
                 sys.exc_info()[1].__cause__ = exc
         else:
             raise
-

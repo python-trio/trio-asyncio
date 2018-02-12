@@ -19,9 +19,11 @@ __all__ = ['BaseTrioEventLoop']
 
 _mswindows = (sys.platform == "win32")
 
+
 class _Clear:
     def clear(self):
         pass
+
 
 def h_raise(handle, exc):
     """
@@ -30,17 +32,20 @@ def h_raise(handle, exc):
     trio-asyncio enhanced handles have a method to do this
     but asyncio's native handles don't. Thus we need to fudge things.
     """
-    if hasattr(handle,'_raise'):
+    if hasattr(handle, '_raise'):
         handle._raise(exc)
         return
+
     def _raise(exc):
         raise exc
+
     cb, handle._callback = handle._callback, _raise
     ar, handle._args = handle._args, (exc,)
     try:
         handle._run()
     finally:
         handle._callback, handle._args = cb, ar
+
 
 class _TrioSelector(_BaseSelectorImpl):
     """A selector that hooks into a ``TrioEventLoop``.
@@ -58,6 +63,7 @@ class _TrioSelector(_BaseSelectorImpl):
 
 class TrioExecutor:
     """An executor that runs its job in a Trio worker thread."""
+
     def __init__(self, limiter=None):
         self._running = True
         self._limiter = limiter
@@ -135,8 +141,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def __repr__(self):
         try:
-            return "<%s running=%s>" % (self.__class__.__name__,
-                "closed" if self._closed else "no" if self._stopped.is_set() else "yes")
+            return "<%s running=%s>" % (
+                self.__class__.__name__, "closed" if self._closed else "no"
+                if self._stopped.is_set() else "yes"
+            )
         except Exception as exc:
             return "<%s ?:%s>" % (self.__class__.__name__, repr(exc))
 
@@ -301,7 +309,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         raise RuntimeError("_add_callback() should have been superseded")
 
     def _add_callback_signalsafe(self, handle):  # pragma: no cover
-        raise RuntimeError("_add_callback_signalsafe() should have been superseded")
+        raise RuntimeError(
+            "_add_callback_signalsafe() should have been superseded"
+        )
 
     def _handle_signal(self, signum):
         raise RuntimeError("_handle_signal() should have been superseded")
@@ -313,16 +323,34 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     if not _mswindows:
 
-        async def _make_subprocess_transport(self, protocol, args, shell,
-                                       stdin, stdout, stderr, bufsize,
-                                       extra=None, **kwargs):
+        async def _make_subprocess_transport(
+                self,
+                protocol,
+                args,
+                shell,
+                stdin,
+                stdout,
+                stderr,
+                bufsize,
+                extra=None,
+                **kwargs
+        ):
             """Make a subprocess transport. Asyncio context."""
 
             waiter = self.create_future()
-            transp = asyncio.unix_events._UnixSubprocessTransport(self, protocol, args, shell,
-                                              stdin, stdout, stderr, bufsize,
-                                              waiter=waiter, extra=extra,
-                                              **kwargs)
+            transp = asyncio.unix_events._UnixSubprocessTransport(
+                self,
+                protocol,
+                args,
+                shell,
+                stdin,
+                stdout,
+                stderr,
+                bufsize,
+                waiter=waiter,
+                extra=extra,
+                **kwargs
+            )
 
             async def child_wait(transp):
                 returncode = await trio.hazmat.wait_for_child(transp.get_pid())
@@ -360,7 +388,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """
         self._check_callback(func, 'run_in_executor')
         self._check_closed()
-        if executor is None: # pragma: no branch
+        if executor is None:  # pragma: no branch
             executor = self._default_executor
         assert isinstance(executor, TrioExecutor)
         return self.run_trio(executor.submit, func, *args)
@@ -375,7 +403,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         await w.wait()
 
     ######## Signal handling
-    
+
     def _handle_sig(self, sig, _):
         """Helper to safely enqueue a signal handler."""
         h = self._signal_handlers[sig]
@@ -449,7 +477,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             self._selector.modify(fd, mask | EVENT_READ, (handle, writer))
             return reader
 
-    async def _reader_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
+    async def _reader_loop(
+            self, fd, handle, task_status=trio.TASK_STATUS_IGNORED
+    ):
         task_status.started()
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
@@ -459,7 +489,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     handle._call_sync()
                     await self._sync()
             except Exception as exc:
-                h_raise(handle,exc)
+                h_raise(handle, exc)
                 return
             finally:
                 handle._scope = None
@@ -503,7 +533,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             self._selector.modify(fd, mask | EVENT_WRITE, (reader, handle))
             return writer
 
-    async def _writer_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
+    async def _writer_loop(
+            self, fd, handle, task_status=trio.TASK_STATUS_IGNORED
+    ):
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
             task_status.started()
@@ -513,7 +545,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     handle._call_sync()
                     await self._sync()
             except Exception as exc:
-                h_raise(handle,exc)
+                h_raise(handle, exc)
                 return
             finally:
                 handle._scope = None
@@ -530,7 +562,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         :param fd: Either an integer (Unix file descriptor) or an object
                    with a :meth:`fileno` methor providing one.
         """
-        if hasattr(fd,'fileno'):
+        if hasattr(fd, 'fileno'):
             fd = fd.fileno()
         self._close_files.add(fd)
 
@@ -545,7 +577,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                    with a :meth:`fileno` methor providing one.
         :raises KeyError: if the descriptor is not marked to be auto-closed.
         """
-        if hasattr(fd,'fileno'):
+        if hasattr(fd, 'fileno'):
             fd = fd.fileno()
         self._close_files.remove(fd)
 
@@ -660,7 +692,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """asyncio's method to run the loop until it is stopped.
         """
         raise RuntimeError("This is not a sync loop")
-        
+
     async def wait_stopped(self):
         """Wait until the mainloop is halted.
 
@@ -692,8 +724,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         raise RuntimeError("You need to use 'async with open_loop()'.")
 
     def __enter__(self):
-        raise RuntimeError("You need to use a sync loop, or 'async with open_loop()'.")
+        raise RuntimeError(
+            "You need to use a sync loop, or 'async with open_loop()'."
+        )
 
     def __exit__(self, *tb):
-        raise RuntimeError("You need to use a sync loop, or 'async with open_loop()'.")
-
+        raise RuntimeError(
+            "You need to use a sync loop, or 'async with open_loop()'."
+        )

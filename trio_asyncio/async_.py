@@ -8,6 +8,7 @@ from .handles import Handle
 
 __all__ = ['TrioEventLoop', 'open_loop']
 
+
 class TrioEventLoop(BaseTrioEventLoop):
     """A Trio-compatible asyncio event loop.
 
@@ -71,7 +72,7 @@ class TrioEventLoop(BaseTrioEventLoop):
         if self._stopped.is_set():
             waiter.set()
         else:
-            self._queue_handle(Handle(stop_me,(),self,True))
+            self._queue_handle(Handle(stop_me, (), self, True))
         return waiter
 
     def _close(self):
@@ -87,6 +88,7 @@ class TrioEventLoop(BaseTrioEventLoop):
     async def _run_task(self, proc, args):
         async with open_loop() as loop:
             await proc(*args)
+
 
 @asynccontextmanager
 @async_generator
@@ -116,5 +118,3 @@ async def open_loop():
                 loop.close()
                 asyncio.set_event_loop(old_loop)
                 nursery.cancel_scope.cancel()
-
-

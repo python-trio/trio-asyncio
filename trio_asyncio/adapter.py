@@ -8,13 +8,14 @@ import trio_asyncio
 
 from functools import wraps
 
-__all__ = ['trio2aio','aio2trio']
+__all__ = ['trio2aio', 'aio2trio']
 
 
 def trio2aio(proc):
     @wraps(proc)
     async def call(*args):
         return await trio_asyncio.run_asyncio(proc, *args)
+
     return call
 
 
@@ -22,11 +23,13 @@ def aio2trio(proc):
     @wraps(proc)
     async def call(*args):
         return await trio_asyncio.run_trio(proc, *args)
+
     return call
+
 
 def aio2trio_task(proc):
     @wraps(proc)
     async def call(*args):
         trio_asyncio.run_trio_task(proc, *args)
-    return call
 
+    return call

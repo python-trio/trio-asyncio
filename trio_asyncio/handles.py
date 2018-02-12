@@ -4,6 +4,7 @@ from asyncio.events import _format_callback, _get_function_source
 
 __all__ = ['Handle', 'TimerHandle']
 
+
 def _format_callback_source(func, args):
     func_repr = _format_callback(func, args, None)
     source = _get_function_source(func)
@@ -68,11 +69,7 @@ class _TrioHandle:
         if self._cancelled:
             info.append('cancelled')
         if self._callback is not None:
-            info.append(
-                _format_callback_source(
-                    self._callback, self._args
-                )
-            )
+            info.append(_format_callback_source(self._callback, self._args))
         if self._source_traceback:
             frame = self._source_traceback[-1]
             info.append('created at %s:%s' % (frame[0], frame[1]))
@@ -114,5 +111,3 @@ class TimerHandle(_TrioHandle, asyncio.TimerHandle):
     def __init__(self, when, callback, args, loop, is_sync):
         super().__init__(when, callback, args, loop)
         self._init(is_sync)
-
-
