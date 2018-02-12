@@ -25,7 +25,7 @@ class _Clear:
         pass
 
 
-def h_raise(handle, exc):
+def _h_raise(handle, exc):
     """
     Convince a handle to raise an error.
 
@@ -491,7 +491,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     handle._call_sync()
                     await self._sync()
             except Exception as exc:
-                h_raise(handle, exc)
+                _h_raise(handle, exc)
                 return
             finally:
                 handle._scope = None
@@ -547,7 +547,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     handle._call_sync()
                     await self._sync()
             except Exception as exc:
-                h_raise(handle, exc)
+                _h_raise(handle, exc)
                 return
             finally:
                 handle._scope = None
