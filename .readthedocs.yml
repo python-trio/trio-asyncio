@@ -1,0 +1,10 @@
+# https://docs.readthedocs.io/en/latest/yaml-config.html
+formats:
+  - htmlzip
+  - epub
+
+requirements_file: ci/rtd-requirements.txt
+
+python:
+  version: 3
+  pip_install: True

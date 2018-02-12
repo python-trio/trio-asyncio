@@ -1,0 +1,6 @@
+[tool.towncrier]
+package = "trio_asyncio"
+filename = "docs/source/history.rst"
+directory = "newsfragments"
+underlines = ["-", "~", "^"]
+issue_format = "`#{issue} <https://github.com/python-trio/trio-asyncio/issues/{issue}>`__"
