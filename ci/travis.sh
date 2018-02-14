@@ -92,7 +92,7 @@ else
     mkdir empty
     cd empty
 
-    pytest -W error -ra -v --pyargs trio_asyncio --cov=trio_asyncio --cov-config=../.coveragerc --verbose
+    pytest -W error -ra -v --cov=trio_asyncio --cov-config=../.coveragerc --verbose ../tests
 
     bash <(curl -s https://codecov.io/bash)
 fi
