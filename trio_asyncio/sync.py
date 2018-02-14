@@ -75,7 +75,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         # On the other hand, if a request has been submitted (but not yet
         # processed) through self._token, any other requestss also must be
         # sent that way, otherwise they'd overtake each other.
-        if self._token is not None and (self._some_deferred or
+        if self._token is not None and (self._some_deferred or \
                                         threading.current_thread() != self._thread):
             self._some_deferred += 1
             self._token.run_sync_soon(put, self, handle)
