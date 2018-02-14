@@ -1,6 +1,7 @@
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
+import sys
 import trio
 import asyncio
 import warnings
@@ -35,11 +36,12 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         try:
             trio.hazmat.current_task()
         except RuntimeError:
-            warnings.warn(
-                "trio_asyncio should be used from within a Trio event loop.",
-                DeprecationWarning,
-                stacklevel=2
-            )
+            if 'pytest' not in sys.modules:
+                warnings.warn(
+                    "trio_asyncio should be used from within a Trio event loop.",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
             from .sync import SyncTrioEventLoop
             loop = SyncTrioEventLoop()
             return loop
