@@ -20,7 +20,6 @@ except ImportError:
 
 
 class WinsocketpairTests(unittest.TestCase):
-
     def check_winsocketpair(self, ssock, csock):
         csock.send(b'xxx')
         self.assertEqual(b'xxx', ssock.recv(1024))
@@ -36,8 +35,7 @@ class WinsocketpairTests(unittest.TestCase):
         ssock, csock = windows_utils.socketpair(family=socket.AF_INET6)
         self.check_winsocketpair(ssock, csock)
 
-    @unittest.skipIf(hasattr(socket, 'socketpair'),
-                     'socket.socketpair is available')
+    @unittest.skipIf(hasattr(socket, 'socketpair'), 'socket.socketpair is available')
     @mock.patch('asyncio.windows_utils.socket')
     def test_winsocketpair_exc(self, m_socket):
         m_socket.AF_INET = socket.AF_INET
@@ -49,15 +47,11 @@ class WinsocketpairTests(unittest.TestCase):
         self.assertRaises(OSError, windows_utils.socketpair)
 
     def test_winsocketpair_invalid_args(self):
-        self.assertRaises(ValueError,
-                          windows_utils.socketpair, family=socket.AF_UNSPEC)
-        self.assertRaises(ValueError,
-                          windows_utils.socketpair, type=socket.SOCK_DGRAM)
-        self.assertRaises(ValueError,
-                          windows_utils.socketpair, proto=1)
+        self.assertRaises(ValueError, windows_utils.socketpair, family=socket.AF_UNSPEC)
+        self.assertRaises(ValueError, windows_utils.socketpair, type=socket.SOCK_DGRAM)
+        self.assertRaises(ValueError, windows_utils.socketpair, proto=1)
 
-    @unittest.skipIf(hasattr(socket, 'socketpair'),
-                     'socket.socketpair is available')
+    @unittest.skipIf(hasattr(socket, 'socketpair'), 'socket.socketpair is available')
     @mock.patch('asyncio.windows_utils.socket')
     def test_winsocketpair_close(self, m_socket):
         m_socket.AF_INET = socket.AF_INET
@@ -70,7 +64,6 @@ class WinsocketpairTests(unittest.TestCase):
 
 
 class PipeTests(unittest.TestCase):
-
     def test_pipe_overlapped(self):
         h1, h2 = windows_utils.pipe(overlapped=(True, True))
         try:
@@ -117,19 +110,18 @@ class PipeTests(unittest.TestCase):
 
         # check garbage collection of p closes handle
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", "",  ResourceWarning)
+            warnings.filterwarnings("ignore", "", ResourceWarning)
             del p
             support.gc_collect()
         try:
             _winapi.CloseHandle(h)
         except OSError as e:
-            self.assertEqual(e.winerror, 6)     # ERROR_INVALID_HANDLE
+            self.assertEqual(e.winerror, 6)  # ERROR_INVALID_HANDLE
         else:
             raise RuntimeError('expected ERROR_INVALID_HANDLE')
 
 
 class PopenTests(unittest.TestCase):
-
     def test_popen(self):
         command = r"""if 1:
             import sys
@@ -139,10 +131,12 @@ class PopenTests(unittest.TestCase):
             """
         msg = b"blah\n"
 
-        p = windows_utils.Popen([sys.executable, '-c', command],
-                                stdin=windows_utils.PIPE,
-                                stdout=windows_utils.PIPE,
-                                stderr=windows_utils.PIPE)
+        p = windows_utils.Popen(
+            [sys.executable, '-c', command],
+            stdin=windows_utils.PIPE,
+            stdout=windows_utils.PIPE,
+            stderr=windows_utils.PIPE
+        )
 
         for f in [p.stdin, p.stdout, p.stderr]:
             self.assertIsInstance(f, windows_utils.PipeHandle)

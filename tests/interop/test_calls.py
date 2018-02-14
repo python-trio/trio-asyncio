@@ -1,5 +1,4 @@
 import pytest
-import trio_asyncio
 import asyncio
 import trio
 from tests import aiotest
@@ -30,8 +29,8 @@ class TestCalls(aiotest.TestCase):
             loop.call_at(t, done.set)
             await done.wait()
 
-        t = loop.time()+0.1
-        await loop.run_asyncio(delay,t)
+        t = loop.time() + 0.1
+        await loop.run_asyncio(delay, t)
 
     @pytest.mark.trio
     async def test_asyncio_trio(self, loop):
@@ -43,7 +42,7 @@ class TestCalls(aiotest.TestCase):
             return 8
 
         seen = Seen()
-        res = await loop.run_asyncio(partial(self.call_a_t, loop=loop),dly_trio, seen)
+        res = await loop.run_asyncio(partial(self.call_a_t, loop=loop), dly_trio, seen)
         assert res == 8
         assert seen.flag == 2
 
@@ -79,17 +78,17 @@ class TestCalls(aiotest.TestCase):
             raise RuntimeError("I has another owie")
 
         with pytest.raises(RuntimeError) as err:
-            res = await loop.run_asyncio(partial(self.call_a_t, loop=loop), err_trio)
+            await loop.run_asyncio(partial(self.call_a_t, loop=loop), err_trio)
         assert err.value.args[0] == "I has another owie"
 
     @pytest.mark.trio
     async def test_asyncio_trio_sync_error(self, loop):
         def err_trio_sync():
-            t = loop.time() # verify that the loop is running
+            loop.time()  # verify that the loop is running
             raise RuntimeError("I has more owie")
 
         with pytest.raises(RuntimeError) as err:
-            res = await loop.run_asyncio(partial(self.call_a_ts, loop=loop), err_trio_sync)
+            await loop.run_asyncio(partial(self.call_a_ts, loop=loop), err_trio_sync)
         assert err.value.args[0] == "I has more owie"
 
     @pytest.mark.trio
@@ -99,7 +98,7 @@ class TestCalls(aiotest.TestCase):
             raise RuntimeError("I has an owie")
 
         with pytest.raises(RuntimeError) as err:
-            res = await self.call_t_a(err_asyncio, loop=loop)
+            await self.call_t_a(err_asyncio, loop=loop)
         assert err.value.args[0] == "I has an owie"
 
     @pytest.mark.trio
@@ -114,8 +113,8 @@ class TestCalls(aiotest.TestCase):
             seen.flag |= 4
 
         seen = Seen()
-        with pytest.raises(asyncio.CancelledError) as err:
-            res = await loop.run_asyncio(partial(self.call_a_t, loop=loop), cancelled_trio, seen)
+        with pytest.raises(asyncio.CancelledError):
+            await loop.run_asyncio(partial(self.call_a_t, loop=loop), cancelled_trio, seen)
         assert seen.flag == 3
 
     @pytest.mark.trio
@@ -141,11 +140,11 @@ class TestCalls(aiotest.TestCase):
             seen.flag |= 4
 
         seen = Seen()
-        res = await check_cancel(cancelled_future, seen)
+        await check_cancel(cancelled_future, seen)
         assert seen.flag == 1 | 4
 
         seen = Seen()
-        res = await check_cancel(cancelled_asyncio, seen)
+        await check_cancel(cancelled_asyncio, seen)
         assert seen.flag == 1 | 4
 
     @pytest.mark.trio
@@ -171,7 +170,7 @@ class TestCalls(aiotest.TestCase):
             seen.flag |= 8
 
         seen = Seen()
-        res = await loop.run_asyncio(cancel_asyncio,seen)
+        await loop.run_asyncio(cancel_asyncio, seen)
         assert seen.flag == 1 | 2 | 8
 
     @pytest.mark.trio
@@ -196,9 +195,8 @@ class TestCalls(aiotest.TestCase):
             seen.flag |= 8
 
         seen = Seen()
-        res = await cancel_trio(seen)
+        await cancel_trio(seen)
         assert seen.flag == 1 | 2 | 8
-
 
     @pytest.mark.trio
     async def test_trio_asyncio_cancel_direct(self, loop):
@@ -211,7 +209,9 @@ class TestCalls(aiotest.TestCase):
             started = trio.Event()
             try:
                 async with trio.open_nursery() as nursery:
-                    nursery.start_soon(partial(self.call_t_a, loop=loop), in_asyncio, started, seen)
+                    nursery.start_soon(
+                        partial(self.call_t_a, loop=loop), in_asyncio, started, seen
+                    )
                     await started.wait()
                     nursery.cancel_scope.cancel()
             finally:
@@ -222,7 +222,6 @@ class TestCalls(aiotest.TestCase):
             await cancel_trio(seen)
         assert seen.flag == 1 | 8
 
-
     @pytest.mark.trio
     async def test_trio_asyncio_error_direct(self, loop):
         def err_asyncio():
@@ -230,6 +229,5 @@ class TestCalls(aiotest.TestCase):
             raise RuntimeError("I has an owie")
 
         with pytest.raises(RuntimeError) as err:
-            res = await self.call_t_a(err_asyncio, loop=loop)
+            await self.call_t_a(err_asyncio, loop=loop)
         assert err.value.args[0] == "I has an owie"
-

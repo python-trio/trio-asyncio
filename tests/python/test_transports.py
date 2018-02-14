@@ -8,7 +8,6 @@ from asyncio import transports
 
 
 class TransportTests(unittest.TestCase):
-
     def test_ctor_extra_is_none(self):
         transport = asyncio.Transport()
         self.assertEqual(transport._extra, {})
@@ -25,17 +24,14 @@ class TransportTests(unittest.TestCase):
         transport = asyncio.Transport()
         transport.write = mock.Mock()
 
-        transport.writelines([b'line1',
-                              bytearray(b'line2'),
-                              memoryview(b'line3')])
+        transport.writelines([b'line1', bytearray(b'line2'), memoryview(b'line3')])
         self.assertEqual(1, transport.write.call_count)
         transport.write.assert_called_with(b'line1line2line3')
 
     def test_not_implemented(self):
         transport = asyncio.Transport()
 
-        self.assertRaises(NotImplementedError,
-                          transport.set_write_buffer_limits)
+        self.assertRaises(NotImplementedError, transport.set_write_buffer_limits)
         self.assertRaises(NotImplementedError, transport.get_write_buffer_size)
         self.assertRaises(NotImplementedError, transport.write, 'data')
         self.assertRaises(NotImplementedError, transport.write_eof)
@@ -62,10 +58,7 @@ class TransportTests(unittest.TestCase):
         self.assertRaises(NotImplementedError, transport.kill)
 
     def test_flowcontrol_mixin_set_write_limits(self):
-
-        class MyTransport(transports._FlowControlMixin,
-                          transports.Transport):
-
+        class MyTransport(transports._FlowControlMixin, transports.Transport):
             def get_write_buffer_size(self):
                 return 512
 

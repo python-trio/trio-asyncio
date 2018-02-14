@@ -1,6 +1,7 @@
 from tests import aiotest
 import pytest
 
+
 def create_classes(config):
     asyncio = config.asyncio
     socket = config.socket
@@ -84,4 +85,3 @@ class TestNetwork(aiotest.TestCase):
         await loop.stop().wait()()
         assert proto.state == 'closed'
         assert proto.received == message
-

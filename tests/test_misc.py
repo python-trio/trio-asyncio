@@ -1,9 +1,9 @@
 import pytest
 import trio_asyncio
 import asyncio
-import os
 import trio
-#from tests import aiotest
+
+# from tests import aiotest
 
 
 class Seen:
@@ -13,25 +13,28 @@ class Seen:
 class TestMisc:
     @pytest.mark.trio
     async def test_close_no_stop(self):
-        with pytest.raises(RuntimeError) as err:
+        with pytest.raises(RuntimeError):
             async with trio_asyncio.open_loop() as loop:
+
                 def close_no_stop():
                     loop.close()
+
                 loop.call_soon(close_no_stop)
 
                 await trio.sleep(0.1)
                 await loop.wait_closed()
 
-    async def test_err(self, loop):
+    @pytest.mark.trio
+    async def test_err1(self, loop):
         async def raise_err():
             raise RuntimeError("Foo")
 
         with pytest.raises(RuntimeError) as err:
-            res = await loop.run_asyncio(raise_err)
+            await loop.run_asyncio(raise_err)
         assert err.value.args[0] == "Foo"
 
     @pytest.mark.trio
-    async def test_err(self, loop):
+    async def test_err3(self, loop):
         owch = 0
 
         async def nest():
@@ -115,4 +118,3 @@ class TestMisc:
 
         await loop.run_asyncio(cancel_sleep)
         assert owch == 0
-

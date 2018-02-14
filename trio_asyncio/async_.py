@@ -95,7 +95,7 @@ class TrioEventLoop(BaseTrioEventLoop):
 @async_generator
 async def open_loop():
     """Main entry point: run an asyncio loop on top of Trio.
-    
+
     This is a context manager.
 
     Example usage::

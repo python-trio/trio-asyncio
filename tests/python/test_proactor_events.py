@@ -22,7 +22,6 @@ def close_transport(transport):
 
 
 class ProactorSocketTransportTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = self.new_test_loop()
@@ -33,8 +32,7 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         self.sock = mock.Mock(socket.socket)
 
     def socket_transport(self, waiter=None):
-        transport = _ProactorSocketTransport(self.loop, self.sock,
-                                             self.protocol, waiter=waiter)
+        transport = _ProactorSocketTransport(self.loop, self.sock, self.protocol, waiter=waiter)
         self.addCleanup(close_transport, transport)
         return transport
 
@@ -83,9 +81,7 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         tr = self.socket_transport()
         tr._fatal_error = mock.Mock()
         tr._loop_reading()
-        tr._fatal_error.assert_called_with(
-                            err,
-                            'Fatal read error on pipe transport')
+        tr._fatal_error.assert_called_with(err, 'Fatal read error on pipe transport')
 
     def test_loop_reading_aborted_closing(self):
         self.loop._proactor.recv.side_effect = ConnectionAbortedError()
@@ -121,9 +117,7 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         tr = self.socket_transport()
         tr._fatal_error = mock.Mock()
         tr._loop_reading()
-        tr._fatal_error.assert_called_with(
-                            err,
-                            'Fatal read error on pipe transport')
+        tr._fatal_error.assert_called_with(err, 'Fatal read error on pipe transport')
 
     def test_write(self):
         tr = self.socket_transport()
@@ -160,9 +154,7 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         tr._fatal_error = mock.Mock()
         tr._buffer = [b'da', b'ta']
         tr._loop_writing()
-        tr._fatal_error.assert_called_with(
-                            err,
-                            'Fatal write error on pipe transport')
+        tr._fatal_error.assert_called_with(err, 'Fatal write error on pipe transport')
         tr._conn_lost = 1
 
         tr.write(b'data')
@@ -295,8 +287,7 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         tr.close()
 
     def test_write_eof_write_pipe(self):
-        tr = _ProactorWritePipeTransport(
-            self.loop, self.sock, self.protocol)
+        tr = _ProactorWritePipeTransport(self.loop, self.sock, self.protocol)
         self.assertTrue(tr.can_write_eof())
         tr.write_eof()
         self.assertTrue(tr.is_closing())
@@ -320,8 +311,7 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         tr.close()
 
     def test_write_eof_duplex_pipe(self):
-        tr = _ProactorDuplexPipeTransport(
-            self.loop, self.sock, self.protocol)
+        tr = _ProactorDuplexPipeTransport(self.loop, self.sock, self.protocol)
         self.assertFalse(tr.can_write_eof())
         with self.assertRaises(NotImplementedError):
             tr.write_eof()
@@ -353,7 +343,6 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         self.loop._run_once()
         self.protocol.data_received.assert_called_with(b'data4')
         tr.close()
-
 
     def pause_writing_transport(self, high):
         tr = self.socket_transport()
@@ -435,7 +424,6 @@ class ProactorSocketTransportTests(test_utils.TestCase):
 
 
 class BaseProactorEventLoopTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
 
@@ -454,8 +442,7 @@ class BaseProactorEventLoopTests(test_utils.TestCase):
     @mock.patch.object(BaseProactorEventLoop, 'call_soon')
     @mock.patch.object(BaseProactorEventLoop, '_socketpair')
     def test_ctor(self, socketpair, call_soon):
-        ssock, csock = socketpair.return_value = (
-            mock.Mock(), mock.Mock())
+        ssock, csock = socketpair.return_value = (mock.Mock(), mock.Mock())
         loop = BaseProactorEventLoop(self.proactor)
         self.assertIs(loop._ssock, ssock)
         self.assertIs(loop._csock, csock)
@@ -506,8 +493,8 @@ class BaseProactorEventLoopTests(test_utils.TestCase):
             # override the destructor to not log a ResourceWarning
             def __del__(self):
                 pass
-        self.assertRaises(
-            NotImplementedError, EventLoop, self.proactor)
+
+        self.assertRaises(NotImplementedError, EventLoop, self.proactor)
 
     def test_make_socket_transport(self):
         tr = self.loop._make_socket_transport(self.sock, asyncio.Protocol())
@@ -518,7 +505,8 @@ class BaseProactorEventLoopTests(test_utils.TestCase):
         self.loop._loop_self_reading()
         self.proactor.recv.assert_called_with(self.ssock, 4096)
         self.proactor.recv.return_value.add_done_callback.assert_called_with(
-            self.loop._loop_self_reading)
+            self.loop._loop_self_reading
+        )
 
     def test_loop_self_reading_fut(self):
         fut = mock.Mock()
@@ -526,7 +514,8 @@ class BaseProactorEventLoopTests(test_utils.TestCase):
         self.assertTrue(fut.result.called)
         self.proactor.recv.assert_called_with(self.ssock, 4096)
         self.proactor.recv.return_value.add_done_callback.assert_called_with(
-            self.loop._loop_self_reading)
+            self.loop._loop_self_reading
+        )
 
     def test_loop_self_reading_exception(self):
         self.loop.call_exception_handler = mock.Mock()

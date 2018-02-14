@@ -3,6 +3,7 @@ from tests import aiotest
 import pytest
 import trio
 
+
 class TestTimer(aiotest.TestCase):
     @pytest.mark.trio
     async def test_display_date(self, loop):
@@ -44,4 +45,3 @@ class TestTimer(aiotest.TestCase):
 
         await loop.wait_stopped()
         assert result == ["Hello", "World"]
-

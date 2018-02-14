@@ -8,20 +8,19 @@ from asyncio import test_utils
 
 
 class _QueueTestBase(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = self.new_test_loop()
 
 
 class QueueBasicTests(_QueueTestBase):
-
     def _test_repr_or_str(self, fn, expect_id):
         """Test Queue's repr or str.
 
         fn is repr or str. expect_id is True if we expect the Queue's id to
         appear in fn(Queue()).
         """
+
         def gen():
             when = yield
             self.assertAlmostEqual(0.1, when)
@@ -111,7 +110,6 @@ class QueueBasicTests(_QueueTestBase):
         self.assertEqual([1, 3, 2], items)
 
     def test_maxsize(self):
-
         def gen():
             when = yield
             self.assertAlmostEqual(0.01, when)
@@ -155,7 +153,6 @@ class QueueBasicTests(_QueueTestBase):
 
 
 class QueueGetTests(_QueueTestBase):
-
     def test_blocking_get(self):
         q = asyncio.Queue(loop=self.loop)
         q.put_nowait(1)
@@ -180,7 +177,6 @@ class QueueGetTests(_QueueTestBase):
         self.assertIsNone(waiter.result())
 
     def test_blocking_get_wait(self):
-
         def gen():
             when = yield
             self.assertAlmostEqual(0.01, when)
@@ -224,7 +220,6 @@ class QueueGetTests(_QueueTestBase):
         self.assertRaises(asyncio.QueueEmpty, q.get_nowait)
 
     def test_get_cancelled(self):
-
         def gen():
             when = yield
             self.assertAlmostEqual(0.01, when)
@@ -290,10 +285,10 @@ class QueueGetTests(_QueueTestBase):
         q = asyncio.Queue(queue_size, loop=self.loop)
 
         self.loop.run_until_complete(
-            asyncio.gather(producer(q, producer_num_items),
-                           consumer(q, producer_num_items),
-                           loop=self.loop),
-            )
+            asyncio.gather(
+                producer(q, producer_num_items), consumer(q, producer_num_items), loop=self.loop
+            ),
+        )
 
     def test_cancelled_getters_not_being_held_in_self_getters(self):
         def a_generator():
@@ -301,10 +296,11 @@ class QueueGetTests(_QueueTestBase):
             yield 0.2
 
         self.loop = self.new_test_loop(a_generator)
+
         @asyncio.coroutine
         def consumer(queue):
             try:
-                item = yield from asyncio.wait_for(queue.get(), 0.1, loop=self.loop)
+                yield from asyncio.wait_for(queue.get(), 0.1, loop=self.loop)
             except asyncio.TimeoutError:
                 pass
 
@@ -314,7 +310,6 @@ class QueueGetTests(_QueueTestBase):
 
 
 class QueuePutTests(_QueueTestBase):
-
     def test_blocking_put(self):
         q = asyncio.Queue(loop=self.loop)
 
@@ -326,7 +321,6 @@ class QueuePutTests(_QueueTestBase):
         self.loop.run_until_complete(queue_put())
 
     def test_blocking_put_wait(self):
-
         def gen():
             when = yield
             self.assertAlmostEqual(0.01, when)
@@ -422,7 +416,6 @@ class QueuePutTests(_QueueTestBase):
         self.assertEqual({reader2.result(), reader3.result()}, {1, 2})
 
     def test_put_cancel_drop(self):
-
         def gen():
             yield 0.01
             yield 0.1
@@ -464,11 +457,13 @@ class QueuePutTests(_QueueTestBase):
         self.assertRaises(asyncio.QueueFull, q.put_nowait, 3)
 
         q = asyncio.Queue(maxsize=1.3, loop=self.loop)
+
         @asyncio.coroutine
         def queue_put():
             yield from q.put(1)
             yield from q.put(2)
             self.assertTrue(q.full())
+
         self.loop.run_until_complete(queue_put())
 
     def test_put_cancelled(self):
@@ -529,18 +524,16 @@ class QueuePutTests(_QueueTestBase):
             yield
             num = queue.qsize()
             for _ in range(num):
-                item = queue.get_nowait()
+                queue.get_nowait()
 
         t0 = putter(0)
         t1 = putter(1)
         t2 = putter(2)
         t3 = putter(3)
-        self.loop.run_until_complete(
-            asyncio.gather(getter(), t0, t1, t2, t3, loop=self.loop))
+        self.loop.run_until_complete(asyncio.gather(getter(), t0, t1, t2, t3, loop=self.loop))
 
 
 class LifoQueueTests(_QueueTestBase):
-
     def test_order(self):
         q = asyncio.LifoQueue(loop=self.loop)
         for i in [1, 3, 2]:
@@ -551,7 +544,6 @@ class LifoQueueTests(_QueueTestBase):
 
 
 class PriorityQueueTests(_QueueTestBase):
-
     def test_order(self):
         q = asyncio.PriorityQueue(loop=self.loop)
         for i in [1, 3, 2]:
@@ -591,8 +583,7 @@ class _QueueJoinTestMixin:
 
         @asyncio.coroutine
         def test():
-            tasks = [asyncio.Task(worker(), loop=self.loop)
-                     for index in range(2)]
+            tasks = [asyncio.Task(worker(), loop=self.loop) for index in range(2)]
 
             yield from q.join()
             return tasks

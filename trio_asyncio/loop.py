@@ -13,8 +13,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'run', 'run_trio_task', 'run_trio', 'run_future', 'run_coroutine', 'run_asyncio',
-    'TrioChildWatcher', 'TrioPolicy',
+    'run',
+    'run_trio_task',
+    'run_trio',
+    'run_future',
+    'run_coroutine',
+    'run_asyncio',
+    'TrioChildWatcher',
+    'TrioPolicy',
 ]
 
 
@@ -94,8 +100,7 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
         with asyncio.events._lock:
             if self._watcher is None:  # pragma: no branch
                 self._watcher = TrioChildWatcher()
-                if isinstance(threading.current_thread(),
-                              threading._MainThread):
+                if isinstance(threading.current_thread(), threading._MainThread):
                     self._watcher.attach_loop(self._trio_local._loop)
 
         if self._watcher is not None and \

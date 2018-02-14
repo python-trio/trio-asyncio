@@ -9,6 +9,7 @@ import inspect
 import asyncio
 import trio_asyncio
 
+
 @pytest.fixture
 async def loop():
     async with trio_asyncio.open_loop() as loop:
@@ -16,6 +17,7 @@ async def loop():
             yield loop
         finally:
             await loop.stop().wait()
+
 
 @pytest.fixture
 def sync_loop():

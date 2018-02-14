@@ -75,9 +75,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         # On the other hand, if a request has been submitted (but not yet
         # processed) through self._token, any other requestss also must be
         # sent that way, otherwise they'd overtake each other.
-        if self._token is not None and (
-                self._some_deferred
-                or threading.current_thread() != self._thread):
+        if self._token is not None and (self._some_deferred or
+                                        threading.current_thread() != self._thread):
             self._some_deferred += 1
             self._token.run_sync_soon(put, self, handle)
         else:
@@ -86,9 +85,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
     def run_forever(self):
         if self._thread == threading.current_thread():
-            raise RuntimeError(
-                "You can't nest calls to run_until_complete()/run_forever()."
-            )
+            raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
         self.__run_in_thread(self._main_loop)
 
     def is_running(self):
@@ -100,19 +97,13 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         if self._thread is None or self._thread == threading.current_thread():
             super()._add_reader(fd, callback, *args)
         else:
-            self.__run_in_thread(
-                _sync,
-                super()._add_reader, fd, callback, *args
-            )
+            self.__run_in_thread(_sync, super()._add_reader, fd, callback, *args)
 
     def _add_writer(self, fd, callback, *args):
         if self._thread is None or self._thread == threading.current_thread():
             super()._add_writer(fd, callback, *args)
         else:
-            self.__run_in_thread(
-                _sync,
-                super()._add_writer, fd, callback, *args
-            )
+            self.__run_in_thread(_sync, super()._add_writer, fd, callback, *args)
 
     def run_until_complete(self, future):
         """Run until the Future is done.
@@ -127,9 +118,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         """
 
         if self._thread == threading.current_thread():
-            raise RuntimeError(
-                "You can't nest calls to run_until_complete()/run_forever()."
-            )
+            raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
         return self.__run_in_thread(self._run_coroutine, future)
 
     async def _run_coroutine(self, future):
@@ -155,17 +144,13 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         finally:
             future.remove_done_callback(is_done)
         if result is None:
-            result = trio.hazmat.Error(
-                RuntimeError('Event loop stopped before Future completed.')
-            )
+            result = trio.hazmat.Error(RuntimeError('Event loop stopped before Future completed.'))
         return result.unwrap()
 
     def __run_in_thread(self, async_fn, *args):
         self._check_closed()
         if self._thread is None:
-            raise RuntimeError(
-                "You need to wrap your main code in a 'with loop:' statement."
-            )
+            raise RuntimeError("You need to wrap your main code in a 'with loop:' statement.")
         if not self._thread.is_alive():
             raise RuntimeError("The Trio thread is not running")
         self.__blocking_job_queue.put((async_fn, args))
@@ -224,9 +209,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         """Hook to terminate the thread"""
         if self._thread is not None:
             if self._thread == threading.current_thread():
-                raise RuntimeError(
-                    "You can't close a sync loop from the inside"
-                )
+                raise RuntimeError("You can't close a sync loop from the inside")
             self.__blocking_job_queue.put(None)
             self._thread.join()
             self._thread = None

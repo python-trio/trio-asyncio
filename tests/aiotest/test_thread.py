@@ -3,20 +3,15 @@ import pytest
 import trio
 import trio_asyncio
 
-class TestThread(aiotest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super(ThreadTests, cls).setUpClass()
-        if not cls.config.support_threads:
-            raise aiotest.unittest.SkipTest("threads are not supported")
 
+class TestThread(aiotest.TestCase):
     @pytest.mark.trio
     async def test_ident(self, loop, config):
         threading = config.threading
         try:
-            get_ident = threading.get_ident   # Python 3
+            get_ident = threading.get_ident  # Python 3
         except AttributeError:
-            get_ident = threading._get_ident   # Python 2
+            get_ident = threading._get_ident  # Python 2
 
         result = {'ident': None}
 
@@ -50,7 +45,7 @@ class TestThread(aiotest.TestCase):
     @pytest.mark.trio
     async def test_policy(self, loop, config):
         asyncio = config.asyncio
-        result = {'loop': 'not set'}   # sentinel, different than None
+        result = {'loop': 'not set'}  # sentinel, different than None
 
         def work():
             try:
@@ -65,7 +60,6 @@ class TestThread(aiotest.TestCase):
 
     @pytest.mark.trio
     async def test_run_in_thread(self, config):
-        asyncio = config.asyncio
         threading = config.threading
 
         class LoopThread(threading.Thread):
@@ -105,4 +99,3 @@ class TestThread(aiotest.TestCase):
         # wait for the other thread's event loop to terminate
         thread.join()
         assert result == [tid]
-
