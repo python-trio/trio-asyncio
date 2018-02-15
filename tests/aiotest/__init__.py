@@ -9,12 +9,6 @@ if sys.platform == 'win32':
 else:
     socketpair = socket.socketpair
 
-import unittest
-try:
-    from unittest import mock
-except ImportError:
-    import mock
-
 
 class TestConfig:
     def __init__(self):
@@ -59,17 +53,20 @@ class TestConfig:
         self.stopping = True
 
     def prepare(self, testcase):
-        #import pdb;pdb.set_trace()
-        #policy = self.new_event_pool_policy()
-        #self.asyncio.set_event_loop_policy(policy)
+        # import pdb;pdb.set_trace()
+        # policy = self.new_event_pool_policy()
+        # self.asyncio.set_event_loop_policy(policy)
         testcase.addCleanup(self.asyncio.set_event_loop_policy, None)
 
         testcase.loop = self.asyncio.get_event_loop()
-        #testcase.addCleanup(testcase.loop.close)
-        #testcase.addCleanup(self.asyncio.set_event_loop, None)
+        # testcase.addCleanup(testcase.loop.close)
+        # testcase.addCleanup(self.asyncio.set_event_loop, None)
+
 
 class TestCase:
     pass
+
+
 #    @classmethod
 #    def setUpClass(cls):
 #        cls.config = config

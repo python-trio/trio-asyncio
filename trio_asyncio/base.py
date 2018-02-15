@@ -12,6 +12,11 @@ from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
 from .util import run_future
 
+try:
+    from trio.hazmat import wait_for_child
+except ImportError:
+    from .child import wait_for_child
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -74,14 +79,16 @@ class TrioExecutor:
             raise RuntimeError("Executor is down")
         print("### EXEC start %s %s",func,args)
         try:
-            res = await trio.run_sync_in_worker_thread(
-                func, *args, limiter=self._limiter)
+            res = await trio.run_sync_in_worker_thread(func, *args, limiter=self._limiter)
         except BaseException as exc:
             print("### EXEC dead %s",exc)
             raise
         else:
             print("### EXEC res %s",res)
             return res
+        return await trio.run_sync_in_worker_thread(
+            func, *args, limiter=self._limiter
+        )
 
     def shutdown(self, wait=None):
         self._running = False
@@ -283,9 +290,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_at')
-        return self._queue_handle(
-            TimerHandle(when, callback, args, self, True)
-        )
+        return self._queue_handle(TimerHandle(when, callback, args, self, True))
 
     def call_soon(self, callback, *args):
         """asyncio's defer-to-mainloop callback executor.
@@ -318,9 +323,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         raise RuntimeError("_add_callback() should have been superseded")
 
     def _add_callback_signalsafe(self, handle):  # pragma: no cover
-        raise RuntimeError(
-            "_add_callback_signalsafe() should have been superseded"
-        )
+        raise RuntimeError("_add_callback_signalsafe() should have been superseded")
 
     def _handle_signal(self, signum):
         raise RuntimeError("_handle_signal() should have been superseded")
@@ -333,16 +336,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     if not _mswindows:
 
         async def _make_subprocess_transport(
-                self,
-                protocol,
-                args,
-                shell,
-                stdin,
-                stdout,
-                stderr,
-                bufsize,
-                extra=None,
-                **kwargs
+                self, protocol, args, shell, stdin, stdout, stderr, bufsize, extra=None, **kwargs
         ):
             """Make a subprocess transport. Asyncio context."""
 
@@ -362,7 +356,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             )
 
             async def child_wait(transp):
-                returncode = await trio.hazmat.wait_for_child(transp.get_pid())
+                returncode = await wait_for_child(transp.get_pid())
                 transp._process_exited(returncode)
 
             self.run_trio(child_wait, transp)
@@ -486,9 +480,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             self._selector.modify(fd, mask | EVENT_READ, (handle, writer))
             return reader
 
-    async def _reader_loop(
-            self, fd, handle, task_status=trio.TASK_STATUS_IGNORED
-    ):
+    async def _reader_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
         task_status.started()
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
@@ -542,9 +534,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             self._selector.modify(fd, mask | EVENT_WRITE, (reader, handle))
             return writer
 
-    async def _writer_loop(
-            self, fd, handle, task_status=trio.TASK_STATUS_IGNORED
-    ):
+    async def _writer_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
         with trio.open_cancel_scope() as scope:
             handle._scope = scope
             task_status.started()
@@ -761,11 +751,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         raise RuntimeError("You need to use 'async with open_loop()'.")
 
     def __enter__(self):
-        raise RuntimeError(
-            "You need to use a sync loop, or 'async with open_loop()'."
-        )
+        raise RuntimeError("You need to use a sync loop, or 'async with open_loop()'.")
 
     def __exit__(self, *tb):
-        raise RuntimeError(
-            "You need to use a sync loop, or 'async with open_loop()'."
-        )
+        raise RuntimeError("You need to use a sync loop, or 'async with open_loop()'.")

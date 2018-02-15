@@ -1,15 +1,15 @@
 import pytest
-import trio_asyncio
 import asyncio
-import os
-import trio
+
 
 class TestSync:
     def test_basic_mainloop(self, sync_loop):
         async def foo():
             return "bar"
+
         async def bar():
             return "baz"
+
         res = sync_loop.run_until_complete(foo())
         assert res == "bar"
         res = sync_loop.run_until_complete(bar())
@@ -18,6 +18,7 @@ class TestSync:
     def test_explicit_mainloop(self):
         async def foo():
             return "bar"
+
         async def bar():
             return "baz"
 
@@ -36,6 +37,7 @@ class TestSync:
     def test_basic_errloop(self, sync_loop):
         async def foo():
             raise RuntimeError("bar")
+
         with pytest.raises(RuntimeError) as res:
             sync_loop.run_until_complete(foo())
         if res.value.args[0] != "bar":
@@ -54,4 +56,3 @@ class TestSync:
                     pass
             if res.value.args[0] != "bar":
                 raise res.value
-

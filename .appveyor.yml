@@ -24,5 +24,5 @@ test_script:
   - "cd empty"
   # Make sure it's being imported from where we expect
   - "python -c \"import os, trio_asyncio; print(os.path.dirname(trio_asyncio.__file__))\""
-  - "python -u -m pytest -W error -ra -v -s --pyargs trio_asyncio --cov=trio_asyncio --cov-config=../.coveragerc"
+  - "python -u -m pytest -W error -ra -v -s --cov=trio_asyncio --cov-config=../.coveragerc ../tests"
   - "codecov"

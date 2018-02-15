@@ -18,7 +18,6 @@ RGX_REPR = re.compile(STR_RGX_REPR)
 
 
 class LockTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = self.new_test_loop()
@@ -124,9 +123,7 @@ class LockTests(test_utils.TestCase):
 
         task = asyncio.Task(lock.acquire(), loop=self.loop)
         self.loop.call_soon(task.cancel)
-        self.assertRaises(
-            asyncio.CancelledError,
-            self.loop.run_until_complete, task)
+        self.assertRaises(asyncio.CancelledError, self.loop.run_until_complete, task)
         self.assertFalse(lock._waiters)
 
     def test_cancel_race(self):
@@ -177,7 +174,7 @@ class LockTests(test_utils.TestCase):
         self.assertTrue(tb.cancelled())
         self.assertTrue(tc.done())
 
-    @unittest.skipIf(sys.version_info < (3,6), "Changed in 3.6")
+    @unittest.skipIf(sys.version_info < (3, 6), "Changed in 3.6")
     def test_finished_waiter_cancelled(self):
         lock = asyncio.Lock(loop=self.loop)
 
@@ -191,7 +188,7 @@ class LockTests(test_utils.TestCase):
 
         # Create a second waiter, wake up the first, and cancel it.
         # Without the fix, the second was not woken up.
-        tc = asyncio.Task(lock.acquire(), loop=self.loop)
+        tc = asyncio.Task(lock.acquire(), loop=self.loop)  # noqa: F841
         lock.release()
         tb.cancel()
         test_utils.run_briefly(self.loop)
@@ -250,15 +247,12 @@ class LockTests(test_utils.TestCase):
             with lock:
                 self.fail('RuntimeError is not raised in with expression')
         except RuntimeError as err:
-            self.assertEqual(
-                str(err),
-                '"yield from" should be used as context manager expression')
+            self.assertEqual(str(err), '"yield from" should be used as context manager expression')
 
         self.assertFalse(lock.locked())
 
 
 class EventTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = self.new_test_loop()
@@ -342,9 +336,7 @@ class EventTests(test_utils.TestCase):
 
         wait = asyncio.Task(ev.wait(), loop=self.loop)
         self.loop.call_soon(wait.cancel)
-        self.assertRaises(
-            asyncio.CancelledError,
-            self.loop.run_until_complete, wait)
+        self.assertRaises(asyncio.CancelledError, self.loop.run_until_complete, wait)
         self.assertFalse(ev._waiters)
 
     def test_clear(self):
@@ -388,7 +380,6 @@ class EventTests(test_utils.TestCase):
 
 
 class ConditionTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = self.new_test_loop()
@@ -478,9 +469,7 @@ class ConditionTests(test_utils.TestCase):
 
         wait = asyncio.Task(cond.wait(), loop=self.loop)
         self.loop.call_soon(wait.cancel)
-        self.assertRaises(
-            asyncio.CancelledError,
-            self.loop.run_until_complete, wait)
+        self.assertRaises(asyncio.CancelledError, self.loop.run_until_complete, wait)
         self.assertFalse(cond._waiters)
         self.assertTrue(cond.locked())
 
@@ -511,9 +500,7 @@ class ConditionTests(test_utils.TestCase):
 
     def test_wait_unacquired(self):
         cond = asyncio.Condition(loop=self.loop)
-        self.assertRaises(
-            RuntimeError,
-            self.loop.run_until_complete, cond.wait())
+        self.assertRaises(RuntimeError, self.loop.run_until_complete, cond.wait())
 
     def test_wait_for(self):
         cond = asyncio.Condition(loop=self.loop)
@@ -560,10 +547,7 @@ class ConditionTests(test_utils.TestCase):
         res = self.loop.run_until_complete(cond.wait_for(lambda: [1, 2, 3]))
         self.assertEqual([1, 2, 3], res)
 
-        self.assertRaises(
-            RuntimeError,
-            self.loop.run_until_complete,
-            cond.wait_for(lambda: False))
+        self.assertRaises(RuntimeError, self.loop.run_until_complete, cond.wait_for(lambda: False))
 
     def test_notify(self):
         cond = asyncio.Condition(loop=self.loop)
@@ -701,9 +685,7 @@ class ConditionTests(test_utils.TestCase):
             with cond:
                 self.fail('RuntimeError is not raised in with expression')
         except RuntimeError as err:
-            self.assertEqual(
-                str(err),
-                '"yield from" should be used as context manager expression')
+            self.assertEqual(str(err), '"yield from" should be used as context manager expression')
 
         self.assertFalse(cond.locked())
 
@@ -724,7 +706,6 @@ class ConditionTests(test_utils.TestCase):
 
 
 class SemaphoreTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = self.new_test_loop()
@@ -856,11 +837,8 @@ class SemaphoreTests(test_utils.TestCase):
 
         acquire = asyncio.Task(sem.acquire(), loop=self.loop)
         self.loop.call_soon(acquire.cancel)
-        self.assertRaises(
-            asyncio.CancelledError,
-            self.loop.run_until_complete, acquire)
-        self.assertTrue((not sem._waiters) or
-                        all(waiter.done() for waiter in sem._waiters))
+        self.assertRaises(asyncio.CancelledError, self.loop.run_until_complete, acquire)
+        self.assertTrue((not sem._waiters) or all(waiter.done() for waiter in sem._waiters))
 
     def test_acquire_cancel_before_awoken(self):
         sem = asyncio.Semaphore(value=0, loop=self.loop)
@@ -888,7 +866,7 @@ class SemaphoreTests(test_utils.TestCase):
         sem = asyncio.Semaphore(value=0, loop=self.loop)
 
         t1 = asyncio.Task(sem.acquire(), loop=self.loop)
-        t2 = asyncio.Task(sem.acquire(), loop=self.loop)
+        t2 = asyncio.Task(sem.acquire(), loop=self.loop)  # noqa: F841
 
         test_utils.run_briefly(self.loop)
 
@@ -934,9 +912,7 @@ class SemaphoreTests(test_utils.TestCase):
             with sem:
                 self.fail('RuntimeError is not raised in with expression')
         except RuntimeError as err:
-            self.assertEqual(
-                str(err),
-                '"yield from" should be used as context manager expression')
+            self.assertEqual(str(err), '"yield from" should be used as context manager expression')
 
         self.assertEqual(2, sem._value)
 

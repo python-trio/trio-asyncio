@@ -2,6 +2,7 @@ from tests import aiotest
 import signal
 import pytest
 
+
 class TestCallback(aiotest.TestCase):
     @pytest.mark.trio
     async def test_call_soon(self, loop):
@@ -49,7 +50,7 @@ class TestCallback(aiotest.TestCase):
         sync_loop.call_soon(world)
 
         sync_loop.run_forever()
-        if False: # config.stopping:
+        if False:  # config.stopping:
             assert result == ["Hello", "World"]
         else:
             # ensure that world() is not called, since stop() was scheduled
@@ -76,7 +77,7 @@ class TestCallback(aiotest.TestCase):
         coro = test()
         try:
             # no longer depends on the loop
-            #with pytest.raises(RuntimeError):
+            # with pytest.raises(RuntimeError):
             #    fut = config.asyncio.Future(loop=loop)
             #    await loop.run_future(fut)
             with pytest.raises(RuntimeError, match='not a sync loop'):
@@ -99,4 +100,3 @@ class TestCallback(aiotest.TestCase):
                 loop.add_signal_handler(signal.SIGTERM, func)
         finally:
             coro.close()
-

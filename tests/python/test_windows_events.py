@@ -29,7 +29,6 @@ class UpperProto(asyncio.Protocol):
 
 
 class ProactorTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = asyncio.ProactorEventLoop()
@@ -59,20 +58,16 @@ class ProactorTests(test_utils.TestCase):
         ADDRESS = r'\\.\pipe\_test_pipe-%s' % os.getpid()
 
         with self.assertRaises(FileNotFoundError):
-            yield from self.loop.create_pipe_connection(
-                asyncio.Protocol, ADDRESS)
+            yield from self.loop.create_pipe_connection(asyncio.Protocol, ADDRESS)
 
-        [server] = yield from self.loop.start_serving_pipe(
-            UpperProto, ADDRESS)
+        [server] = yield from self.loop.start_serving_pipe(UpperProto, ADDRESS)
         self.assertIsInstance(server, windows_events.PipeServer)
 
         clients = []
         for i in range(5):
             stream_reader = asyncio.StreamReader(loop=self.loop)
-            protocol = asyncio.StreamReaderProtocol(stream_reader,
-                                                    loop=self.loop)
-            trans, proto = yield from self.loop.create_pipe_connection(
-                lambda: protocol, ADDRESS)
+            protocol = asyncio.StreamReaderProtocol(stream_reader, loop=self.loop)
+            trans, proto = yield from self.loop.create_pipe_connection(lambda: protocol, ADDRESS)
             self.assertIsInstance(trans, asyncio.Transport)
             self.assertEqual(protocol, proto)
             clients.append((stream_reader, trans))
@@ -88,15 +83,14 @@ class ProactorTests(test_utils.TestCase):
         server.close()
 
         with self.assertRaises(FileNotFoundError):
-            yield from self.loop.create_pipe_connection(
-                asyncio.Protocol, ADDRESS)
+            yield from self.loop.create_pipe_connection(asyncio.Protocol, ADDRESS)
 
         return 'done'
 
     def test_connect_pipe_cancel(self):
         exc = OSError()
         exc.winerror = _overlapped.ERROR_PIPE_BUSY
-        with mock.patch.object(_overlapped, 'ConnectPipe', side_effect=exc) as connect:
+        with mock.patch.object(_overlapped, 'ConnectPipe', side_effect=exc):
             coro = self.loop._proactor.connect_pipe('pipe_address')
             task = self.loop.create_task(coro)
 

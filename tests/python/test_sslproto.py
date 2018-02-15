@@ -17,7 +17,6 @@ from asyncio import test_utils
 
 @unittest.skipIf(ssl is None, 'No ssl module')
 class SslProtoHandshakeTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = asyncio.new_event_loop()
@@ -38,8 +37,10 @@ class SslProtoHandshakeTests(test_utils.TestCase):
         if do_handshake:
             sslpipe.do_handshake.side_effect = do_handshake
         else:
+
             def mock_handshake(callback):
                 return []
+
             sslpipe.do_handshake.side_effect = mock_handshake
         with mock.patch('asyncio.sslproto._SSLPipe', return_value=sslpipe):
             ssl_proto.connection_made(transport)
@@ -97,7 +98,7 @@ class SslProtoHandshakeTests(test_utils.TestCase):
         test_utils.run_briefly(self.loop)
         self.assertIsInstance(waiter.exception(), ConnectionAbortedError)
 
-    @unittest.skipIf(sys.version_info < (3,6), "Fixed in 3.6")
+    @unittest.skipIf(sys.version_info < (3, 6), "Fixed in 3.6")
     def test_close_during_handshake(self):
         # bpo-29743 Closing transport during handshake process leaks socket
         waiter = asyncio.Future(loop=self.loop)
@@ -112,7 +113,7 @@ class SslProtoHandshakeTests(test_utils.TestCase):
         ssl_proto._app_transport.close()
         self.assertTrue(transport.abort.called)
 
-    @unittest.skipIf(sys.version_info < (3,6), "Fixed in 3.6")
+    @unittest.skipIf(sys.version_info < (3, 6), "Fixed in 3.6")
     def test_get_extra_info_on_closed_connection(self):
         waiter = asyncio.Future(loop=self.loop)
         ssl_proto = self.ssl_protocol(waiter)

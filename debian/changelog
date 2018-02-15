@@ -1,3 +1,15 @@
+trio-asyncio (0.4.2-1) unstable; urgency=medium
+
+  * Skip a flaky testcase
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Mon, 12 Feb 2018 21:23:13 +0100
+
+trio-asyncio (0.4.1-2) unstable; urgency=medium
+
+  * … and updated the version number.
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Mon, 12 Feb 2018 21:20:29 +0100
+
 trio-asyncio (0.4.1-1) unstable; urgency=medium
 
   * Fixed a race condition

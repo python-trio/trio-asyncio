@@ -4,9 +4,11 @@ import asyncio
 import trio
 from tests import aiotest
 
+
 class SomeThing:
     flag = 0
-    def __init__(self,loop):
+
+    def __init__(self, loop):
         self.loop = loop
 
     @aio2trio
@@ -38,4 +40,3 @@ class TestAdapt(aiotest.TestCase):
         res = await sth.dly_asyncio()
         assert res == 4
         assert sth.flag == 1
-

@@ -1,6 +1,7 @@
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
+import sys
 import trio
 import asyncio
 import warnings
@@ -9,12 +10,23 @@ import threading
 from .util import run_future
 from .async_ import TrioEventLoop
 
+try:
+    from trio.hazmat import wait_for_child
+except ImportError:
+    from .child import wait_for_child
+
 import logging
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'run', 'run_trio_task', 'run_trio', 'run_future', 'run_coroutine', 'run_asyncio',
-    'TrioChildWatcher', 'TrioPolicy',
+    'run',
+    'run_trio_task',
+    'run_trio',
+    'run_future',
+    'run_coroutine',
+    'run_asyncio',
+    'TrioChildWatcher',
+    'TrioPolicy',
 ]
 
 
@@ -29,11 +41,12 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         try:
             trio.hazmat.current_task()
         except RuntimeError:
-            warnings.warn(
-                "trio_asyncio should be used from within a Trio event loop.",
-                DeprecationWarning,
-                stacklevel=2
-            )
+            if 'pytest' not in sys.modules:
+                warnings.warn(
+                    "trio_asyncio should be used from within a Trio event loop.",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
             from .sync import SyncTrioEventLoop
             loop = SyncTrioEventLoop()
             return loop
@@ -94,8 +107,7 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
         with asyncio.events._lock:
             if self._watcher is None:  # pragma: no branch
                 self._watcher = TrioChildWatcher()
-                if isinstance(threading.current_thread(),
-                              threading._MainThread):
+                if isinstance(threading.current_thread(), threading._MainThread):
                     self._watcher.attach_loop(self._trio_local._loop)
 
         if self._watcher is not None and \
@@ -126,7 +138,7 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher):
 
     async def _waitpid(self, pid, callback, *args):
         os.write(2,b"SIGI CALL_WAIT A %s\n" % ("%s %s %s"%(pid, callback, args)).encode("utf-8"))
-        returncode = await trio.hazmat.wait_for_child(pid)
+        returncode = await wait_for_child(pid)
         os.write(2,b"SIGI CALL_WAIT B\n")
         callback(pid, returncode, *args)
         os.write(2,b"SIGI CALL_WAIT C\n")

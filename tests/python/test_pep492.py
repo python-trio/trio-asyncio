@@ -1,6 +1,5 @@
 """Tests support for new syntax introduced by PEP 492."""
 
-import collections.abc
 import types
 import unittest
 import pytest
@@ -16,7 +15,6 @@ from asyncio import test_utils
 
 
 class BaseTest(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = asyncio.BaseEventLoop()
@@ -27,7 +25,6 @@ class BaseTest(test_utils.TestCase):
 
 
 class LockTests(BaseTest):
-
     def test_context_manager_async_with(self):
         primitives = [
             asyncio.Lock(loop=self.loop),
@@ -74,7 +71,6 @@ class LockTests(BaseTest):
 
 
 class StreamReaderTests(BaseTest):
-
     def test_readline(self):
         DATA = b'line1\nline2\nline3'
 
@@ -93,27 +89,36 @@ class StreamReaderTests(BaseTest):
 
 
 class CoroutineTests(BaseTest):
-
     def test_iscoroutine(self):
-        async def foo(): pass
+        async def foo():
+            pass
 
         f = foo()
         try:
             self.assertTrue(asyncio.iscoroutine(f))
         finally:
-            f.close() # silence warning
+            f.close()  # silence warning
 
         # Test that asyncio.iscoroutine() uses collections.abc.Coroutine
         class FakeCoro:
-            def send(self, value): pass
-            def throw(self, typ, val=None, tb=None): pass
-            def close(self): pass
-            def __await__(self): yield
+            def send(self, value):
+                pass
+
+            def throw(self, typ, val=None, tb=None):
+                pass
+
+            def close(self):
+                pass
+
+            def __await__(self):
+                yield
 
         self.assertTrue(asyncio.iscoroutine(FakeCoro()))
 
     def test_iscoroutinefunction(self):
-        async def foo(): pass
+        async def foo():
+            pass
+
         self.assertTrue(asyncio.iscoroutinefunction(foo))
 
     def test_function_returning_awaitable(self):
@@ -132,6 +137,7 @@ class CoroutineTests(BaseTest):
     def test_async_def_coroutines(self):
         async def bar():
             return 'spam'
+
         async def foo():
             return await bar()
 
@@ -149,20 +155,17 @@ class CoroutineTests(BaseTest):
     def test_async_def_wrapped(self, m_log):
         async def foo():
             pass
+
         async def start():
             foo_coro = foo()
-            self.assertRegex(
-                repr(foo_coro),
-                r'<CoroWrapper .*\.foo\(\) running at .*pep492.*>')
+            self.assertRegex(repr(foo_coro), r'<CoroWrapper .*\.foo\(\) running at .*pep492.*>')
 
-            with support.check_warnings((r'.*foo.*was never',
-                                         RuntimeWarning)):
+            with support.check_warnings((r'.*foo.*was never', RuntimeWarning)):
                 foo_coro = None
                 support.gc_collect()
                 self.assertTrue(m_log.error.called)
                 message = m_log.error.call_args[0][0]
-                self.assertRegex(message,
-                                 r'CoroWrapper.*foo.*was never')
+                self.assertRegex(message, r'CoroWrapper.*foo.*was never')
 
         self.loop.set_debug(True)
         self.loop.run_until_complete(start())
@@ -173,7 +176,6 @@ class CoroutineTests(BaseTest):
             self.assertRegex(repr(task), r'Task.*foo.*running')
 
         self.loop.run_until_complete(start())
-
 
     def test_types_coroutine(self):
         def gen():
@@ -224,8 +226,7 @@ class CoroutineTests(BaseTest):
 
         self.loop.set_debug(True)
         with self.assertRaisesRegex(
-            RuntimeError,
-            r'Cannot await.*test_double_await.*\bafunc\b.*while.*\bsleep\b'):
+                RuntimeError, r'Cannot await.*test_double_await.*\bafunc\b.*while.*\bsleep\b'):
 
             self.loop.run_until_complete(runner())
 

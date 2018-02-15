@@ -12,18 +12,15 @@ import sys
 import tempfile
 import threading
 import unittest
-import warnings
 from unittest import mock
 
 if sys.platform == 'win32':
     raise unittest.SkipTest('UNIX only')
 
-
 import asyncio
 from asyncio import log
 from asyncio import test_utils
 from asyncio import unix_events
-
 
 MOCK_ANY = mock.ANY
 
@@ -39,24 +36,20 @@ def close_pipe_transport(transport):
 
 @unittest.skipUnless(signal, 'Signals are not supported')
 class SelectorEventLoopSignalTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = asyncio.SelectorEventLoop()
         self.set_event_loop(self.loop)
 
     def test_check_signal(self):
-        self.assertRaises(
-            TypeError, self.loop._check_signal, '1')
-        self.assertRaises(
-            ValueError, self.loop._check_signal, signal.NSIG + 1)
+        self.assertRaises(TypeError, self.loop._check_signal, '1')
+        self.assertRaises(ValueError, self.loop._check_signal, signal.NSIG + 1)
 
     def test_handle_signal_no_handler(self):
         self.loop._handle_signal(signal.NSIG + 1)
 
     def test_handle_signal_cancelled_handler(self):
-        h = asyncio.Handle(mock.Mock(), (),
-                           loop=mock.Mock())
+        h = asyncio.Handle(mock.Mock(), (), loop=mock.Mock())
         h.cancel()
         self.loop._signal_handlers[signal.NSIG + 1] = h
         self.loop.remove_signal_handler = mock.Mock()
@@ -68,10 +61,7 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
         m_signal.NSIG = signal.NSIG
         m_signal.set_wakeup_fd.side_effect = ValueError
 
-        self.assertRaises(
-            RuntimeError,
-            self.loop.add_signal_handler,
-            signal.SIGINT, lambda: True)
+        self.assertRaises(RuntimeError, self.loop.add_signal_handler, signal.SIGINT, lambda: True)
 
     @mock.patch('asyncio.unix_events.signal')
     def test_add_signal_handler_coroutine_error(self, m_signal):
@@ -88,8 +78,8 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
         for func in (coro_func, coro_obj):
             self.assertRaisesRegex(
                 TypeError, 'coroutines cannot be used with add_signal_handler',
-                self.loop.add_signal_handler,
-                signal.SIGINT, func)
+                self.loop.add_signal_handler, signal.SIGINT, func
+            )
 
     @mock.patch('asyncio.unix_events.signal')
     def test_add_signal_handler(self, m_signal):
@@ -108,16 +98,15 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
         def set_wakeup_fd(fd):
             if fd == -1:
                 raise ValueError()
+
         m_signal.set_wakeup_fd = set_wakeup_fd
 
         class Err(OSError):
             errno = errno.EFAULT
+
         m_signal.signal.side_effect = Err
 
-        self.assertRaises(
-            Err,
-            self.loop.add_signal_handler,
-            signal.SIGINT, lambda: True)
+        self.assertRaises(Err, self.loop.add_signal_handler, signal.SIGINT, lambda: True)
 
     @mock.patch('asyncio.unix_events.signal')
     @mock.patch('asyncio.base_events.logger')
@@ -126,13 +115,11 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
 
         class Err(OSError):
             errno = errno.EINVAL
+
         m_signal.signal.side_effect = Err
 
         self.loop._signal_handlers[signal.SIGHUP] = lambda: True
-        self.assertRaises(
-            RuntimeError,
-            self.loop.add_signal_handler,
-            signal.SIGINT, lambda: True)
+        self.assertRaises(RuntimeError, self.loop.add_signal_handler, signal.SIGINT, lambda: True)
         self.assertFalse(m_logging.info.called)
         self.assertEqual(1, m_signal.set_wakeup_fd.call_count)
 
@@ -141,13 +128,11 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
     def test_add_signal_handler_install_error3(self, m_logging, m_signal):
         class Err(OSError):
             errno = errno.EINVAL
+
         m_signal.signal.side_effect = Err
         m_signal.NSIG = signal.NSIG
 
-        self.assertRaises(
-            RuntimeError,
-            self.loop.add_signal_handler,
-            signal.SIGINT, lambda: True)
+        self.assertRaises(RuntimeError, self.loop.add_signal_handler, signal.SIGINT, lambda: True)
         self.assertFalse(m_logging.info.called)
         self.assertEqual(2, m_signal.set_wakeup_fd.call_count)
 
@@ -157,12 +142,10 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
 
         self.loop.add_signal_handler(signal.SIGHUP, lambda: True)
 
-        self.assertTrue(
-            self.loop.remove_signal_handler(signal.SIGHUP))
+        self.assertTrue(self.loop.remove_signal_handler(signal.SIGHUP))
         self.assertTrue(m_signal.set_wakeup_fd.called)
         self.assertTrue(m_signal.signal.called)
-        self.assertEqual(
-            (signal.SIGHUP, m_signal.SIG_DFL), m_signal.signal.call_args[0])
+        self.assertEqual((signal.SIGHUP, m_signal.SIG_DFL), m_signal.signal.call_args[0])
 
     @mock.patch('asyncio.unix_events.signal')
     def test_remove_signal_handler_2(self, m_signal):
@@ -173,13 +156,12 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
         self.loop._signal_handlers[signal.SIGHUP] = object()
         m_signal.set_wakeup_fd.reset_mock()
 
-        self.assertTrue(
-            self.loop.remove_signal_handler(signal.SIGINT))
+        self.assertTrue(self.loop.remove_signal_handler(signal.SIGINT))
         self.assertFalse(m_signal.set_wakeup_fd.called)
         self.assertTrue(m_signal.signal.called)
         self.assertEqual(
-            (signal.SIGINT, m_signal.default_int_handler),
-            m_signal.signal.call_args[0])
+            (signal.SIGINT, m_signal.default_int_handler), m_signal.signal.call_args[0]
+        )
 
     @mock.patch('asyncio.unix_events.signal')
     @mock.patch('asyncio.base_events.logger')
@@ -199,8 +181,7 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
 
         m_signal.signal.side_effect = OSError
 
-        self.assertRaises(
-            OSError, self.loop.remove_signal_handler, signal.SIGHUP)
+        self.assertRaises(OSError, self.loop.remove_signal_handler, signal.SIGHUP)
 
     @mock.patch('asyncio.unix_events.signal')
     def test_remove_signal_handler_error2(self, m_signal):
@@ -209,10 +190,10 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
 
         class Err(OSError):
             errno = errno.EINVAL
+
         m_signal.signal.side_effect = Err
 
-        self.assertRaises(
-            RuntimeError, self.loop.remove_signal_handler, signal.SIGHUP)
+        self.assertRaises(RuntimeError, self.loop.remove_signal_handler, signal.SIGHUP)
 
     @mock.patch('asyncio.unix_events.signal')
     def test_close(self, m_signal):
@@ -231,10 +212,8 @@ class SelectorEventLoopSignalTests(test_utils.TestCase):
         m_signal.set_wakeup_fd.assert_called_once_with(-1)
 
 
-@unittest.skipUnless(hasattr(socket, 'AF_UNIX'),
-                     'UNIX Sockets are not supported')
+@unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'UNIX Sockets are not supported')
 class SelectorEventLoopUnixSocketTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = asyncio.SelectorEventLoop()
@@ -264,53 +243,42 @@ class SelectorEventLoopUnixSocketTests(test_utils.TestCase):
     def test_create_unix_server_existing_path_nonsock(self):
         with tempfile.NamedTemporaryFile() as file:
             coro = self.loop.create_unix_server(lambda: None, file.name)
-            with self.assertRaisesRegex(OSError,
-                                        'Address.*is already in use'):
+            with self.assertRaisesRegex(OSError, 'Address.*is already in use'):
                 self.loop.run_until_complete(coro)
 
     def test_create_unix_server_ssl_bool(self):
-        coro = self.loop.create_unix_server(lambda: None, path='spam',
-                                            ssl=True)
-        with self.assertRaisesRegex(TypeError,
-                                    'ssl argument must be an SSLContext'):
+        coro = self.loop.create_unix_server(lambda: None, path='spam', ssl=True)
+        with self.assertRaisesRegex(TypeError, 'ssl argument must be an SSLContext'):
             self.loop.run_until_complete(coro)
 
     def test_create_unix_server_nopath_nosock(self):
         coro = self.loop.create_unix_server(lambda: None, path=None)
-        with self.assertRaisesRegex(ValueError,
-                                    'path was not specified, and no sock'):
+        with self.assertRaisesRegex(ValueError, 'path was not specified, and no sock'):
             self.loop.run_until_complete(coro)
 
     def test_create_unix_server_path_inetsock(self):
         sock = socket.socket()
         with sock:
-            coro = self.loop.create_unix_server(lambda: None, path=None,
-                                                sock=sock)
-            with self.assertRaisesRegex(ValueError,
-                                        'A UNIX Domain Stream.*was expected'):
+            coro = self.loop.create_unix_server(lambda: None, path=None, sock=sock)
+            with self.assertRaisesRegex(ValueError, 'A UNIX Domain Stream.*was expected'):
                 self.loop.run_until_complete(coro)
 
     def test_create_unix_server_path_dgram(self):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         with sock:
-            coro = self.loop.create_unix_server(lambda: None, path=None,
-                                                sock=sock)
-            with self.assertRaisesRegex(ValueError,
-                                        'A UNIX Domain Stream.*was expected'):
+            coro = self.loop.create_unix_server(lambda: None, path=None, sock=sock)
+            with self.assertRaisesRegex(ValueError, 'A UNIX Domain Stream.*was expected'):
                 self.loop.run_until_complete(coro)
 
-    @unittest.skipUnless(hasattr(socket, 'SOCK_NONBLOCK'),
-                         'no socket.SOCK_NONBLOCK (linux only)')
+    @unittest.skipUnless(hasattr(socket, 'SOCK_NONBLOCK'), 'no socket.SOCK_NONBLOCK (linux only)')
     def test_create_unix_server_path_stream_bittype(self):
-        sock = socket.socket(
-            socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK)
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK)
         with tempfile.NamedTemporaryFile() as file:
             fn = file.name
         try:
             with sock:
                 sock.bind(fn)
-                coro = self.loop.create_unix_server(lambda: None, path=None,
-                                                    sock=sock)
+                coro = self.loop.create_unix_server(lambda: None, path=None, sock=sock)
                 srv = self.loop.run_until_complete(coro)
                 srv.close()
                 self.loop.run_until_complete(srv.wait_closed())
@@ -320,10 +288,8 @@ class SelectorEventLoopUnixSocketTests(test_utils.TestCase):
     def test_create_unix_connection_path_inetsock(self):
         sock = socket.socket()
         with sock:
-            coro = self.loop.create_unix_connection(lambda: None, path=None,
-                                                    sock=sock)
-            with self.assertRaisesRegex(ValueError,
-                                        'A UNIX Domain Stream.*was expected'):
+            coro = self.loop.create_unix_connection(lambda: None, path=None, sock=sock)
+            with self.assertRaisesRegex(ValueError, 'A UNIX Domain Stream.*was expected'):
                 self.loop.run_until_complete(coro)
 
     @mock.patch('asyncio.unix_events.socket')
@@ -345,37 +311,29 @@ class SelectorEventLoopUnixSocketTests(test_utils.TestCase):
         self.assertTrue(sock.close.called)
 
     def test_create_unix_connection_path_sock(self):
-        coro = self.loop.create_unix_connection(
-            lambda: None, os.devnull, sock=object())
+        coro = self.loop.create_unix_connection(lambda: None, os.devnull, sock=object())
         with self.assertRaisesRegex(ValueError, 'path and sock can not be'):
             self.loop.run_until_complete(coro)
 
     def test_create_unix_connection_nopath_nosock(self):
-        coro = self.loop.create_unix_connection(
-            lambda: None, None)
-        with self.assertRaisesRegex(ValueError,
-                                    'no path and sock were specified'):
+        coro = self.loop.create_unix_connection(lambda: None, None)
+        with self.assertRaisesRegex(ValueError, 'no path and sock were specified'):
             self.loop.run_until_complete(coro)
 
     def test_create_unix_connection_nossl_serverhost(self):
-        coro = self.loop.create_unix_connection(
-            lambda: None, os.devnull, server_hostname='spam')
-        with self.assertRaisesRegex(ValueError,
-                                    'server_hostname is only meaningful'):
+        coro = self.loop.create_unix_connection(lambda: None, os.devnull, server_hostname='spam')
+        with self.assertRaisesRegex(ValueError, 'server_hostname is only meaningful'):
             self.loop.run_until_complete(coro)
 
     def test_create_unix_connection_ssl_noserverhost(self):
-        coro = self.loop.create_unix_connection(
-            lambda: None, os.devnull, ssl=True)
+        coro = self.loop.create_unix_connection(lambda: None, os.devnull, ssl=True)
 
-        with self.assertRaisesRegex(
-            ValueError, 'you have to pass server_hostname when using ssl'):
+        with self.assertRaisesRegex(ValueError, 'you have to pass server_hostname when using ssl'):
 
             self.loop.run_until_complete(coro)
 
 
 class UnixReadPipeTransportTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = self.new_test_loop()
@@ -395,9 +353,9 @@ class UnixReadPipeTransportTests(test_utils.TestCase):
         self.addCleanup(fstat_patcher.stop)
 
     def read_pipe_transport(self, waiter=None):
-        transport = unix_events._UnixReadPipeTransport(self.loop, self.pipe,
-                                                       self.protocol,
-                                                       waiter=waiter)
+        transport = unix_events._UnixReadPipeTransport(
+            self.loop, self.pipe, self.protocol, waiter=waiter
+        )
         self.addCleanup(close_pipe_transport, transport)
         return transport
 
@@ -455,8 +413,10 @@ class UnixReadPipeTransportTests(test_utils.TestCase):
         m_logexc.assert_called_with(
             test_utils.MockPattern(
                 'Fatal read error on pipe transport'
-                '\nprotocol:.*\ntransport:.*'),
-            exc_info=(OSError, MOCK_ANY, MOCK_ANY))
+                '\nprotocol:.*\ntransport:.*'
+            ),
+            exc_info=(OSError, MOCK_ANY, MOCK_ANY)
+        )
 
     @mock.patch('os.read')
     def test_pause_reading(self, m_read):
@@ -525,7 +485,6 @@ class UnixReadPipeTransportTests(test_utils.TestCase):
 
 
 class UnixWritePipeTransportTests(test_utils.TestCase):
-
     def setUp(self):
         super().setUp()
         self.loop = self.new_test_loop()
@@ -545,9 +504,9 @@ class UnixWritePipeTransportTests(test_utils.TestCase):
         self.addCleanup(fstat_patcher.stop)
 
     def write_pipe_transport(self, waiter=None):
-        transport = unix_events._UnixWritePipeTransport(self.loop, self.pipe,
-                                                        self.protocol,
-                                                        waiter=waiter)
+        transport = unix_events._UnixWritePipeTransport(
+            self.loop, self.pipe, self.protocol, waiter=waiter
+        )
         self.addCleanup(close_pipe_transport, transport)
         return transport
 
@@ -619,9 +578,7 @@ class UnixWritePipeTransportTests(test_utils.TestCase):
         m_write.assert_called_with(5, b'data')
         self.assertFalse(self.loop.writers)
         self.assertEqual(bytearray(), tr._buffer)
-        tr._fatal_error.assert_called_with(
-                            err,
-                            'Fatal write error on pipe transport')
+        tr._fatal_error.assert_called_with(err, 'Fatal write error on pipe transport')
         self.assertEqual(1, tr._conn_lost)
 
         tr.write(b'data')
@@ -632,7 +589,8 @@ class UnixWritePipeTransportTests(test_utils.TestCase):
         tr.write(b'data')
         # This is a bit overspecified. :-(
         m_log.warning.assert_called_with(
-            'pipe closed by peer or os.write(pipe, data) raised exception.')
+            'pipe closed by peer or os.write(pipe, data) raised exception.'
+        )
         tr.close()
 
     @mock.patch('os.write')
@@ -711,8 +669,10 @@ class UnixWritePipeTransportTests(test_utils.TestCase):
         m_logexc.assert_called_with(
             test_utils.MockPattern(
                 'Fatal write error on pipe transport'
-                '\nprotocol:.*\ntransport:.*'),
-            exc_info=(OSError, MOCK_ANY, MOCK_ANY))
+                '\nprotocol:.*\ntransport:.*'
+            ),
+            exc_info=(OSError, MOCK_ANY, MOCK_ANY)
+        )
         self.assertEqual(1, tr._conn_lost)
         test_utils.run_briefly(self.loop)
         self.protocol.connection_lost.assert_called_with(err)
@@ -805,40 +765,33 @@ class UnixWritePipeTransportTests(test_utils.TestCase):
 
 
 class AbstractChildWatcherTests(unittest.TestCase):
-
     def test_not_implemented(self):
         f = mock.Mock()
         watcher = asyncio.AbstractChildWatcher()
-        self.assertRaises(
-            NotImplementedError, watcher.add_child_handler, f, f)
-        self.assertRaises(
-            NotImplementedError, watcher.remove_child_handler, f)
-        self.assertRaises(
-            NotImplementedError, watcher.attach_loop, f)
-        self.assertRaises(
-            NotImplementedError, watcher.close)
-        self.assertRaises(
-            NotImplementedError, watcher.__enter__)
-        self.assertRaises(
-            NotImplementedError, watcher.__exit__, f, f, f)
+        self.assertRaises(NotImplementedError, watcher.add_child_handler, f, f)
+        self.assertRaises(NotImplementedError, watcher.remove_child_handler, f)
+        self.assertRaises(NotImplementedError, watcher.attach_loop, f)
+        self.assertRaises(NotImplementedError, watcher.close)
+        self.assertRaises(NotImplementedError, watcher.__enter__)
+        self.assertRaises(NotImplementedError, watcher.__exit__, f, f, f)
 
 
 class BaseChildWatcherTests(unittest.TestCase):
-
     def test_not_implemented(self):
         f = mock.Mock()
         watcher = unix_events.BaseChildWatcher()
-        self.assertRaises(
-            NotImplementedError, watcher._do_waitpid, f)
+        self.assertRaises(NotImplementedError, watcher._do_waitpid, f)
 
 
-WaitPidMocks = collections.namedtuple("WaitPidMocks",
-                                      ("waitpid",
-                                       "WIFEXITED",
-                                       "WIFSIGNALED",
-                                       "WEXITSTATUS",
-                                       "WTERMSIG",
-                                       ))
+WaitPidMocks = collections.namedtuple(
+    "WaitPidMocks", (
+        "waitpid",
+        "WIFEXITED",
+        "WIFSIGNALED",
+        "WEXITSTATUS",
+        "WTERMSIG",
+    )
+)
 
 
 class ChildWatcherTestsMixin:
@@ -851,8 +804,7 @@ class ChildWatcherTestsMixin:
         self.running = False
         self.zombies = {}
 
-        with mock.patch.object(
-                self.loop, "add_signal_handler") as self.m_add_signal_handler:
+        with mock.patch.object(self.loop, "add_signal_handler") as self.m_add_signal_handler:
             self.watcher = self.create_watcher()
             self.watcher.attach_loop(self.loop)
 
@@ -889,24 +841,29 @@ class ChildWatcherTestsMixin:
         return 32768 - status
 
     def test_create_watcher(self):
-        self.m_add_signal_handler.assert_called_once_with(
-            signal.SIGCHLD, self.watcher._sig_chld)
+        self.m_add_signal_handler.assert_called_once_with(signal.SIGCHLD, self.watcher._sig_chld)
 
     def waitpid_mocks(func):
         def wrapped_func(self):
             def patch(target, wrapper):
-                return mock.patch(target, wraps=wrapper,
-                                  new_callable=mock.Mock)
+                return mock.patch(target, wraps=wrapper, new_callable=mock.Mock)
 
             with patch('os.WTERMSIG', self.WTERMSIG) as m_WTERMSIG, \
                  patch('os.WEXITSTATUS', self.WEXITSTATUS) as m_WEXITSTATUS, \
                  patch('os.WIFSIGNALED', self.WIFSIGNALED) as m_WIFSIGNALED, \
                  patch('os.WIFEXITED', self.WIFEXITED) as m_WIFEXITED, \
                  patch('os.waitpid', self.waitpid) as m_waitpid:
-                func(self, WaitPidMocks(m_waitpid,
-                                        m_WIFEXITED, m_WIFSIGNALED,
-                                        m_WEXITSTATUS, m_WTERMSIG,
-                                        ))
+                func(
+                    self,
+                    WaitPidMocks(
+                        m_waitpid,
+                        m_WIFEXITED,
+                        m_WIFSIGNALED,
+                        m_WEXITSTATUS,
+                        m_WTERMSIG,
+                    )
+                )
+
         return wrapped_func
 
     @waitpid_mocks
@@ -1332,8 +1289,7 @@ class ChildWatcherTestsMixin:
         # raise an exception
         m.waitpid.side_effect = ValueError
 
-        with mock.patch.object(log.logger,
-                               'error') as m_error:
+        with mock.patch.object(log.logger, 'error') as m_error:
 
             self.assertEqual(self.watcher._sig_chld(), None)
             self.assertTrue(m_error.called)
@@ -1413,10 +1369,8 @@ class ChildWatcherTestsMixin:
 
             self.watcher.attach_loop(self.loop)
 
-            m_old_remove.assert_called_once_with(
-                signal.SIGCHLD)
-            m_new_add.assert_called_once_with(
-                signal.SIGCHLD, self.watcher._sig_chld)
+            m_old_remove.assert_called_once_with(signal.SIGCHLD)
+            m_new_add.assert_called_once_with(signal.SIGCHLD, self.watcher._sig_chld)
 
         # child terminates
         self.running = False
@@ -1442,15 +1396,12 @@ class ChildWatcherTestsMixin:
         old_loop = self.loop
         self.loop = None
 
-        with mock.patch.object(
-                old_loop, "remove_signal_handler") as m_remove_signal_handler:
+        with mock.patch.object(old_loop, "remove_signal_handler") as m_remove_signal_handler:
 
-            with self.assertWarnsRegex(
-                    RuntimeWarning, 'A loop is being detached'):
+            with self.assertWarnsRegex(RuntimeWarning, 'A loop is being detached'):
                 self.watcher.attach_loop(None)
 
-            m_remove_signal_handler.assert_called_once_with(
-                signal.SIGCHLD)
+            m_remove_signal_handler.assert_called_once_with(signal.SIGCHLD)
 
         # child 1 & 2 terminate
         self.add_zombie(61, 11)
@@ -1464,13 +1415,11 @@ class ChildWatcherTestsMixin:
         # attach a new loop
         self.loop = self.new_test_loop()
 
-        with mock.patch.object(
-                self.loop, "add_signal_handler") as m_add_signal_handler:
+        with mock.patch.object(self.loop, "add_signal_handler") as m_add_signal_handler:
 
             self.watcher.attach_loop(self.loop)
 
-            m_add_signal_handler.assert_called_once_with(
-                signal.SIGCHLD, self.watcher._sig_chld)
+            m_add_signal_handler.assert_called_once_with(signal.SIGCHLD, self.watcher._sig_chld)
             callback1.assert_called_once_with(61, 11)  # race condition!
             callback2.assert_called_once_with(62, -5)  # race condition!
             self.assertFalse(callback3.called)
@@ -1507,14 +1456,11 @@ class ChildWatcherTestsMixin:
             if isinstance(self.watcher, asyncio.FastChildWatcher):
                 self.assertEqual(len(self.watcher._zombies), 1)
 
-            with mock.patch.object(
-                    self.loop,
-                    "remove_signal_handler") as m_remove_signal_handler:
+            with mock.patch.object(self.loop, "remove_signal_handler") as m_remove_signal_handler:
 
                 self.watcher.close()
 
-                m_remove_signal_handler.assert_called_once_with(
-                    signal.SIGCHLD)
+                m_remove_signal_handler.assert_called_once_with(signal.SIGCHLD)
                 self.assertFalse(self.watcher._callbacks)
                 if isinstance(self.watcher, asyncio.FastChildWatcher):
                     self.assertFalse(self.watcher._zombies)
@@ -1523,24 +1469,22 @@ class ChildWatcherTestsMixin:
     def test_add_child_handler_with_no_loop_attached(self, m):
         callback = mock.Mock()
         with self.create_watcher() as watcher:
-            with self.assertRaisesRegex(
-                    RuntimeError,
-                    'the child watcher does not have a loop attached'):
+            with self.assertRaisesRegex(RuntimeError,
+                                        'the child watcher does not have a loop attached'):
                 watcher.add_child_handler(100, callback)
 
 
-class SafeChildWatcherTests (ChildWatcherTestsMixin, test_utils.TestCase):
+class SafeChildWatcherTests(ChildWatcherTestsMixin, test_utils.TestCase):
     def create_watcher(self):
         return asyncio.SafeChildWatcher()
 
 
-class FastChildWatcherTests (ChildWatcherTestsMixin, test_utils.TestCase):
+class FastChildWatcherTests(ChildWatcherTestsMixin, test_utils.TestCase):
     def create_watcher(self):
         return asyncio.FastChildWatcher()
 
 
 class PolicyTests(unittest.TestCase):
-
     def create_policy(self):
         return asyncio.DefaultEventLoopPolicy()
 
@@ -1577,12 +1521,10 @@ class PolicyTests(unittest.TestCase):
         loop.close()
 
     def test_get_child_watcher_thread(self):
-
         def f():
             policy.set_event_loop(policy.new_event_loop())
 
-            self.assertIsInstance(policy.get_event_loop(),
-                                  asyncio.AbstractEventLoop)
+            self.assertIsInstance(policy.get_event_loop(), asyncio.AbstractEventLoop)
             watcher = policy.get_child_watcher()
 
             self.assertIsInstance(watcher, asyncio.SafeChildWatcher)
