@@ -385,18 +385,19 @@ class TestLoop(base_events.BaseEventLoop):
 
     def assert_reader(self, fd, callback, *args):
         if fd not in self.readers:
-            raise AssertionError(f'fd {fd} is not registered')
+            raise AssertionError('fd %s is not registered' % fd)
         handle = self.readers[fd]
         if handle._callback != callback:
             raise AssertionError(
-                f'unexpected callback: {handle._callback} != {callback}')
+                'unexpected callback: %s != %s' %
+                ( handle._callback, callback))
         if handle._args != args:
             raise AssertionError(
-                f'unexpected callback args: {handle._args} != {args}')
+                'unexpected callback args: %s != %s' % (handle._args, args))
 
     def assert_no_reader(self, fd):
         if fd in self.readers:
-            raise AssertionError(f'fd {fd} is registered')
+            raise AssertionError('fd %s is registered' % fd)
 
     def _add_writer(self, fd, callback, *args):
         if sys.version_info >= (3,7):
