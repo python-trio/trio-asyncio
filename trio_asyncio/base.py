@@ -12,6 +12,11 @@ from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
 from .util import run_future
 
+try:
+    from trio.hazmat import wait_for_child
+except ImportError:
+    from .child import wait_for_child
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -340,7 +345,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             )
 
             async def child_wait(transp):
-                returncode = await trio.hazmat.wait_for_child(transp.get_pid())
+                returncode = await wait_for_child(transp.get_pid())
                 transp._process_exited(returncode)
 
             self.run_trio(child_wait, transp)
