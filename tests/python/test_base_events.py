@@ -212,10 +212,13 @@ class BaseEventLoopTests(test_utils.TestCase):
         self.loop.set_default_executor(executor)
         self.assertIs(executor, self.loop._default_executor)
 
-    def test_getnameinfo(self):
+    async def test_getnameinfo(self):
         sockaddr = mock.Mock()
         self.loop.run_in_executor = mock.Mock()
-        self.loop.getnameinfo(sockaddr)
+        if sys.version_info >= (3,7):
+            await self.loop.getnameinfo(sockaddr)
+        else:
+            self.loop.getnameinfo(sockaddr)
         self.assertEqual(
             (None, socket.getnameinfo, sockaddr, 0), self.loop.run_in_executor.call_args[0]
         )
@@ -1294,7 +1297,11 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
         self.loop.getaddrinfo.side_effect = mock_getaddrinfo
         self.loop.sock_connect = mock.Mock()
-        self.loop.sock_connect.return_value = ()
+        if sys.version_info >= (3,7):
+            self.loop.sock_connect.return_value = self.loop.create_future()
+            self.loop.sock_connect.return_value.set_result(None)
+        else:
+            self.loop.sock_connect.return_value = ()
         self.loop._make_ssl_transport = mock.Mock()
 
         class _SelectorTransportMock:
@@ -1319,8 +1326,12 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         coro = self.loop.create_connection(MyProto, 'python.org', 80, ssl=True)
         transport, _ = self.loop.run_until_complete(coro)
         transport.close()
+        if sys.version_info >= (3,7):
+            tm = { 'ssl_handshake_timeout': None }
+        else:
+            tm = {}
         self.loop._make_ssl_transport.assert_called_with(
-            ANY, ANY, ANY, ANY, server_side=False, server_hostname='python.org'
+            ANY, ANY, ANY, ANY, server_side=False, server_hostname='python.org', **tm
         )
         # Next try an explicit server_hostname.
         self.loop._make_ssl_transport.reset_mock()
@@ -1330,7 +1341,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         transport, _ = self.loop.run_until_complete(coro)
         transport.close()
         self.loop._make_ssl_transport.assert_called_with(
-            ANY, ANY, ANY, ANY, server_side=False, server_hostname='perl.com'
+            ANY, ANY, ANY, ANY, server_side=False, server_hostname='perl.com', **tm
         )
         # Finally try an explicit empty server_hostname.
         self.loop._make_ssl_transport.reset_mock()
@@ -1338,7 +1349,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         transport, _ = self.loop.run_until_complete(coro)
         transport.close()
         self.loop._make_ssl_transport.assert_called_with(
-            ANY, ANY, ANY, ANY, server_side=False, server_hostname=''
+            ANY, ANY, ANY, ANY, server_side=False, server_hostname='', **tm
         )
 
     def test_create_connection_no_ssl_server_hostname_errors(self):
@@ -1387,7 +1398,11 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
     def test_create_server_no_getaddrinfo(self):
         getaddrinfo = self.loop.getaddrinfo = mock.Mock()
-        getaddrinfo.return_value = []
+        if sys.version_info >= (3,7):
+            getaddrinfo.return_value = self.loop.create_future()
+            getaddrinfo.return_value.set_result(None)
+        else:
+            getaddrinfo.return_value = []
 
         f = self.loop.create_server(MyProto, 'python.org', 0)
         self.assertRaises(OSError, self.loop.run_until_complete, f)
@@ -1652,6 +1667,10 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         self.assertTrue(m_log.error.called)
         self.assertFalse(sock.close.called)
         self.loop._remove_reader.assert_called_with(10)
+        if sys.version_info >= (3,7):
+            mocky = (mock.ANY,)
+        else:
+            mocky = ()
         self.loop.call_later.assert_called_with(
             constants.ACCEPT_RETRY_DELAY,
             # self.loop._start_serving
@@ -1660,7 +1679,8 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
             sock,
             None,
             None,
-            mock.ANY
+            mock.ANY,
+            *mocky
         )
 
     def test_call_coroutine(self):
