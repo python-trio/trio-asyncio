@@ -81,7 +81,7 @@ class _TrioHandle:
         assert self._is_sync
         if self._cancelled:
             return
-        self._run()
+        self._callback(*self._args)
 
     async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
         assert not self._is_sync

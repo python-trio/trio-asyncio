@@ -10,6 +10,11 @@ import threading
 from .util import run_future
 from .async_ import TrioEventLoop
 
+try:
+    from trio.hazmat import wait_for_child
+except ImportError:
+    from .child import wait_for_child
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -132,7 +137,7 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher):
         self._loop = loop
 
     async def _waitpid(self, pid, callback, *args):
-        returncode = await trio.hazmat.wait_for_child(pid)
+        returncode = await wait_for_child(pid)
         callback(pid, returncode, *args)
 
     def add_child_handler(self, pid, callback, *args):
