@@ -15,7 +15,7 @@ from unittest import mock
 import asyncio
 from asyncio import base_events
 from asyncio import constants
-from asyncio import test_utils
+from .. import utils as test_utils
 try:
     from test import support
 except ImportError:

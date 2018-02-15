@@ -18,7 +18,7 @@ import asyncio
 from asyncio import coroutines
 from asyncio import futures
 from asyncio import tasks
-from asyncio import test_utils
+from .. import utils as test_utils
 try:
     from test import support
 except ImportError:

@@ -1,6 +1,10 @@
 import trio
 import asyncio
-from asyncio.events import _format_callback, _get_function_source
+try:
+    from asyncio.format_helpers import _format_callback, _get_function_source
+except ImportError: # <3.7
+    from asyncio.events import _format_callback, _get_function_source
+
 
 __all__ = ['Handle', 'TimerHandle']
 

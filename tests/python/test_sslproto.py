@@ -12,7 +12,7 @@ except ImportError:
 import asyncio
 from asyncio import log
 from asyncio import sslproto
-from asyncio import test_utils
+from .. import utils as test_utils
 
 
 @unittest.skipIf(ssl is None, 'No ssl module')
@@ -131,7 +131,8 @@ class SslProtoHandshakeTests(test_utils.TestCase):
         new_app_proto = asyncio.Protocol()
         ssl_proto._app_transport.set_protocol(new_app_proto)
         self.assertIs(ssl_proto._app_transport.get_protocol(), new_app_proto)
-        self.assertIs(ssl_proto._app_protocol, new_app_proto)
+        if sys.version_info >= (3, 6, 4):
+            self.assertIs(ssl_proto._app_protocol, new_app_proto)
 
 
 if __name__ == '__main__':

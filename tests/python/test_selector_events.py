@@ -10,11 +10,19 @@ except ImportError:
     ssl = None
 
 import asyncio
-from asyncio import selectors
-from asyncio import test_utils
+try:
+    import selectors
+except ImportError:
+    from asyncio import selectors
+from .. import utils as test_utils
 from asyncio.selector_events import BaseSelectorEventLoop
 from asyncio.selector_events import _SelectorTransport
-from asyncio.selector_events import _SelectorSslTransport
+try:
+    from asyncio.selector_events import _SelectorSslTransport
+except ImportError:
+    _has_ssl = False
+else:
+    _has_ssl = True
 from asyncio.selector_events import _SelectorSocketTransport
 from asyncio.selector_events import _SelectorDatagramTransport
 
@@ -174,13 +182,15 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._csock.send.side_effect = RuntimeError()
         self.assertRaises(RuntimeError, self.loop._write_to_self)
 
+
     def test_sock_recv(self):
         sock = test_utils.mock_nonblocking_socket()
         self.loop._sock_recv = mock.Mock()
 
         f = self.loop.sock_recv(sock, 1024)
         self.assertEqual(type(f).__name__, asyncio.Future.__name__)
-        self.loop._sock_recv.assert_called_with(f, None, sock, 1024)
+        if sys.version_info >= (3, 6, 4):
+            self.loop._sock_recv.assert_called_with(f, None, sock, 1024)
 
     def test_sock_recv_reconnection(self):
         sock = mock.Mock()
@@ -201,7 +211,8 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         callback(*params)
 
         self.assertIsInstance(fut.exception(), OSError)
-        self.assertEqual((10,), self.loop.remove_reader.call_args[0])
+        if sys.version_info >= (3, 6, 4):
+            self.assertEqual((10,), self.loop.remove_reader.call_args[0])
 
     def test__sock_recv_canceled_fut(self):
         sock = mock.Mock()
@@ -232,7 +243,10 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop.add_reader = mock.Mock()
         self.loop._sock_recv(f, None, sock, 1024)
         self.assertEqual(
-            (10, self.loop._sock_recv, f, 10, sock, 1024), self.loop.add_reader.call_args[0]
+            (
+                10, self.loop._sock_recv, f, 10
+                if sys.version_info > (3, 6, 3) else True, sock, 1024
+            ), self.loop.add_reader.call_args[0]
         )
 
     def test__sock_recv_exception(self):
@@ -281,7 +295,8 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         callback(*params)
 
         self.assertIsInstance(fut.exception(), OSError)
-        self.assertEqual((10,), self.loop.remove_writer.call_args[0])
+        if sys.version_info >= (3, 6, 4):
+            self.assertEqual((10,), self.loop.remove_writer.call_args[0])
 
     def test__sock_sendall_canceled_fut(self):
         sock = mock.Mock()
@@ -312,7 +327,10 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop.add_writer = mock.Mock()
         self.loop._sock_sendall(f, None, sock, b'data')
         self.assertEqual(
-            (10, self.loop._sock_sendall, f, 10, sock, b'data'), self.loop.add_writer.call_args[0]
+            (
+                10, self.loop._sock_sendall, f, 10
+                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+            ), self.loop.add_writer.call_args[0]
         )
 
     def test__sock_sendall_interrupted(self):
@@ -324,7 +342,10 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop.add_writer = mock.Mock()
         self.loop._sock_sendall(f, None, sock, b'data')
         self.assertEqual(
-            (10, self.loop._sock_sendall, f, 10, sock, b'data'), self.loop.add_writer.call_args[0]
+            (
+                10, self.loop._sock_sendall, f, 10
+                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+            ), self.loop.add_writer.call_args[0]
         )
 
     def test__sock_sendall_exception(self):
@@ -358,7 +379,10 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_sendall(f, None, sock, b'data')
         self.assertFalse(f.done())
         self.assertEqual(
-            (10, self.loop._sock_sendall, f, 10, sock, b'ta'), self.loop.add_writer.call_args[0]
+            (
+                10, self.loop._sock_sendall, f, 10
+                if sys.version_info > (3, 6, 3) else True, sock, b'ta'
+            ), self.loop.add_writer.call_args[0]
         )
 
     def test__sock_sendall_none(self):
@@ -372,7 +396,10 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_sendall(f, None, sock, b'data')
         self.assertFalse(f.done())
         self.assertEqual(
-            (10, self.loop._sock_sendall, f, 10, sock, b'data'), self.loop.add_writer.call_args[0]
+            (
+                10, self.loop._sock_sendall, f, 10
+                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+            ), self.loop.add_writer.call_args[0]
         )
 
     def test_sock_connect_timeout(self):
@@ -1189,6 +1216,7 @@ class SelectorSocketTransportTests(test_utils.TestCase):
 
 
 @unittest.skipIf(ssl is None, 'No ssl module')
+@unittest.skipIf(not _has_ssl, 'No ssl transport')
 class SelectorSslTransportTests(test_utils.TestCase):
     def setUp(self):
         super().setUp()
@@ -1541,6 +1569,7 @@ class SelectorSslTransportTests(test_utils.TestCase):
         )
 
 
+@unittest.skipIf(not _has_ssl, 'No ssl transport')
 class SelectorSslWithoutSslTransportTests(unittest.TestCase):
     @mock.patch('asyncio.selector_events.ssl', None)
     def test_ssl_transport_requires_ssl_module(self):
