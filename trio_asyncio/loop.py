@@ -191,15 +191,15 @@ def run_trio(proc, *args):
     You need to handle errors yourself.
     """
     loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
+    if not isinstance(loop, TrioEventLoop):  # pragma: no cover
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return loop.run_trio(proc, *args)
 
 
 def run_trio_task(proc, *args):
-    """Call an asynchronous Trio function from asyncio.
+    """Call an asynchronous Trio function from sync context.
 
-    This method starts the task in the background and returns immediately.
+    This method queues the task and returns immediately.
     It does not return a value.
 
     An uncaught error will propagate to, and terminate, the trio-asyncio loop.
