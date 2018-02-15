@@ -51,7 +51,7 @@ Matthias Urlichs <matthias@urlichs.de>
 
 setup(
     name="trio_asyncio",
-    version=__version__,
+    version=__version__,  # noqa: F821
     description="A re-implementation of the asyncio mainloop on top of Trio",
     long_description=LONG_DESC,
     author="Matthias Urlichs",

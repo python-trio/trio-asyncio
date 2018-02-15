@@ -183,7 +183,6 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._csock.send.side_effect = RuntimeError()
         self.assertRaises(RuntimeError, self.loop._write_to_self)
 
-
     def test_sock_recv(self):
         sock = test_utils.mock_nonblocking_socket()
         self.loop._sock_recv = mock.Mock()

@@ -54,7 +54,7 @@ class _FDStream(AsyncResource):
 
     def close(self):
         try:
-            #fcntl.fcntl(self._fd, fcntl.F_SETFL, self._fdflags)
+            # fcntl.fcntl(self._fd, fcntl.F_SETFL, self._fdflags)
             os.close(self._fd)
         except OSError as err:
             if err.errno != errno.EBADF:

@@ -116,7 +116,7 @@ class TestMisc:
         assert owch
 
     @pytest.mark.trio
-    async def test_run2(self, loop):
+    async def test_run3(self, loop):
         owch = 0
 
         async def nest():
@@ -149,4 +149,3 @@ class TestMisc:
 
         await loop.run_asyncio(cancel_sleep)
         assert owch == 0
-

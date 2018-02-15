@@ -5,7 +5,6 @@
 # this stuff should become a proper pytest plugin
 
 import pytest
-import inspect
 import asyncio
 import trio_asyncio
 
@@ -24,4 +23,3 @@ def sync_loop():
     loop = asyncio.new_event_loop()
     with loop:
         yield loop
-

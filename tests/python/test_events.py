@@ -2139,7 +2139,7 @@ if sys.platform == 'win32':
 else:
     try:
         import selectors
-    except ImportError: # py<3.7
+    except ImportError:  # py<3.7
         from asyncio import selectors
 
     class UnixEventLoopTestsMixin(EventLoopTestsMixin):

@@ -5,6 +5,7 @@ import trio
 import heapq
 import signal
 import asyncio
+import warnings
 
 from .handles import Handle, TimerHandle
 
@@ -214,10 +215,12 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         This is (essentially) an asyncio coroutine.
         """
         f = asyncio.Future(loop=self)
-        h = Handle(self.__run_trio, (
-            f,
-            proc,
-        ) + args, self, context=None, is_sync=None)
+        h = Handle(
+            self.__run_trio, (
+                f,
+                proc,
+            ) + args, self, context=None, is_sync=None
+        )
         self._queue_handle(h)
         f.add_done_callback(h._cb_future_cancel)
         return f
@@ -293,7 +296,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_at')
-        return self._queue_handle(TimerHandle(when, callback, args, self, context=context, is_sync=True))
+        return self._queue_handle(
+            TimerHandle(when, callback, args, self, context=context, is_sync=True)
+        )
 
     def call_soon(self, callback, *args, context=None):
         """asyncio's defer-to-mainloop callback executor.
