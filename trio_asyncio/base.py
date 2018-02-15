@@ -151,6 +151,17 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         except Exception as exc:
             return "<%s ?:%s>" % (self.__class__.__name__, repr(exc))
 
+    def set_default_executor(self, executor):
+        if not isinstance(executor, TrioExecutor):
+            if 'pytest' not in sys.modules:
+                warnings.warn(
+                    "trio_asyncio needs a TrioExecutor instance, not %s" % repr(executor),
+                    DeprecationWarning,
+                    stacklevel=2
+                )
+            return
+        super().set_default_executor(executor)
+
     def time(self):
         """Return Trio's idea of the current time.
         """
@@ -206,7 +217,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         h = Handle(self.__run_trio, (
             f,
             proc,
-        ) + args, self, None)
+        ) + args, self, context=None, is_sync=None)
         self._queue_handle(h)
         f.add_done_callback(h._cb_future_cancel)
         return f
@@ -258,7 +269,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """
         raise RuntimeError("override me")
 
-    def call_later(self, delay, callback, *args):
+    def _call_soon(self, *arks, **kwargs):
+        raise RuntimeError("_call_soon() should not have been called")
+
+    def call_later(self, delay, callback, *args, context=None):
         """asyncio's timer-based delay
 
         Note that the callback is a sync function.
@@ -269,34 +283,34 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """
         self._check_callback(callback, 'call_later')
         assert delay >= 0, delay
-        h = TimerHandle(delay + self.time(), callback, args, self, True)
+        h = TimerHandle(delay + self.time(), callback, args, self, context=context, is_sync=True)
         self._queue_handle(h)
         return h
 
-    def call_at(self, when, callback, *args):
+    def call_at(self, when, callback, *args, context=None):
         """asyncio's time-based delay
 
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_at')
-        return self._queue_handle(TimerHandle(when, callback, args, self, True))
+        return self._queue_handle(TimerHandle(when, callback, args, self, context=context, is_sync=True))
 
-    def call_soon(self, callback, *args):
+    def call_soon(self, callback, *args, context=None):
         """asyncio's defer-to-mainloop callback executor.
 
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_soon')
-        return self._queue_handle(Handle(callback, args, self, True))
+        return self._queue_handle(Handle(callback, args, self, context=context, is_sync=True))
 
-    def call_soon_threadsafe(self, callback, *args):
+    def call_soon_threadsafe(self, callback, *args, context=None):
         """asyncio's thread-safe defer-to-mainloop
 
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_soon_threadsafe')
         self._check_closed()
-        h = Handle(callback, args, self, True)
+        h = Handle(callback, args, self, context=context, is_sync=True)
         self._token.run_sync_soon(self._q.put_nowait, h)
 
     # drop all timers
@@ -408,7 +422,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._check_closed()
         if sig == signal.SIGKILL:
             raise RuntimeError("SIGKILL cannot be caught")
-        h = Handle(callback, args, self, True)
+        h = Handle(callback, args, self, context=None, is_sync=True)
         assert sig not in self._signal_handlers, \
             "Signal %d is already being caught" % (sig,)
         self._orig_signals[sig] = signal.signal(sig, self._handle_sig)
@@ -450,7 +464,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def _add_reader(self, fd, callback, *args):
         self._check_closed()
-        handle = Handle(callback, args, self, True)
+        handle = Handle(callback, args, self, context=None, is_sync=True)
         reader = self._set_read_handle(fd, handle)
         if reader is not None:
             reader.cancel()
@@ -505,7 +519,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def _add_writer(self, fd, callback, *args):
         self._check_closed()
-        handle = Handle(callback, args, self, True)
+        handle = Handle(callback, args, self, context=None, is_sync=True)
         writer = self._set_write_handle(fd, handle)
         if writer is not None:
             writer.cancel()

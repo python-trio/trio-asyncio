@@ -1,5 +1,6 @@
 """Utilities shared by tests."""
 
+import sys
 import collections
 import contextlib
 import io
@@ -20,6 +21,11 @@ from unittest import mock
 
 from http.server import HTTPServer
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
+
+try:
+    from asyncio.format_helpers import _get_function_source
+except ImportError: # <3.7
+    from asyncio.events import _get_function_source
 
 try:
     import ssl
@@ -364,7 +370,10 @@ class TestLoop(base_events.BaseEventLoop):
                 raise AssertionError("Time generator is not finished")
 
     def _add_reader(self, fd, callback, *args):
-        self.readers[fd] = events.Handle(callback, args, self, None)
+        if sys.version_info >= (3,7):
+            self.readers[fd] = events.Handle(callback, args, self, context=None)
+        else:
+            self.readers[fd] = events.Handle(callback, args, self)
 
     def _remove_reader(self, fd):
         self.remove_reader_count[fd] += 1
@@ -390,7 +399,10 @@ class TestLoop(base_events.BaseEventLoop):
             raise AssertionError(f'fd {fd} is registered')
 
     def _add_writer(self, fd, callback, *args):
-        self.writers[fd] = events.Handle(callback, args, self, None)
+        if sys.version_info >= (3,7):
+            self.writers[fd] = events.Handle(callback, args, self, context=None)
+        else:
+            self.writers[fd] = events.Handle(callback, args, self)
 
     def _remove_writer(self, fd):
         self.remove_writer_count[fd] += 1
@@ -458,7 +470,10 @@ class TestLoop(base_events.BaseEventLoop):
 
     def call_at(self, when, callback, *args, context=None):
         self._timers.append(when)
-        return super().call_at(when, callback, *args, context=context)
+        if sys.version_info >= (3,7):
+            return super().call_at(when, callback, *args, context=context)
+        else:
+            return super().call_at(when, callback, *args)
 
     def _process_events(self, event_list):
         return
@@ -557,3 +572,15 @@ def mock_nonblocking_socket(proto=socket.IPPROTO_TCP, type=socket.SOCK_STREAM,
     sock.family = family
     sock.gettimeout.return_value = 0.0
     return sock
+
+if sys.version_info < (3,7):
+    def force_legacy_ssl_support():
+        return mock.patch('asyncio.sslproto._is_sslproto_available',
+                          return_value=False)
+
+def get_function_source(func):
+    source = _get_function_source(func)
+    if source is None:
+        raise ValueError("unable to get the source of %r" % (func,))
+    return source
+

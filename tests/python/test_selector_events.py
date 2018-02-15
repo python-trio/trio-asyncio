@@ -1,5 +1,6 @@
 """Tests for selector_events.py"""
 
+import sys
 import errno
 import socket
 import unittest
