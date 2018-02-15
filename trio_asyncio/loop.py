@@ -8,7 +8,7 @@ import warnings
 import threading
 
 from .util import run_future
-from .async_ import TrioEventLoop
+from .async_ import TrioEventLoop, open_loop
 
 try:
     from trio.hazmat import wait_for_child
@@ -214,10 +214,11 @@ def run(proc, *args):
     """Like :func:`trio.run`, but adds a context that supports asyncio.
     """
 
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
-    loop.run_task(proc, *args)
+    async def _run_task(proc, args):
+        async with open_loop():
+            return await proc(*args)
+
+    trio.run(_run_task, proc, args)
 
 
 asyncio.set_event_loop_policy(TrioPolicy())
