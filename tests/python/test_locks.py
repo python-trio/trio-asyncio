@@ -11,7 +11,7 @@ from .. import utils as test_utils
 STR_RGX_REPR = (
     r'^<(?P<class>.*?) object at (?P<address>.*?)'
     r'\[(?P<extras>'
-    r'(set|unset|locked|unlocked)(,value:\d)?(,waiters:\d+)?'
+    r'(set|unset|locked|unlocked)(, ?value:\d)?(, ?waiters:\d+)?'
     r')\]>\Z'
 )
 RGX_REPR = re.compile(STR_RGX_REPR)
@@ -729,7 +729,10 @@ class SemaphoreTests(test_utils.TestCase):
 
     def test_repr(self):
         sem = asyncio.Semaphore(loop=self.loop)
-        self.assertTrue(repr(sem).endswith('[unlocked,value:1]>'))
+        self.assertTrue(
+            repr(sem).endswith('[unlocked,value:1]>')
+            or repr(sem).endswith('[unlocked, value:1]>')
+        )
         self.assertTrue(RGX_REPR.match(repr(sem)))
 
         self.loop.run_until_complete(sem.acquire())

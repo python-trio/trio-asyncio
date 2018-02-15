@@ -791,7 +791,10 @@ os.close(fd)
 
     def test___repr__nondefault_limit(self):
         stream = asyncio.StreamReader(loop=self.loop, limit=123)
-        self.assertEqual("<StreamReader l=123>", repr(stream))
+        if sys.version_info >= (3, 7):
+            self.assertEqual("<StreamReader limit=123>", repr(stream))
+        else:
+            self.assertEqual("<StreamReader l=123>", repr(stream))
 
     def test___repr__eof(self):
         stream = asyncio.StreamReader(loop=self.loop)
@@ -807,12 +810,18 @@ os.close(fd)
         stream = asyncio.StreamReader(loop=self.loop)
         exc = RuntimeError()
         stream.set_exception(exc)
-        self.assertEqual("<StreamReader e=RuntimeError()>", repr(stream))
+        if sys.version_info >= (3, 7):
+            self.assertEqual("<StreamReader exception=RuntimeError()>", repr(stream))
+        else:
+            self.assertEqual("<StreamReader e=RuntimeError()>", repr(stream))
 
     def test___repr__waiter(self):
         stream = asyncio.StreamReader(loop=self.loop)
         stream._waiter = asyncio.Future(loop=self.loop)
-        self.assertRegex(repr(stream), r"<StreamReader w=<Future pending[\S ]*>>")
+        if sys.version_info >= (3, 7):
+            self.assertRegex(repr(stream), r"<StreamReader waiter=<Future pending[\S ]*>>")
+        else:
+            self.assertRegex(repr(stream), r"<StreamReader w=<Future pending[\S ]*>>")
         stream._waiter.set_result(None)
         self.loop.run_until_complete(stream._waiter)
         stream._waiter = None
@@ -823,7 +832,10 @@ os.close(fd)
         stream._transport = mock.Mock()
         stream._transport.__repr__ = mock.Mock()
         stream._transport.__repr__.return_value = "<Transport>"
-        self.assertEqual("<StreamReader t=<Transport>>", repr(stream))
+        if sys.version_info >= (3, 7):
+            self.assertEqual("<StreamReader transport=<Transport>>", repr(stream))
+        else:
+            self.assertEqual("<StreamReader t=<Transport>>", repr(stream))
 
     @unittest.skipIf(sys.version_info < (3, 6, 4), "Changed in 3.6.4")
     def test_IncompleteReadError_pickleable(self):

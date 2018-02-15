@@ -403,7 +403,7 @@ class BaseTaskTests:
 
             @asyncio.coroutine
             def func(x, y):
-                yield from asyncio.sleep(0)
+                yield from asyncio.sleep(0, loop=self.loop)
 
             partial_func = asyncio.coroutine(functools.partial(func, 1))
             task = self.loop.create_task(partial_func(2))
@@ -614,14 +614,14 @@ class BaseTaskTests:
         loop = self.new_test_loop(gen)
 
         x = 0
-        waiters = []
 
-        @asyncio.coroutine
-        def task():
+        # waiters = []
+        async def task():
             nonlocal x
             while x < 10:
-                waiters.append(asyncio.sleep(0.1, loop=loop))
-                yield from waiters[-1]
+                # waiters.append(asyncio.sleep(0.1, loop=loop))
+                # yield from waiters[-1]
+                await asyncio.sleep(0.1, loop=loop)
                 x += 1
                 if x == 2:
                     loop.stop()
@@ -635,8 +635,8 @@ class BaseTaskTests:
         self.assertAlmostEqual(0.3, loop.time())
 
         # close generators
-        for w in waiters:
-            w.close()
+        # for w in waiters:
+        #     w.close()
         t.cancel()
         self.assertRaises(asyncio.CancelledError, loop.run_until_complete, t)
 
@@ -1255,6 +1255,24 @@ class BaseTaskTests:
         self.assertIsNone(task._fut_waiter)
         self.assertTrue(fut.cancelled())
 
+    @unittest.skipIf(sys.version_info < (3, 6), "new")
+    def test_task_set_methods(self):
+        @asyncio.coroutine
+        def notmuch():
+            return 'ko'
+
+        gen = notmuch()
+        task = self.new_task(self.loop, gen)
+
+        with self.assertRaisesRegex(RuntimeError, 'not support set_result'):
+            task.set_result('ok')
+
+        with self.assertRaisesRegex(RuntimeError, 'not support set_exception'):
+            task.set_exception(ValueError())
+
+        self.assertEqual(self.loop.run_until_complete(task), 'ko')
+
+    @unittest.skipIf(sys.version_info >= (3, 7), "deleted")
     def test_step_in_completed_task(self):
         @asyncio.coroutine
         def notmuch():
@@ -1284,7 +1302,7 @@ class BaseTaskTests:
                 self.cb_added = False
                 super().__init__(*args, **kwds)
 
-            def add_done_callback(self, fn):
+            def add_done_callback(self, fn, context=None):
                 self.cb_added = True
                 super().add_done_callback(fn)
 
@@ -1307,6 +1325,7 @@ class BaseTaskTests:
         self.assertTrue(t.done())
         self.assertIsNone(t.result())
 
+    @unittest.skipIf(sys.version_info >= (3, 7), "deleted")
     def test_step_with_baseexception(self):
         @asyncio.coroutine
         def notmutch():
@@ -1996,7 +2015,7 @@ class BaseTaskTests:
 
     @mock.patch('asyncio.base_events.logger')
     def test_error_in_call_soon(self, m_log):
-        def call_soon(callback, *args):
+        def call_soon(callback, *args, context=None):
             raise ValueError
 
         self.loop.call_soon = call_soon
@@ -2033,7 +2052,7 @@ def add_subclass_tests(cls):
             self.calls['_schedule_callbacks'] += 1
             return super()._schedule_callbacks()
 
-        def add_done_callback(self, *args):
+        def add_done_callback(self, *args, context=None):
             self.calls['add_done_callback'] += 1
             return super().add_done_callback(*args)
 
@@ -2062,16 +2081,22 @@ def add_subclass_tests(cls):
 
         self.assertEqual(result, 'spam')
 
-        self.assertEqual(
-            dict(task.calls), {
-                '_step': 2,
-                '_wakeup': 1,
-                'add_done_callback': 1,
-                '_schedule_callbacks': 1
-            }
-        )
+        if sys.version_info >= (3, 7):
+            self.assertEqual(dict(task.calls), {'add_done_callback': 1})
 
-        self.assertEqual(dict(fut.calls), {'add_done_callback': 1, '_schedule_callbacks': 1})
+            self.assertEqual(dict(fut.calls), {'add_done_callback': 1})
+
+        else:
+            self.assertEqual(
+                dict(task.calls), {
+                    '_step': 2,
+                    '_wakeup': 1,
+                    'add_done_callback': 1,
+                    '_schedule_callbacks': 1
+                }
+            )
+
+            self.assertEqual(dict(fut.calls), {'add_done_callback': 1, '_schedule_callbacks': 1})
 
     # Add patched Task & Future back to the test case
     cls.Task = Task
