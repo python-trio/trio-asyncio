@@ -121,7 +121,7 @@ class MyBaseProto(asyncio.Protocol):
             self.connected.set_result(None)
 
     def data_received(self, data):
-        assert self.state == 'CONNECTED', (self.state, self.data)
+        assert self.state == 'CONNECTED', (self.state, data)
         self.nbytes += len(data)
 
     def eof_received(self):
