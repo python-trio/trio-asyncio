@@ -15,7 +15,7 @@ except ImportError:
     ssl = None
 
 import asyncio
-from asyncio import test_utils
+from .. import utils as test_utils
 
 
 class StreamReaderTests(test_utils.TestCase):
@@ -825,6 +825,7 @@ os.close(fd)
         stream._transport.__repr__.return_value = "<Transport>"
         self.assertEqual("<StreamReader t=<Transport>>", repr(stream))
 
+    @unittest.skipIf(sys.version_info < (3, 6, 4), "Changed in 3.6.4")
     def test_IncompleteReadError_pickleable(self):
         e = asyncio.IncompleteReadError(b'abc', 10)
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
@@ -834,6 +835,7 @@ os.close(fd)
                 self.assertEqual(e.partial, e2.partial)
                 self.assertEqual(e.expected, e2.expected)
 
+    @unittest.skipIf(sys.version_info < (3, 6, 4), "Changed in 3.6.4")
     def test_LimitOverrunError_pickleable(self):
         e = asyncio.LimitOverrunError('message', 10)
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):

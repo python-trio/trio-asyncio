@@ -13,7 +13,7 @@ aRepr.maxlong = 9999
 del aRepr
 
 # Find the test SSL keys.
-from asyncio import test_utils
+from . import utils as test_utils
 
 
 def finish_request(self, request, client_address):

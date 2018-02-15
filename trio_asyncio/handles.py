@@ -2,7 +2,10 @@ import sys
 import trio
 import asyncio
 import traceback
-from asyncio.events import _format_callback, _get_function_source
+try:
+    from asyncio.format_helpers import _format_callback, _get_function_source
+except ImportError: # <3.7
+    from asyncio.events import _format_callback, _get_function_source
 
 __all__ = ['Handle', 'TimerHandle']
 
@@ -88,31 +91,65 @@ class _TrioHandle:
             return
         self._callback(*self._args)
 
-    async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
-        assert not self._is_sync
-        if self._cancelled:
-            return
-        task_status.started()
-        try:
-            with trio.open_cancel_scope() as scope:
-                self._scope = scope
-                if self._is_sync is None:
-                    await self._callback(self)
-                else:
-                    await self._callback(*self._args)
-        except Exception as exc:
-            self._raise(exc)
-        finally:
-            self._scope = None
+    if sys.version_info >= (3,7):
 
+        async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
+            assert not self._is_sync
+            if self._cancelled:
+                return
+            task_status.started()
+            try:
+                with trio.open_cancel_scope() as scope:
+                    self._scope = scope
+                    if self._is_sync is None:
+                        await self._context.run(self._callback, self)
+                    else:
+                        await self._context.run(self._callback, *self._args)
+            except Exception as exc:
+                self._raise(exc)
+            finally:
+                self._scope = None
 
-class Handle(_TrioHandle, asyncio.Handle):
-    def __init__(self, callback, args, loop, is_sync):
-        super().__init__(callback, args, loop)
-        self._init(is_sync)
+    else: # no contextvars
 
+        async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
+            assert not self._is_sync
+            if self._cancelled:
+                return
+            task_status.started()
+            try:
+                with trio.open_cancel_scope() as scope:
+                    self._scope = scope
+                    if self._is_sync is None:
+                        await self._callback(self)
+                    else:
+                        await self._callback(*self._args)
+            except Exception as exc:
+                self._raise(exc)
+            finally:
+                self._scope = None
 
-class TimerHandle(_TrioHandle, asyncio.TimerHandle):
-    def __init__(self, when, callback, args, loop, is_sync):
-        super().__init__(when, callback, args, loop)
-        self._init(is_sync)
+if sys.version_info >= (3,7):
+
+    class Handle(_TrioHandle, asyncio.Handle):
+        def __init__(self, callback, args, loop, context=None, is_sync=True):
+            super().__init__(callback, args, loop, context=context)
+            self._init(is_sync)
+
+    class TimerHandle(_TrioHandle, asyncio.TimerHandle):
+        def __init__(self, when, callback, args, loop, context=None, is_sync=True):
+            super().__init__(when, callback, args, loop, context=context)
+            self._init(is_sync)
+
+else:
+
+    class Handle(_TrioHandle, asyncio.Handle):
+        def __init__(self, callback, args, loop, context=None, is_sync=True):
+            super().__init__(callback, args, loop)
+            self._init(is_sync)
+
+    class TimerHandle(_TrioHandle, asyncio.TimerHandle):
+        def __init__(self, when, callback, args, loop, context=None, is_sync=True):
+            super().__init__(when, callback, args, loop)
+            self._init(is_sync)
+

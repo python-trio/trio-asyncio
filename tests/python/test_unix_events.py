@@ -19,7 +19,7 @@ if sys.platform == 'win32':
 
 import asyncio
 from asyncio import log
-from asyncio import test_utils
+from .. import utils as test_utils
 from asyncio import unix_events
 
 MOCK_ANY = mock.ANY

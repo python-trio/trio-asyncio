@@ -11,7 +11,7 @@ except ImportError:
 from unittest import mock
 
 import asyncio
-from asyncio import test_utils
+from .. import utils as test_utils
 
 
 class BaseTest(test_utils.TestCase):

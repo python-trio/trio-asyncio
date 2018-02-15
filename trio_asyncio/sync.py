@@ -54,13 +54,13 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 #        async def stop_me():
 #            def kick_():
 #                raise StopIteration
-#            self._queue_handle(Handle(kick_,(),self,True))
+#            self._queue_handle(Handle(kick_, (), self, context=None, is_sync=True))
 #            await self._main_loop()
 #        if threading.current_thread() != self._thread:
 #            self.__run_in_thread(stop_me)
 #        else:
 
-        self._queue_handle(Handle(do_stop, (), self, True))
+        self._queue_handle(Handle(do_stop, (), self, context=None, is_sync=True))
 
     def _queue_handle(self, handle):
         self._check_closed()

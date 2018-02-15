@@ -73,7 +73,7 @@ class TrioEventLoop(BaseTrioEventLoop):
         if self._stopped.is_set():
             waiter.set()
         else:
-            self._queue_handle(Handle(stop_me, (), self, True))
+            self._queue_handle(Handle(stop_me, (), self, context=None, is_sync=True))
         return waiter
 
     def _close(self):

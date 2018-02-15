@@ -118,3 +118,4 @@ class TestMisc:
 
         await loop.run_asyncio(cancel_sleep)
         assert owch == 0
+

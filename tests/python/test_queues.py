@@ -1,10 +1,11 @@
 """Tests for queues.py"""
 
+import sys
 import unittest
 from unittest import mock
 
 import asyncio
-from asyncio import test_utils
+from .. import utils as test_utils
 
 
 class _QueueTestBase(test_utils.TestCase):
@@ -290,6 +291,7 @@ class QueueGetTests(_QueueTestBase):
             ),
         )
 
+    @unittest.skipIf(sys.version_info < (3, 6, 4), "Changed in 3.6.4")
     def test_cancelled_getters_not_being_held_in_self_getters(self):
         def a_generator():
             yield 0.1

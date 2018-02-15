@@ -6,7 +6,7 @@ import re
 import sys
 
 import asyncio
-from asyncio import test_utils
+from .. import utils as test_utils
 
 STR_RGX_REPR = (
     r'^<(?P<class>.*?) object at (?P<address>.*?)'
