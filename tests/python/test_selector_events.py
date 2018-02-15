@@ -246,7 +246,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_recv, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, 1024
+                if sys.version_info >= (3, 6, 4) else True, sock, 1024
             ), self.loop.add_reader.call_args[0]
         )
 
@@ -330,7 +330,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_sendall, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+                if sys.version_info >= (3, 6, 4) else True, sock, b'data'
             ), self.loop.add_writer.call_args[0]
         )
 
@@ -345,7 +345,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_sendall, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+                if sys.version_info >= (3, 6, 4) else True, sock, b'data'
             ), self.loop.add_writer.call_args[0]
         )
 
@@ -382,7 +382,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_sendall, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, b'ta'
+                if sys.version_info >= (3, 6, 4) else True, sock, b'ta'
             ), self.loop.add_writer.call_args[0]
         )
 
@@ -399,7 +399,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_sendall, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+                if sys.version_info >= (3, 6, 4) else True, sock, b'data'
             ), self.loop.add_writer.call_args[0]
         )
 
