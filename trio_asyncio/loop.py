@@ -141,10 +141,12 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher):
         callback(pid, returncode, *args)
 
     def add_child_handler(self, pid, callback, *args):
+        """Add a callback to run when a child process terminates."""
         h = self._loop.run_trio(self._waitpid, pid, callback, *args)
         self._callbacks[pid] = h
 
     def remove_child_handler(self, pid):
+        """Remove the callback to run when a child process terminates."""
         h = self._callbacks.pop(pid, None)
         if h is None:
             return False
