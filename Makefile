@@ -33,7 +33,7 @@ SPHINXBUILDDIR ?= $(BUILD_DIR)/sphinx/html
 ALLSPHINXOPTS ?= -d $(BUILD_DIR)/sphinx/doctrees $(SPHINXOPTS) docs
 
 doc:
-	sphinx-build -a $(INPUT_DIR) build
+	sphinx3-build -a $(INPUT_DIR) $(BUILD_DIR)
 
 livehtml: docs
 	sphinx-autobuild $(AUTOSPHINXOPTS) $(ALLSPHINXOPTS) $(SPHINXBUILDDIR)
@@ -52,8 +52,8 @@ pypi:   tag
 	## version depends on tag, so re-tagging doesn't make sense
 
 upload: pypi
-	git push --tags
+	git push-all --tags
 
 update:
-	pip install -r requirements_dev.txt
+	pip install -r ci/test-requirements.txt
 
