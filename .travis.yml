@@ -8,9 +8,9 @@ dist: trusty
 
 matrix:
   include:
-    - os: linux
-      language: generic
-      env: USE_PYPY_RELEASE_VERSION=5.9-beta
+    # - os: linux
+    #   language: generic
+    #   env: USE_PYPY_RELEASE_VERSION=5.9-beta
     # Uncomment if you want to test on pypy nightly
     # - os: linux
     #   language: generic
