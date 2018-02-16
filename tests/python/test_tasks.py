@@ -1255,7 +1255,7 @@ class BaseTaskTests:
         self.assertIsNone(task._fut_waiter)
         self.assertTrue(fut.cancelled())
 
-    @unittest.skipIf(sys.version_info < (3, 6), "new")
+    @unittest.skipIf(sys.version_info < (3, 7), "new")
     def test_task_set_methods(self):
         @asyncio.coroutine
         def notmuch():
