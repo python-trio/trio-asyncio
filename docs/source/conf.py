@@ -27,8 +27,12 @@ nitpicky = True
 # Except for these ones, which we expect to point to unknown targets:
 nitpick_ignore = [
     # Format is ("sphinx reference type", "string"), e.g.:
-    ("py:obj", "bytes-like"),
+    ("py:class", "CapacityLimiter-like object"),
+    ("py:class", "bytes-like"),
+    ("py:class", "None"),
 ]
+
+autodoc_inherit_docstrings = False
 
 # -- General configuration ------------------------------------------------
 
