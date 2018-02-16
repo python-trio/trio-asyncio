@@ -1,3 +1,4 @@
+
 +++++++
  Usage
 +++++++
@@ -108,8 +109,7 @@ a library you're calling) does not expect to run in a different thread.
    thread, but doesn't run them at all when waiting for another thread.
    
    Use :meth:`trio_asyncio.TrioChildWatcher.add_child_handler`,
-   :func:`trio.hazmat.wait_for_child`
-   or :func:`trio.run_subprocess` instead.
+   or :func:`trio_asyncio.wait_for_child` instead.
 
 ``loop.stop()`` tells the loop to suspend itself. You can restart it
 with another call to ``loop.run_forever()`` or ``loop.run_until_complete(coro)``,
