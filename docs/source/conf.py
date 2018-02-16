@@ -30,6 +30,16 @@ nitpick_ignore = [
     ("py:class", "CapacityLimiter-like object"),
     ("py:class", "bytes-like"),
     ("py:class", "None"),
+
+    ("py:func", "trio_asyncio.wait_for_child"),
+    ("py:func", "trio_asyncio.run_future"),
+    ("py:class", "trio_asyncio.TrioEventLoop"),
+    ("py:class", "trio_asyncio.TrioExecutor"),
+    ("py:class", "trio_asyncio.TrioChildWatcher"),
+    ("py:meth", "trio_asyncio.TrioEventLoop.autoclose"),
+    ("py:meth", "trio_asyncio.TrioEventLoop.add_reader"),
+    ("py:meth", "trio_asyncio.TrioEventLoop.add_writer"),
+    ("py:meth", "trio_asyncio.sync.SyncTrioEventLoop.run_until_complete"),
 ]
 
 autodoc_inherit_docstrings = False
