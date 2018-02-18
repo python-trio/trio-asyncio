@@ -1,3 +1,9 @@
+trio-asyncio (0.4.6-1) unstable; urgency=medium
+
+  * Updated, Travis tests work (mostly)
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Sun, 18 Feb 2018 06:08:48 +0100
+
 trio-asyncio (0.4.5-1) unstable; urgency=medium
 
   * Updated version
