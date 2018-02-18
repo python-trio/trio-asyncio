@@ -7,7 +7,7 @@
 import pytest
 import asyncio
 import trio_asyncio
-
+import inspect
 
 @pytest.fixture
 async def loop():
@@ -23,3 +23,10 @@ def sync_loop():
     loop = asyncio.new_event_loop()
     with loop:
         yield loop
+
+# auto-trio-ize all async functions
+@pytest.hookimpl(tryfirst=True)
+def pytest_pyfunc_call(pyfuncitem):
+    if inspect.iscoroutinefunction(pyfuncitem.obj):
+        pyfuncitem.obj = pytest.mark.trio(pyfuncitem.obj)
+
