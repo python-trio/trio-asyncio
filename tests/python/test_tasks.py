@@ -80,10 +80,10 @@ class BaseTaskTests:
     Future = None
 
     def new_task(self, loop, coro):
-        return self.__class__.Task(coro, loop=loop)
+        return asyncio.Task(coro, loop=loop)
 
     def new_future(self, loop):
-        return self.__class__.Future(loop=loop)
+        return asyncio.Future(loop=loop)
 
     def setUp(self):
         super().setUp()
@@ -1449,8 +1449,6 @@ class BaseTaskTests:
         self.assertIsNone(t2.result())
 
     def test_current_task(self):
-        Task = self.__class__.Task
-
         self.assertIsNone(asyncio.current_task(loop=self.loop))
 
         @asyncio.coroutine
@@ -1470,8 +1468,6 @@ class BaseTaskTests:
         self.assertIsNone(asyncio.current_task(loop=self.loop))
 
     def test_current_task_with_interleaving_tasks(self):
-        Task = self.__class__.Task
-
         self.assertIsNone(asyncio.current_task(loop=self.loop))
 
         fut1 = self.new_future(self.loop)
@@ -1797,7 +1793,6 @@ class BaseTaskTests:
 
     @unittest.skipUnless(PY34, 'need python 3.4 or later')
     def test_log_destroyed_pending_task(self):
-        Task = self.__class__.Task
 
         @asyncio.coroutine
         def kill_me(loop):
@@ -2113,40 +2108,13 @@ def add_subclass_tests(cls):
     return cls
 
 
-@unittest.skipUnless(hasattr(futures, '_CFuture'), 'requires the C _asyncio module')
-class CTask_CFuture_Tests(BaseTaskTests, test_utils.TestCase):
-    Task = getattr(tasks, '_CTask', None)
-    Future = getattr(futures, '_CFuture', None)
-
-
-@unittest.skipUnless(hasattr(futures, '_CFuture'), 'requires the C _asyncio module')
-@add_subclass_tests
-class CTask_CFuture_SubclassTests(BaseTaskTests, test_utils.TestCase):
-    Task = getattr(tasks, '_CTask', None)
-    Future = getattr(futures, '_CFuture', None)
-
-
-@unittest.skipUnless(hasattr(futures, '_CFuture'), 'requires the C _asyncio module')
-class CTask_PyFuture_Tests(BaseTaskTests, test_utils.TestCase):
-    Task = getattr(tasks, '_CTask', None)
-    Future = futures._PyFuture
-
-
-@unittest.skipUnless(hasattr(futures, '_CFuture'), 'requires the C _asyncio module')
-class PyTask_CFuture_Tests(BaseTaskTests, test_utils.TestCase):
-    Task = tasks._PyTask
-    Future = getattr(futures, '_CFuture', None)
-
-
-class PyTask_PyFuture_Tests(BaseTaskTests, test_utils.TestCase):
-    Task = tasks._PyTask
-    Future = futures._PyFuture
+class TaskTests(BaseTaskTests, test_utils.TestCase):
+    pass
 
 
 @add_subclass_tests
-class PyTask_PyFuture_SubclassTests(BaseTaskTests, test_utils.TestCase):
-    Task = tasks._PyTask
-    Future = futures._PyFuture
+class TaskSubclassTests(BaseTaskTests, test_utils.TestCase):
+    pass
 
 
 class GenericTaskTests(test_utils.TestCase):
