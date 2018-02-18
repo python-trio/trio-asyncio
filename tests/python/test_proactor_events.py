@@ -43,16 +43,18 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         test_utils.run_briefly(self.loop)
         self.assertIsNone(fut.result())
         self.protocol.connection_made(tr)
-        self.proactor.recv.assert_called_with(
-            self.sock, 32768 if sys.version_info >= (3, 7) else 4096
-        )
+        try:
+            self.proactor.recv.assert_called_with(self.sock, 4096)
+        except AssertionError:
+            self.proactor.recv.assert_called_with(self.sock, 32768)
 
     def test_loop_reading(self):
         tr = self.socket_transport()
         tr._loop_reading()
-        self.loop._proactor.recv.assert_called_with(
-            self.sock, 32768 if sys.version_info >= (3, 7) else 4096
-        )
+        try:
+            self.loop._proactor.recv.assert_called_with(self.sock, 4096)
+        except AssertionError:
+            self.loop._proactor.recv.assert_called_with(self.sock, 32768)
         self.assertFalse(self.protocol.data_received.called)
         self.assertFalse(self.protocol.eof_received.called)
 
@@ -63,9 +65,10 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         tr = self.socket_transport()
         tr._read_fut = res
         tr._loop_reading(res)
-        self.loop._proactor.recv.assert_called_with(
-            self.sock, 32768 if sys.version_info >= (3, 7) else 4096
-        )
+        try:
+            self.loop._proactor.recv.assert_called_with(self.sock, 4096)
+        except AssertionError:
+            self.loop._proactor.recv.assert_called_with(self.sock, 32768)
         self.protocol.data_received.assert_called_with(b'data')
 
     def test_loop_reading_no_data(self):
