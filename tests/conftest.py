@@ -11,7 +11,7 @@ import inspect
 
 if not hasattr(asyncio,'current_task'):
     def current_task(loop=None):
-        return asyncio.Task.current.task(loop)
+        return asyncio.Task.current_task(loop)
     asyncio.current_task = current_task
 
 if not hasattr(asyncio,'all_tasks'):
