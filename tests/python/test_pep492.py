@@ -1,5 +1,6 @@
 """Tests support for new syntax introduced by PEP 492."""
 
+import sys
 import types
 import unittest
 import pytest
@@ -58,7 +59,7 @@ class LockTests(BaseTest):
         async def test(lock):
             await asyncio.sleep(0.01, loop=self.loop)
             self.assertFalse(lock.locked())
-            with await lock as _lock:
+            async with lock as _lock:
                 self.assertIs(_lock, None)
                 self.assertTrue(lock.locked())
                 await asyncio.sleep(0.01, loop=self.loop)
@@ -225,8 +226,10 @@ class CoroutineTests(BaseTest):
                 t.cancel()
 
         self.loop.set_debug(True)
-        with self.assertRaisesRegex(
-                RuntimeError, r'Cannot await.*test_double_await.*\bafunc\b.*while.*\bsleep\b'):
+        with self.assertRaisesRegex(RuntimeError,
+                                    r'Cannot await.*test_double_await.*\bafunc\b.*while.*\bsleep\b'
+                                    ) if sys.version_info < (3, 7) else self.assertRaises(
+                                        RuntimeError, msg='coroutine is being awaited already'):
 
             self.loop.run_until_complete(runner())
 

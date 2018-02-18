@@ -8,7 +8,7 @@ import warnings
 import threading
 
 from .util import run_future
-from .async_ import TrioEventLoop
+from .async_ import TrioEventLoop, open_loop
 
 try:
     from trio.hazmat import wait_for_child
@@ -144,11 +144,13 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher):
         os.write(2,b"SIGI CALL_WAIT C\n")
 
     def add_child_handler(self, pid, callback, *args):
+        """Add a callback to run when a child process terminates."""
         print("CHILD ADD",pid,callback,args)
         h = self._loop.run_trio(self._waitpid, pid, callback, *args)
         self._callbacks[pid] = h
 
     def remove_child_handler(self, pid):
+        """Remove the callback to run when a child process terminates."""
         print("CHILD REM",pid)
         h = self._callbacks.pop(pid, None)
         if h is None:
@@ -196,15 +198,15 @@ def run_trio(proc, *args):
     You need to handle errors yourself.
     """
     loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
+    if not isinstance(loop, TrioEventLoop):  # pragma: no cover
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return loop.run_trio(proc, *args)
 
 
 def run_trio_task(proc, *args):
-    """Call an asynchronous Trio function from asyncio.
+    """Call an asynchronous Trio function from sync context.
 
-    This method starts the task in the background and returns immediately.
+    This method queues the task and returns immediately.
     It does not return a value.
 
     An uncaught error will propagate to, and terminate, the trio-asyncio loop.
@@ -219,10 +221,11 @@ def run(proc, *args):
     """Like :func:`trio.run`, but adds a context that supports asyncio.
     """
 
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
-    loop.run_task(proc, *args)
+    async def _run_task(proc, args):
+        async with open_loop():
+            return await proc(*args)
+
+    trio.run(_run_task, proc, args)
 
 
 asyncio.set_event_loop_policy(TrioPolicy())

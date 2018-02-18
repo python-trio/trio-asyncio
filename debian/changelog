@@ -1,3 +1,9 @@
+trio-asyncio (0.4.5-1) unstable; urgency=medium
+
+  * Updated version
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Fri, 16 Feb 2018 10:24:55 +0100
+
 trio-asyncio (0.4.2-1) unstable; urgency=medium
 
   * Skip a flaky testcase

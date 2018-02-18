@@ -27,8 +27,22 @@ nitpicky = True
 # Except for these ones, which we expect to point to unknown targets:
 nitpick_ignore = [
     # Format is ("sphinx reference type", "string"), e.g.:
-    ("py:obj", "bytes-like"),
+    ("py:class", "CapacityLimiter-like object"),
+    ("py:class", "bytes-like"),
+    ("py:class", "None"),
+
+    ("py:func", "trio_asyncio.wait_for_child"),
+    ("py:func", "trio_asyncio.run_future"),
+    ("py:class", "trio_asyncio.TrioEventLoop"),
+    ("py:class", "trio_asyncio.TrioExecutor"),
+    ("py:class", "trio_asyncio.TrioChildWatcher"),
+    ("py:meth", "trio_asyncio.TrioEventLoop.autoclose"),
+    ("py:meth", "trio_asyncio.TrioEventLoop.add_reader"),
+    ("py:meth", "trio_asyncio.TrioEventLoop.add_writer"),
+    ("py:meth", "trio_asyncio.sync.SyncTrioEventLoop.run_until_complete"),
 ]
+
+autodoc_inherit_docstrings = False
 
 # -- General configuration ------------------------------------------------
 

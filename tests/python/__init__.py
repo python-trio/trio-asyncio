@@ -9,12 +9,6 @@ def load_tests(*args):
     return load_package_tests(os.path.dirname(__file__), *args)
 
 
-import asyncio.tasks
-asyncio.tasks.Task = asyncio.tasks._PyTask
-import asyncio.futures
-asyncio.futures.Future = asyncio.futures._PyFuture
-#
-#
 # this code is from
 # git@github.com:python/cpython.git
 # Revision d48ecebad

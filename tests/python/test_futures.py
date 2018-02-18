@@ -169,12 +169,17 @@ class BaseFutureTests:
         fut = self.cls.__new__(self.cls, loop=self.loop)
         try:
             repr(fut)
-        except AttributeError:
+        except (RuntimeError, AttributeError):
             pass
         fut = self.cls.__new__(self.cls, loop=self.loop)
-        fut.cancelled()
-        fut.done()
-        iter(fut)
+        try:
+            iter(fut)
+        except RuntimeError:
+            pass
+
+        fut = self.cls.__new__(self.cls, loop=self.loop)
+        self.assertFalse(fut.cancelled())
+        self.assertFalse(fut.done())
 
     def test_cancel(self):
         f = self._new_future(loop=self.loop)
@@ -337,7 +342,11 @@ class BaseFutureTests:
         def test():
             arg1, arg2 = coro()
 
-        self.assertRaises(AssertionError, test)
+        if sys.version_info >= (3, 7):
+            with self.assertRaisesRegex(RuntimeError, "await wasn't used"):
+                test()
+        else:
+            self.assertRaises(AssertionError, test)
         fut.cancel()
 
     @mock.patch('asyncio.base_events.logger')

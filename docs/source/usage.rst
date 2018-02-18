@@ -1,3 +1,4 @@
+
 +++++++
  Usage
 +++++++
@@ -107,9 +108,9 @@ a library you're calling) does not expect to run in a different thread.
 .. [SIGCHLD] Python requires you to register SIGCHLD handlers in the main
    thread, but doesn't run them at all when waiting for another thread.
    
-   Use :meth:`trio_asyncio.TrioChildWatcher.add_child_handler`,
-   :func:`trio.hazmat.wait_for_child`
-   or :func:`trio.run_subprocess` instead.
+    Use :func:`trio_asyncio.wait_for_child` instead.
+
+.. autodoc: trio_asyncio.wait_for_child
 
 ``loop.stop()`` tells the loop to suspend itself. You can restart it
 with another call to ``loop.run_forever()`` or ``loop.run_until_complete(coro)``,
@@ -263,7 +264,7 @@ You can use :meth:`trio_asyncio.TrioEventLoop.autoclose` to tell trio-asyncio to
 a file descriptor when the loop terminates. This setting only applies to
 file descriptors that have been submitted to a loop's
 :meth:`trio_asyncio.TrioEventLoop.add_reader` or
-:meth:`trio_asyncio.TrioEventLoop.add_writer`` methods. As such, this
+:meth:`trio_asyncio.TrioEventLoop.add_writer` methods. As such, this
 method is mainly useful for servers and should be used as supplementing,
 but not replacing, a ``finally:`` handler or an ``async with aclosing():``
 block.
@@ -317,7 +318,7 @@ argument: the number of workers.
 ------------------
 
 :meth:`asyncio.AbstractEventLoop.add_reader` and
-:meth:`asyncio.AbstractEventLoop.add_writer`` work as usual, if you really
+:meth:`asyncio.AbstractEventLoop.add_writer` work as usual, if you really
 need them. Behind the scenes, these calls create a Trio task which runs the
 callback.
 

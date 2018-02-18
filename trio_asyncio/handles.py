@@ -4,7 +4,7 @@ import asyncio
 import traceback
 try:
     from asyncio.format_helpers import _format_callback, _get_function_source
-except ImportError: # <3.7
+except ImportError:  # <3.7
     from asyncio.events import _format_callback, _get_function_source
 
 __all__ = ['Handle', 'TimerHandle']
@@ -91,7 +91,7 @@ class _TrioHandle:
             return
         self._callback(*self._args)
 
-    if sys.version_info >= (3,7):
+    if sys.version_info >= (3, 7):
 
         async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
             assert not self._is_sync
@@ -110,7 +110,7 @@ class _TrioHandle:
             finally:
                 self._scope = None
 
-    else: # no contextvars
+    else:  # no contextvars
 
         async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
             assert not self._is_sync
@@ -129,7 +129,8 @@ class _TrioHandle:
             finally:
                 self._scope = None
 
-if sys.version_info >= (3,7):
+
+if sys.version_info >= (3, 7):
 
     class Handle(_TrioHandle, asyncio.Handle):
         def __init__(self, callback, args, loop, context=None, is_sync=True):
@@ -152,4 +153,3 @@ else:
         def __init__(self, when, callback, args, loop, context=None, is_sync=True):
             super().__init__(when, callback, args, loop)
             self._init(is_sync)
-

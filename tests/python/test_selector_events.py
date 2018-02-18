@@ -162,6 +162,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop.close()
         self.assertIsNone(self.loop._selector)
 
+    @unittest.skipIf(sys.version_info >= (3, 7), 'No _socketpair attribute')
     def test_socketpair(self):
         self.assertRaises(NotImplementedError, self.loop._socketpair)
 
@@ -183,17 +184,20 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._csock.send.side_effect = RuntimeError()
         self.assertRaises(RuntimeError, self.loop._write_to_self)
 
-
-    def test_sock_recv(self):
+    async def test_sock_recv(self):
         sock = test_utils.mock_nonblocking_socket()
         self.loop._sock_recv = mock.Mock()
 
         f = self.loop.sock_recv(sock, 1024)
-        self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+        if sys.version_info >= (3, 7):
+            f = self.loop.create_task(f)
+        else:
+            self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+        await asyncio.sleep(0.01, loop=self.loop)
         if sys.version_info >= (3, 6, 4):
             self.loop._sock_recv.assert_called_with(f, None, sock, 1024)
 
-    def test_sock_recv_reconnection(self):
+    async def test_sock_recv_reconnection(self):
         sock = mock.Mock()
         sock.fileno.return_value = 10
         sock.recv.side_effect = BlockingIOError
@@ -202,6 +206,9 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop.add_reader = mock.Mock()
         self.loop.remove_reader = mock.Mock()
         fut = self.loop.sock_recv(sock, 1024)
+        if sys.version_info >= (3, 7):
+            fut = self.loop.create_task(fut)
+        await asyncio.sleep(0.01, loop=self.loop)
         callback = self.loop.add_reader.call_args[0][1]
         params = self.loop.add_reader.call_args[0][2:]
 
@@ -246,7 +253,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_recv, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, 1024
+                if sys.version_info >= (3, 6, 4) else True, sock, 1024
             ), self.loop.add_reader.call_args[0]
         )
 
@@ -259,25 +266,33 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_recv(f, None, sock, 1024)
         self.assertIs(err, f.exception())
 
-    def test_sock_sendall(self):
+    async def test_sock_sendall(self):
         sock = test_utils.mock_nonblocking_socket()
         self.loop._sock_sendall = mock.Mock()
 
         f = self.loop.sock_sendall(sock, b'data')
-        self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+        if sys.version_info >= (3, 7):
+            f = self.loop.create_task(f)
+        else:
+            self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+        await asyncio.sleep(0.01, loop=self.loop)
         self.assertEqual((f, None, sock, b'data'), self.loop._sock_sendall.call_args[0])
 
-    def test_sock_sendall_nodata(self):
+    async def test_sock_sendall_nodata(self):
         sock = test_utils.mock_nonblocking_socket()
         self.loop._sock_sendall = mock.Mock()
 
         f = self.loop.sock_sendall(sock, b'')
-        self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+        if sys.version_info >= (3, 7):
+            f = self.loop.create_task(f)
+        else:
+            self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+        await asyncio.sleep(0.01, loop=self.loop)
         self.assertTrue(f.done())
         self.assertIsNone(f.result())
         self.assertFalse(self.loop._sock_sendall.called)
 
-    def test_sock_sendall_reconnection(self):
+    async def test_sock_sendall_reconnection(self):
         sock = mock.Mock()
         sock.fileno.return_value = 10
         sock.send.side_effect = BlockingIOError
@@ -286,6 +301,9 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop.add_writer = mock.Mock()
         self.loop.remove_writer = mock.Mock()
         fut = self.loop.sock_sendall(sock, b'data')
+        if sys.version_info >= (3, 7):
+            fut = self.loop.create_task(fut)
+        await asyncio.sleep(0.01, loop=self.loop)
         callback = self.loop.add_writer.call_args[0][1]
         params = self.loop.add_writer.call_args[0][2:]
 
@@ -330,7 +348,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_sendall, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+                if sys.version_info >= (3, 6, 4) else True, sock, b'data'
             ), self.loop.add_writer.call_args[0]
         )
 
@@ -345,7 +363,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_sendall, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+                if sys.version_info >= (3, 6, 4) else True, sock, b'data'
             ), self.loop.add_writer.call_args[0]
         )
 
@@ -382,7 +400,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_sendall, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, b'ta'
+                if sys.version_info >= (3, 6, 4) else True, sock, b'ta'
             ), self.loop.add_writer.call_args[0]
         )
 
@@ -399,7 +417,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.assertEqual(
             (
                 10, self.loop._sock_sendall, f, 10
-                if sys.version_info > (3, 6, 3) else True, sock, b'data'
+                if sys.version_info >= (3, 6, 4) else True, sock, b'data'
             ), self.loop.add_writer.call_args[0]
         )
 
@@ -517,8 +535,19 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_accept = mock.Mock()
 
         f = self.loop.sock_accept(sock)
-        self.assertEqual(type(f).__name__, asyncio.Future.__name__)
-        self.assertEqual((f, False, sock), self.loop._sock_accept.call_args[0])
+        if sys.version_info >= (3, 7):
+            f = self.loop.create_task(f)
+        else:
+            self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+            self.assertEqual((f, False, sock), self.loop._sock_accept.call_args[0])
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+
+        self.assertFalse(self.loop._sock_accept.call_args[0][1])
+        self.assertIs(self.loop._sock_accept.call_args[0][2], sock)
+
+        f.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            self.loop.run_until_complete(f)
 
     def test__sock_accept(self):
         f = asyncio.Future(loop=self.loop)
@@ -910,15 +939,36 @@ class SelectorSocketTransportTests(test_utils.TestCase):
         tr = self.socket_transport()
         test_utils.run_briefly(self.loop)
         self.assertFalse(tr._paused)
+        if sys.version_info >= (3, 7):
+            self.assertTrue(tr.is_reading())
         self.loop.assert_reader(7, tr._read_ready)
+
         tr.pause_reading()
+        if sys.version_info >= (3, 7):
+            tr.pause_reading()
+        else:
+            with self.assertRaises(RuntimeError):
+                tr.pause_reading()
         self.assertTrue(tr._paused)
-        self.assertFalse(7 in self.loop.readers)
+        if sys.version_info >= (3, 7):
+            self.assertFalse(tr.is_reading())
+        self.loop.assert_no_reader(7)
+
         tr.resume_reading()
-        self.assertFalse(tr._paused)
-        self.loop.assert_reader(7, tr._read_ready)
-        with self.assertRaises(RuntimeError):
+        if sys.version_info >= (3, 7):
             tr.resume_reading()
+        else:
+            with self.assertRaises(RuntimeError):
+                tr.resume_reading()
+        self.assertFalse(tr._paused)
+        if sys.version_info >= (3, 7):
+            self.assertTrue(tr.is_reading())
+        self.loop.assert_reader(7, tr._read_ready)
+
+        tr.close()
+        if sys.version_info >= (3, 7):
+            self.assertFalse(tr.is_reading())
+        self.loop.assert_no_reader(7)
 
     def test_read_ready(self):
         transport = self.socket_transport()

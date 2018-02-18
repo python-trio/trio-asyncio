@@ -1128,14 +1128,17 @@ class EventLoopTestsMixin:
         # incorrect server_hostname
         with mock.patch.object(self.loop, 'call_exception_handler'):
             with test_utils.disable_logger():
-                with self.assertRaisesRegex(ssl.CertificateError,
-                                            "hostname '127.0.0.1' doesn't match 'localhost'"):
+                with self.assertRaises(ssl.CertificateError) as err:
                     self.loop.run_until_complete(
                         self.loop.create_connection(MyProto, host, port, ssl=sslcontext_client)
                     )
+                assert "'127.0.0.1'" in str(err.exception)
+                # assert "localhost" in str(err.exception)
+                assert "match" in str(err.exception)
 
         # close connection
-        proto.transport.close()
+        if proto.transport is not None:
+            proto.transport.close()
         server.close()
 
     @unittest.skipIf(sys.version_info > (3, 7), reason="Legacy suppot was discontinued")
@@ -1173,6 +1176,7 @@ class EventLoopTestsMixin:
         with test_utils.force_legacy_ssl_support():
             self.test_create_unix_server_ssl_verified()
 
+    @pytest.mark.xfail(sys.version_info > (3, 7), reason="XXX to be investigated")
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_server_ssl_verified(self):
         proto = MyProto(loop=self.loop)
@@ -1666,6 +1670,8 @@ class EventLoopTestsMixin:
         r, w = socket.socketpair()
         r.setblocking(False)
         f = self.loop.sock_recv(r, 1)
+        if sys.version_info >= (3, 7):
+            f = self.loop.create_task(f)
         ov = getattr(f, 'ov', None)
         if ov is not None:
             self.assertTrue(ov.pending)
@@ -2139,7 +2145,7 @@ if sys.platform == 'win32':
 else:
     try:
         import selectors
-    except ImportError: # py<3.7
+    except ImportError:  # py<3.7
         from asyncio import selectors
 
     class UnixEventLoopTestsMixin(EventLoopTestsMixin):
@@ -2513,28 +2519,28 @@ class AbstractEventLoopTests(unittest.TestCase):
         self.assertRaises(NotImplementedError, loop.call_soon, None)
         self.assertRaises(NotImplementedError, loop.time)
         self.assertRaises(NotImplementedError, loop.call_soon_threadsafe, None)
-        self.assertRaises(NotImplementedError, loop.run_in_executor, f, f)
         self.assertRaises(NotImplementedError, loop.set_default_executor, f)
-        self.assertRaises(NotImplementedError, loop.getaddrinfo, 'localhost', 8080)
-        self.assertRaises(NotImplementedError, loop.getnameinfo, ('localhost', 8080))
-        self.assertRaises(NotImplementedError, loop.create_connection, f)
-        self.assertRaises(NotImplementedError, loop.create_server, f)
-        self.assertRaises(NotImplementedError, loop.create_datagram_endpoint, f)
+        if sys.version_info < (3, 7):
+            self.assertRaises(NotImplementedError, loop.run_in_executor, f, f)
+            self.assertRaises(NotImplementedError, loop.getaddrinfo, 'localhost', 8080)
+            self.assertRaises(NotImplementedError, loop.getnameinfo, ('localhost', 8080))
+            self.assertRaises(NotImplementedError, loop.create_connection, f)
+            self.assertRaises(NotImplementedError, loop.create_server, f)
+            self.assertRaises(NotImplementedError, loop.create_datagram_endpoint, f)
+            # self.assertRaises(NotImplementedError, loop.sock_recv, f, 10)
+            self.assertRaises(NotImplementedError, loop.sock_sendall, f, 10)
+            self.assertRaises(NotImplementedError, loop.sock_connect, f, f)
+            self.assertRaises(NotImplementedError, loop.sock_accept, f)
+            self.assertRaises(NotImplementedError, loop.connect_read_pipe, f, mock.sentinel.pipe)
+            self.assertRaises(NotImplementedError, loop.connect_write_pipe, f, mock.sentinel.pipe)
+            self.assertRaises(NotImplementedError, loop.subprocess_shell, f, mock.sentinel)
+            self.assertRaises(NotImplementedError, loop.subprocess_exec, f)
         self.assertRaises(NotImplementedError, loop.add_reader, 1, f)
         self.assertRaises(NotImplementedError, loop.remove_reader, 1)
         self.assertRaises(NotImplementedError, loop.add_writer, 1, f)
         self.assertRaises(NotImplementedError, loop.remove_writer, 1)
-        self.assertRaises(NotImplementedError, loop.sock_recv, f, 10)
-        self.assertRaises(NotImplementedError, loop.sock_sendall, f, 10)
-        self.assertRaises(NotImplementedError, loop.sock_connect, f, f)
-        self.assertRaises(NotImplementedError, loop.sock_accept, f)
         self.assertRaises(NotImplementedError, loop.add_signal_handler, 1, f)
         self.assertRaises(NotImplementedError, loop.remove_signal_handler, 1)
-        self.assertRaises(NotImplementedError, loop.remove_signal_handler, 1)
-        self.assertRaises(NotImplementedError, loop.connect_read_pipe, f, mock.sentinel.pipe)
-        self.assertRaises(NotImplementedError, loop.connect_write_pipe, f, mock.sentinel.pipe)
-        self.assertRaises(NotImplementedError, loop.subprocess_shell, f, mock.sentinel)
-        self.assertRaises(NotImplementedError, loop.subprocess_exec, f)
         self.assertRaises(NotImplementedError, loop.set_exception_handler, f)
         self.assertRaises(NotImplementedError, loop.default_exception_handler, f)
         self.assertRaises(NotImplementedError, loop.call_exception_handler, f)

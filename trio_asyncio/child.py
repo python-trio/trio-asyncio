@@ -2,10 +2,8 @@ import os
 import sys
 import threading
 import weakref
-import subprocess
 
 import trio
-from . import fd_stream
 
 import logging
 logger = logging.getLogger(__name__)
@@ -14,7 +12,7 @@ _mswindows = (sys.platform == "win32")
 if _mswindows:
     import _winapi
 
-__all__ = ['run_subprocess', 'wait_for_child']
+__all__ = ['wait_for_child']
 
 # TODO: use whatever works for Windows and MacOS/BSD
 
@@ -76,9 +74,7 @@ class ProcessWaiter:
 
         if _mswindows:
             if _handle is None:
-                _handle = _winapi.OpenProcess(
-                    _winapi.PROCESS_ALL_ACCESS, True, pid
-                )
+                _handle = _winapi.OpenProcess(_winapi.PROCESS_ALL_ACCESS, True, pid)
             self.__handle = _handle
         elif _handle is not None:
             raise RuntimeError("Process handles are a Windows thing.")
@@ -103,9 +99,7 @@ class ProcessWaiter:
         self.__token = trio.hazmat.current_trio_token()
 
         self.__thread = threading.Thread(
-            target=self._wait_thread,
-            name="waitpid_%d" % self.__pid,
-            daemon=True
+            target=self._wait_thread, name="waitpid_%d" % self.__pid, daemon=True
         )
         self.__thread.start()
 
@@ -133,9 +127,7 @@ class ProcessWaiter:
             assert self.__pid > 0
 
             try:
-                pid, status = os.waitpid(
-                    self.__pid, 0 if blocking else os.WNOHANG
-                )
+                pid, status = os.waitpid(self.__pid, 0 if blocking else os.WNOHANG)
             except ChildProcessError:
                 # The child process may already be reaped
                 # (may happen if waitpid() is called elsewhere).
@@ -161,4 +153,3 @@ class ProcessWaiter:
 async def wait_for_child(pid):
     waiter = ProcessWaiter(pid)
     return await waiter.wait()
-

@@ -1,9 +1,11 @@
 *.swp
 
+/.coverage
 /.cache/
 /.eggs/
 /.pybuild/
 /build/
+/docs/build/
 __pycache__/
 /trio_asyncio.egg-info/
 /.pybuild/

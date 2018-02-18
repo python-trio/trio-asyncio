@@ -215,7 +215,7 @@ class BaseEventLoopTests(test_utils.TestCase):
     async def test_getnameinfo(self):
         sockaddr = mock.Mock()
         self.loop.run_in_executor = mock.Mock()
-        if sys.version_info >= (3,7):
+        if sys.version_info >= (3, 7):
             await self.loop.getnameinfo(sockaddr)
         else:
             self.loop.getnameinfo(sockaddr)
@@ -345,6 +345,7 @@ class BaseEventLoopTests(test_utils.TestCase):
         # check disabled if debug mode is disabled
         test_thread(self.loop, False, create_loop=True)
 
+    @unittest.skipIf(sys.version_info >= (3, 7), "deleted")
     def test_run_once_in_executor_plain(self):
         def cb():
             pass
@@ -1297,7 +1298,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
         self.loop.getaddrinfo.side_effect = mock_getaddrinfo
         self.loop.sock_connect = mock.Mock()
-        if sys.version_info >= (3,7):
+        if sys.version_info >= (3, 7):
             self.loop.sock_connect.return_value = self.loop.create_future()
             self.loop.sock_connect.return_value.set_result(None)
         else:
@@ -1326,8 +1327,8 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         coro = self.loop.create_connection(MyProto, 'python.org', 80, ssl=True)
         transport, _ = self.loop.run_until_complete(coro)
         transport.close()
-        if sys.version_info >= (3,7):
-            tm = { 'ssl_handshake_timeout': None }
+        if sys.version_info >= (3, 7):
+            tm = {'ssl_handshake_timeout': None}
         else:
             tm = {}
         self.loop._make_ssl_transport.assert_called_with(
@@ -1398,7 +1399,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
 
     def test_create_server_no_getaddrinfo(self):
         getaddrinfo = self.loop.getaddrinfo = mock.Mock()
-        if sys.version_info >= (3,7):
+        if sys.version_info >= (3, 7):
             getaddrinfo.return_value = self.loop.create_future()
             getaddrinfo.return_value.set_result(None)
         else:
@@ -1667,7 +1668,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         self.assertTrue(m_log.error.called)
         self.assertFalse(sock.close.called)
         self.loop._remove_reader.assert_called_with(10)
-        if sys.version_info >= (3,7):
+        if sys.version_info >= (3, 7):
             mocky = (mock.ANY,)
         else:
             mocky = ()
