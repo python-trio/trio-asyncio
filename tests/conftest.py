@@ -9,6 +9,7 @@ import asyncio
 import trio_asyncio
 import inspect
 
+# Hacks for <3.7
 if not hasattr(asyncio,'current_task'):
     def current_task(loop=None):
         return asyncio.Task.current_task(loop)
@@ -16,7 +17,7 @@ if not hasattr(asyncio,'current_task'):
 
 if not hasattr(asyncio,'all_tasks'):
     def all_tasks(loop=None):
-        return asyncio.Task.all_tasks.task(loop)
+        return asyncio.Task.all_tasks(loop)
     asyncio.all_tasks = all_tasks
 
 @pytest.fixture
