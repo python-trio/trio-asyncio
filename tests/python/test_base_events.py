@@ -345,6 +345,7 @@ class BaseEventLoopTests(test_utils.TestCase):
         # check disabled if debug mode is disabled
         test_thread(self.loop, False, create_loop=True)
 
+    @unittest.skipIf(sys.version_info >= (3, 7), "deleted")
     def test_run_once_in_executor_plain(self):
         def cb():
             pass

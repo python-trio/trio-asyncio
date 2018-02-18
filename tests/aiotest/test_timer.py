@@ -8,7 +8,7 @@ class TestTimer(aiotest.TestCase):
     @pytest.mark.trio
     async def test_display_date(self, loop):
         result = []
-        delay = 0.050
+        delay = 0.1
         count = 3
         h = trio.Event()
 
@@ -16,7 +16,7 @@ class TestTimer(aiotest.TestCase):
             if not end_time:
                 end_time.append(loop.time() + delay * count)
             result.append(datetime.datetime.now())
-            if (loop.time() + delay) < end_time[0]:
+            if (loop.time() + delay*1.5) < end_time[0]:
                 loop.call_later(delay, display_date, end_time, loop)
             else:
                 loop.stop(h)
