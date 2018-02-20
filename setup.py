@@ -70,7 +70,7 @@ setup(
     setup_requires=['pytest-runner'],
     tests_require=['pytest'],
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "License :: OSI Approved :: Apache Software License",

@@ -1,3 +1,9 @@
+trio-asyncio (0.5.0-1) unstable; urgency=medium
+
+  * Version 0.5 (beta)
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Tue, 20 Feb 2018 13:52:29 +0100
+
 trio-asyncio (0.4.6-1) unstable; urgency=medium
 
   * Updated, Travis tests work (mostly)
