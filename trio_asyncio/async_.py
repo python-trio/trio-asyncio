@@ -68,7 +68,7 @@ class TrioEventLoop(BaseTrioEventLoop):
 
         def stop_me():
             waiter.set()
-            raise StopIteration
+            raise StopAsyncIteration
 
         if self._stopped.is_set():
             waiter.set()

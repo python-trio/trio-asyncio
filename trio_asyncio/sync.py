@@ -48,12 +48,12 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         """
 
         def do_stop():
-            raise StopIteration
+            raise StopAsyncIteration
 
 
 #        async def stop_me():
 #            def kick_():
-#                raise StopIteration
+#                raise StopAsyncIteration
 #            self._queue_handle(Handle(kick_, (), self, context=None, is_sync=True))
 #            await self._main_loop()
 #        if threading.current_thread() != self._thread:
@@ -146,10 +146,19 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         future.add_done_callback(is_done)
         try:
             await self._main_loop()
+            try:
+                while result is None:
+                    try:
+                        await self._main_loop_one(no_wait=True)
+                    except StopAsyncIteration:
+                        pass
+            except trio.WouldBlock:
+                pass
         finally:
             future.remove_done_callback(is_done)
+
         if result is None:
-            result = trio.hazmat.Error(RuntimeError('Event loop stopped before Future completed.'))
+            raise RuntimeError('Event loop stopped before Future completed.')
         return result.unwrap()
 
     def __run_in_thread(self, async_fn, *args):
@@ -162,6 +171,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         self.__blocking_job_queue.put((async_fn, args))
         res = self.__blocking_result_queue.get()
         print("RIT HAS",res)
+        if res is None:
+            raise RuntimeError("Loop has died / terminated")
         return res.unwrap()
 
     def _start_loop(self):
@@ -201,9 +212,16 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
                 result = await trio.hazmat.Result.acapture(async_fn, *args)
                 print("WORKED",result)
+                if type(result) == trio.hazmat.Error and type(result.error) == trio.Cancelled:
+                    print_exception(type(result.error),result.error,result.error.__traceback__)
+                    res = RuntimeError("Main loop cancelled")
+                    res.__cause__ = result.error.__cause__
+                    result = trio.hazmat.Error(res)
+                    print("OFF CANC")
                 self.__blocking_result_queue.put(result)
             print("OFF 1")
-            await self._main_loop_exit()
+            with trio.open_cancel_scope(shield=True):
+                await self._main_loop_exit()
             self.__blocking_result_queue.put(None)
             nursery.cancel_scope.cancel()
             print("OFF 8")

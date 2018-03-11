@@ -70,26 +70,32 @@ class _TrioSelector(_BaseSelectorImpl):
 class TrioExecutor:
     """An executor that runs its job in a Trio worker thread."""
 
-    def __init__(self, limiter=None):
+    def __init__(self, limiter=None, thread_name_prefix=None, max_workers=None):
         self._running = True
+        if limiter is None and max_workers is not None:
+            limiter = trio.CapacityLimiter(max_workers)
         self._limiter = limiter
-        # TODO: actually use the limiter
 
     async def submit(self, func, *args):
         if not self._running:  # pragma: no cover
             raise RuntimeError("Executor is down")
+
+        lim = self._limiter
+        if lim is not None:
+            print("### EXEC lim %s %s",func,args)
+            await lim.acquire()
         print("### EXEC start %s %s",func,args)
         try:
-            res = await trio.run_sync_in_worker_thread(func, *args, limiter=self._limiter)
+            return await trio.run_sync_in_worker_thread(func, *args, limiter=self._limiter)
         except BaseException as exc:
             print("### EXEC dead %s",exc)
             raise
         else:
             print("### EXEC res %s",res)
             return res
-        return await trio.run_sync_in_worker_thread(
-            func, *args, limiter=self._limiter
-        )
+        finally:
+            if lim is not None:
+                lim.release()
 
     def shutdown(self, wait=None):
         self._running = False
@@ -115,7 +121,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     _token = None
 
     # an event; set while the loop is not running
-    # To wait until the loop _is_ running, call ``await loop._sync()``.
+    # To wait until the loop _is_ running, call ``await loop.synchronize()``.
     _stopped = None
 
     # asyncio's flag whether the loop has been closed
@@ -415,10 +421,15 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         assert isinstance(executor, TrioExecutor)
         return self.run_trio(executor.submit, func, *args)
 
-    async def _sync(self):
-        """Synchronize with the main loop by passing an event through it.
+    async def synchronize(self):
+        """Sync with the main loop by passing an event through it.
 
         This is a Trio coroutine.
+
+        From asyncio, call ``await trio_asyncio.run_trio(loop.synchronize)``
+        instead of ``await asyncio.sleep(0)`` if you need to process all
+        queued callbacks.
+
         """
         w = trio.Event()
         self._queue_handle(w)
@@ -507,7 +518,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 while not handle._cancelled:  # pragma: no branch
                     await trio.hazmat.wait_readable(fd)
                     handle._call_sync()
-                    await self._sync()
+                    await self.synchronize()
             except Exception as exc:
                 _h_raise(handle, exc)
                 return
@@ -561,7 +572,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 while not handle._cancelled:  # pragma: no branch
                     await trio.hazmat.wait_writable(fd)
                     handle._call_sync()
-                    await self._sync()
+                    await self.synchronize()
             except Exception as exc:
                 _h_raise(handle, exc)
                 return
@@ -640,70 +651,74 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         print("LOOP ON")
         try:
             while True:
-                obj = None
-                if self._timers:
-                    timeout = self._timers[0]._when - self.time()
-                    if timeout <= 0:
-                        # If the timer ran out, process the object now.
-                        obj = heapq.heappop(self._timers)
-                else:
-                    timeout = math.inf
-
-                if obj is None:
-                    print("LOOP WAIT",timeout)
-                    with trio.move_on_after(timeout):
-                        obj = await self._q.get()
-                    if obj is None:
-                        # Timeout reached. Presumably now a timer is ready,
-                        # so restart from the beginning.
-                        continue
-
-                    if isinstance(obj, trio.Event):
-                        # Events are used for synchronization.
-                        # Simply set them.
-                        if obj is self._stopped:
-                            print("STOP PED")
-                            break
-                        obj.set()
-                        continue
-
-                    if isinstance(obj, TimerHandle):
-                        print("LOOP LATER",obj._when-self.time())
-                        # A TimerHandle is added to the list of timers.
-                        heapq.heappush(self._timers, obj)
-                        continue
-
-                else:
-                    print("LOOP DO",obj)
-                assert isinstance(obj, asyncio.Handle)
-                # Hopefully one of ours
-                # but it might be a standard asyncio handle
-
-                if obj._cancelled:
-                    # simply skip cancelled handlers
-                    continue
-
-                # Don't go through the expensive nursery dance
-                # if this is a sync function.
-                if getattr(obj, '_is_sync', True):
-                    print("LOOP SYNC",obj)
-                    obj._callback(*obj._args)
-                else:
-                    print("LOOP ASYNC",obj)
-                    await self._nursery.start(obj._call_async)
-
-        except StopIteration:
+                await self._main_loop_one()
+        except StopAsyncIteration:
             # raised by .stop_me() to interrupt the loop
             print("STOP ITER")
             pass
-
-        except Exception:
+        except BaseException:
             logger.exception("Loop died!") # print() - remove me
             raise
         finally:
             # Signal that the loop is no longer running
             print("LOOP OFF")
             self._stopped.set()
+
+    async def _main_loop_one(self, no_wait=False):
+        obj = None
+        if self._timers:
+            timeout = self._timers[0]._when - self.time()
+            if timeout <= 0:
+                # If the timer ran out, process the object now.
+                obj = heapq.heappop(self._timers)
+        else:
+            timeout = math.inf
+
+        if obj is None:
+            if no_wait:
+                obj = self._q.get_nowait()
+            else:
+                print("LOOP WAIT",timeout)
+                with trio.move_on_after(timeout):
+                    obj = await self._q.get()
+                if obj is None:
+                    # Timeout reached. Presumably now a timer is ready,
+                    # so restart from the beginning.
+                    return
+
+            if isinstance(obj, trio.Event):
+                # Events are used for synchronization.
+                # Simply set them.
+                if obj is self._stopped:
+                    print("STOP PED")
+                    raise StopAsyncIteration
+                obj.set()
+                return
+
+            if isinstance(obj, TimerHandle):
+                # A TimerHandle is added to the list of timers.
+                print("LOOP LATER",obj._when-self.time())
+                heapq.heappush(self._timers, obj)
+                return
+
+        else:
+            print("LOOP DO",obj)
+        assert isinstance(obj, asyncio.Handle)
+        # Hopefully one of ours
+        # but it might be a standard asyncio handle
+
+        if obj._cancelled:
+            # simply skip cancelled handlers
+            return
+
+        # Don't go through the expensive nursery dance
+        # if this is a sync function.
+        if getattr(obj, '_is_sync', True):
+            print("LOOP SYNC",obj)
+            obj._callback(*obj._args)
+        else:
+            print("LOOP ASYNC",obj)
+            await self._nursery.start(obj._call_async)
 
     async def _main_loop_exit(self):
         """Finalize the loop. It may not be re-entered."""
