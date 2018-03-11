@@ -70,15 +70,23 @@ class _TrioSelector(_BaseSelectorImpl):
 class TrioExecutor:
     """An executor that runs its job in a Trio worker thread."""
 
-    def __init__(self, limiter=None):
+    def __init__(self, limiter=None, thread_name_prefix=None, max_workers=None):
         self._running = True
+        if limiter is None and max_workers is not None:
+            limiter = trio.CapacityLimiter(max_workers)
         self._limiter = limiter
-        # TODO: actually use the limiter
 
     async def submit(self, func, *args):
         if not self._running:  # pragma: no cover
             raise RuntimeError("Executor is down")
-        return await trio.run_sync_in_worker_thread(func, *args, limiter=self._limiter)
+        lim = self._limiter
+        if lim is not None:
+            await lim.acquire()
+        try:
+            return await trio.run_sync_in_worker_thread(func, *args, limiter=self._limiter)
+        finally:
+            if lim is not None:
+                lim.release()
 
     def shutdown(self, wait=None):
         self._running = False
