@@ -112,7 +112,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     _token = None
 
     # an event; set while the loop is not running
-    # To wait until the loop _is_ running, call ``await loop._sync()``.
+    # To wait until the loop _is_ running, call ``await loop.synchronize()``.
     _stopped = None
 
     # asyncio's flag whether the loop has been closed
@@ -412,10 +412,15 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         assert isinstance(executor, TrioExecutor)
         return self.run_trio(executor.submit, func, *args)
 
-    async def _sync(self):
-        """Synchronize with the main loop by passing an event through it.
+    async def synchronize(self):
+        """Sync with the main loop by passing an event through it.
 
         This is a Trio coroutine.
+
+        From asyncio, call ``await trio_asyncio.run_trio(loop.synchronize)``
+        instead of ``await asyncio.sleep(0)`` if you need to process all
+        queued callbacks.
+
         """
         w = trio.Event()
         self._queue_handle(w)
@@ -504,7 +509,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 while not handle._cancelled:  # pragma: no branch
                     await trio.hazmat.wait_readable(fd)
                     handle._call_sync()
-                    await self._sync()
+                    await self.synchronize()
             except Exception as exc:
                 _h_raise(handle, exc)
                 return
@@ -558,7 +563,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 while not handle._cancelled:  # pragma: no branch
                     await trio.hazmat.wait_writable(fd)
                     handle._call_sync()
-                    await self._sync()
+                    await self.synchronize()
             except Exception as exc:
                 _h_raise(handle, exc)
                 return
