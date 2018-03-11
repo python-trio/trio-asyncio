@@ -1,3 +1,10 @@
+trio-asyncio (0.6.0-1) unstable; urgency=medium
+
+  * Export loop.synchronize()
+  * Concurrency bug fixes
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Sun, 11 Mar 2018 21:57:13 +0100
+
 trio-asyncio (0.5.0-2) unstable; urgency=medium
 
   * Version 0.5 (beta)
