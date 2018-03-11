@@ -1,9 +1,7 @@
-import sys
 import trio
 import queue
 import asyncio
 import threading
-import traceback
 
 from .base import BaseTrioEventLoop
 from .handles import Handle
