@@ -645,9 +645,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         except StopAsyncIteration:
             # raised by .stop_me() to interrupt the loop
             pass
-        except trio.Cancelled:
-            import pdb;pdb.set_trace()
-            raise
         finally:
             # Signal that the loop is no longer running
             self._stopped.set()
