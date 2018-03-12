@@ -723,6 +723,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._nursery = None
         self._task = None
 
+    def is_running(self):
+        if self._stopped is None:
+            return False
+        return not self._stopped.is_set()
+
     def run_forever(self):
         """asyncio's method to run the loop until it is stopped.
         """
