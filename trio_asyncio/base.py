@@ -432,7 +432,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         """
         w = trio.Event()
-        self._queue_handle(w)
+        self._queue_handle(Handle(w.set,(),self, is_sync=True))
         await w.wait()
 
     # Signal handling #
@@ -679,20 +679,12 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     # so restart from the beginning.
                     return
 
-            if isinstance(obj, trio.Event):
-                # Events are used for synchronization.
-                # Simply set them.
-                if obj is self._stopped:
-                    raise StopAsyncIteration
-                obj.set()
-                return
-
             if isinstance(obj, TimerHandle):
                 # A TimerHandle is added to the list of timers.
                 heapq.heappush(self._timers, obj)
                 return
 
-        assert isinstance(obj, asyncio.Handle)
+        # assert isinstance(obj, asyncio.Handle) # speed-up
         # Hopefully one of ours
         # but it might be a standard asyncio handle
 
