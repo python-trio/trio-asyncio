@@ -184,7 +184,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._csock.send.side_effect = RuntimeError()
         self.assertRaises(RuntimeError, self.loop._write_to_self)
 
-    async def test_sock_recv(self):
+    def test_sock_recv(self):
         sock = test_utils.mock_nonblocking_socket()
         self.loop._sock_recv = mock.Mock()
 
@@ -193,11 +193,10 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             f = self.loop.create_task(f)
         else:
             self.assertEqual(type(f).__name__, asyncio.Future.__name__)
-        await asyncio.sleep(0.01, loop=self.loop)
         if sys.version_info >= (3, 6, 4):
             self.loop._sock_recv.assert_called_with(f, None, sock, 1024)
 
-    async def test_sock_recv_reconnection(self):
+    def test_sock_recv_reconnection(self):
         sock = mock.Mock()
         sock.fileno.return_value = 10
         sock.recv.side_effect = BlockingIOError
@@ -208,7 +207,6 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         fut = self.loop.sock_recv(sock, 1024)
         if sys.version_info >= (3, 7):
             fut = self.loop.create_task(fut)
-        await asyncio.sleep(0.01, loop=self.loop)
         callback = self.loop.add_reader.call_args[0][1]
         params = self.loop.add_reader.call_args[0][2:]
 
@@ -266,7 +264,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         self.loop._sock_recv(f, None, sock, 1024)
         self.assertIs(err, f.exception())
 
-    async def test_sock_sendall(self):
+    def test_sock_sendall(self):
         sock = test_utils.mock_nonblocking_socket()
         self.loop._sock_sendall = mock.Mock()
 
@@ -275,10 +273,9 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             f = self.loop.create_task(f)
         else:
             self.assertEqual(type(f).__name__, asyncio.Future.__name__)
-        await asyncio.sleep(0.01, loop=self.loop)
         self.assertEqual((f, None, sock, b'data'), self.loop._sock_sendall.call_args[0])
 
-    async def test_sock_sendall_nodata(self):
+    def test_sock_sendall_nodata(self):
         sock = test_utils.mock_nonblocking_socket()
         self.loop._sock_sendall = mock.Mock()
 
@@ -287,12 +284,11 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             f = self.loop.create_task(f)
         else:
             self.assertEqual(type(f).__name__, asyncio.Future.__name__)
-        await asyncio.sleep(0.01, loop=self.loop)
         self.assertTrue(f.done())
         self.assertIsNone(f.result())
         self.assertFalse(self.loop._sock_sendall.called)
 
-    async def test_sock_sendall_reconnection(self):
+    def test_sock_sendall_reconnection(self):
         sock = mock.Mock()
         sock.fileno.return_value = 10
         sock.send.side_effect = BlockingIOError
@@ -303,7 +299,6 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         fut = self.loop.sock_sendall(sock, b'data')
         if sys.version_info >= (3, 7):
             fut = self.loop.create_task(fut)
-        await asyncio.sleep(0.01, loop=self.loop)
         callback = self.loop.add_writer.call_args[0][1]
         params = self.loop.add_writer.call_args[0][2:]
 
