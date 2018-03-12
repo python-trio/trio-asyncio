@@ -107,7 +107,13 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     * closed - nothing further may happen
 
+    Arguments:
+        queue_len:
+            The maximum length of the internal event queue.
+            The default is 1000. Use more for large programs,
+            or when running benchmarks.
     """
+
     # for calls from other threads or contexts
     _token = None
 
@@ -127,9 +133,12 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     # (threading) Thread this loop is running in
     _thread = None
 
-    def __init__(self, close_files=None):
+    def __init__(self, queue_len=None):
+        if queue_len is None:
+            queue_len=1000
+
         # Processing queue
-        self._q = trio.Queue(9999)
+        self._q = trio.Queue(queue_len)
 
         # which files to close?
         self._close_files = set()

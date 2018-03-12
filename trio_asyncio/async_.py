@@ -85,7 +85,7 @@ class TrioEventLoop(BaseTrioEventLoop):
 
 @asynccontextmanager
 @async_generator
-async def open_loop():
+async def open_loop(queue_len=None):
     """Main entry point: run an asyncio loop on top of Trio.
 
     This is a context manager.
@@ -107,7 +107,7 @@ async def open_loop():
 
     async with trio.open_nursery() as nursery:
         old_loop = asyncio.get_event_loop()
-        loop = TrioEventLoop()
+        loop = TrioEventLoop(queue_len=queue_len)
         try:
             loop._closed = False
             asyncio.set_event_loop(loop)

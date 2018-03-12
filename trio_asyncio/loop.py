@@ -212,12 +212,12 @@ def run_trio_task(proc, *args):
     loop.run_trio_task(proc, *args)
 
 
-def run(proc, *args):
+def run(proc, *args, queue_len=None):
     """Like :func:`trio.run`, but adds a context that supports asyncio.
     """
 
     async def _run_task(proc, args):
-        async with open_loop():
+        async with open_loop(queue_len=queue_len):
             return await proc(*args)
 
     trio.run(_run_task, proc, args)
