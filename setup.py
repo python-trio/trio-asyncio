@@ -56,7 +56,7 @@ setup(
     long_description=LONG_DESC,
     author="Matthias Urlichs",
     author_email="matthias@urlichs.de",
-    url="https://github.com/smurfix/trio-asyncio",
+    url="https://github.com/python-trio/trio-asyncio",
     license="MIT -or- Apache License 2.0",
     packages=find_packages(),
     install_requires=[
