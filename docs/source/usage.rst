@@ -76,7 +76,7 @@ to this::
 
     async def trio_main():
         async with trio_asyncio.open_loop() as loop:
-            await trio.run_asyncio(async_main)
+            await loop.run_asyncio(async_main)
 
     def main():
         trio.run(trio_main)
@@ -205,18 +205,24 @@ Calling asyncio from Trio
 Pass the function and any arguments to ``loop.run_asyncio()``. This method
 conforms to Trio's standard task semantics.
 
+:func:`trio_asyncio.run_asyncio` is a shortcut for
+``asyncio.get_event_loop().run_asyncio``.
+
 ::
 
     async def some_asyncio_code(foo):
         await asyncio.sleep(1)
         return foo*20
     
-    res = await trio.run_asyncio(some_trio_code, 21)
+    res = await trio_asyncio.run_asyncio(some_trio_code, 21)
     assert res == 420
 
 .. autodoc: trio_asyncio.run_asyncio
 
-If you already have a coroutine you need to await, call ``loop.run_coroutine()``:
+If you already have a coroutine you need to await, call ``loop.run_coroutine()``.
+
+:func:`trio_asyncio.run_coroutine` is a shortcut for
+``asyncio.get_event_loop().run_coroutine``.
 
 ::
 
