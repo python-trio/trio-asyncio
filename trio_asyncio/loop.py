@@ -35,7 +35,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
 
     def __init__(self):
         super().__init__()
-        self._trio_local = trio.TaskLocal(_loop=None, _task=False)
+        self._trio_local = trio.RunLocal(_loop=None, _task=False)
 
     def new_event_loop(self):
         try:
