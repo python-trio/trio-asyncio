@@ -273,7 +273,11 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             f = self.loop.create_task(f)
         else:
             self.assertEqual(type(f).__name__, asyncio.Future.__name__)
-        self.assertEqual((f, None, sock, b'data'), self.loop._sock_sendall.call_args[0])
+        call_args = self.loop._sock_sendall.call_args[0]
+        assert call_args[0] is f
+        assert not call_args[1]
+        assert call_args[2] is sock
+        assert call_args[3] == b'data'
 
     def test_sock_sendall_nodata(self):
         sock = test_utils.mock_nonblocking_socket()
