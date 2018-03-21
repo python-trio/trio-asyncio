@@ -33,6 +33,8 @@ nitpick_ignore = [
 
     ("py:func", "trio_asyncio.wait_for_child"),
     ("py:func", "trio_asyncio.run_future"),
+    ("py:func", "trio_asyncio.run_coroutine"),
+    ("py:func", "trio_asyncio.run_asyncio"),
     ("py:class", "trio_asyncio.TrioEventLoop"),
     ("py:class", "trio_asyncio.TrioExecutor"),
     ("py:class", "trio_asyncio.TrioChildWatcher"),
