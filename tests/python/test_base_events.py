@@ -212,17 +212,6 @@ class BaseEventLoopTests(test_utils.TestCase):
         self.loop.set_default_executor(executor)
         self.assertIs(executor, self.loop._default_executor)
 
-    async def test_getnameinfo(self):
-        sockaddr = mock.Mock()
-        self.loop.run_in_executor = mock.Mock()
-        if sys.version_info >= (3, 7):
-            await self.loop.getnameinfo(sockaddr)
-        else:
-            self.loop.getnameinfo(sockaddr)
-        self.assertEqual(
-            (None, socket.getnameinfo, sockaddr, 0), self.loop.run_in_executor.call_args[0]
-        )
-
     def test_call_soon(self):
         def cb():
             pass
@@ -1746,7 +1735,7 @@ class RunningLoopTests(unittest.TestCase):
         @asyncio.coroutine
         def runner(loop):
             async def slep():
-                asyncio.sleep(0.1, loop=loop)
+                await asyncio.sleep(0.1, loop=loop)
 
             loop.run_until_complete(slep())
 

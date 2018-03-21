@@ -193,8 +193,14 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             f = self.loop.create_task(f)
         else:
             self.assertEqual(type(f).__name__, asyncio.Future.__name__)
-        if sys.version_info >= (3, 6, 4):
-            self.loop._sock_recv.assert_called_with(f, None, sock, 1024)
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+
+        self.assertEqual(self.loop._sock_recv.call_args[0][1:],
+                         (None, sock, 1024))
+
+        f.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            self.loop.run_until_complete(f)
 
     def test_sock_recv_reconnection(self):
         sock = mock.Mock()
@@ -207,6 +213,9 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         fut = self.loop.sock_recv(sock, 1024)
         if sys.version_info >= (3, 7):
             fut = self.loop.create_task(fut)
+
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+
         callback = self.loop.add_reader.call_args[0][1]
         params = self.loop.add_reader.call_args[0][2:]
 
@@ -215,6 +224,8 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         sock.fileno.return_value = -1
         sock.recv.side_effect = OSError(9)
         callback(*params)
+
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
 
         self.assertIsInstance(fut.exception(), OSError)
         if sys.version_info >= (3, 6, 4):
@@ -273,8 +284,10 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             f = self.loop.create_task(f)
         else:
             self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+
         call_args = self.loop._sock_sendall.call_args[0]
-        assert call_args[0] is f
         assert not call_args[1]
         assert call_args[2] is sock
         assert call_args[3] == b'data'
@@ -288,6 +301,9 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             f = self.loop.create_task(f)
         else:
             self.assertEqual(type(f).__name__, asyncio.Future.__name__)
+
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+
         self.assertTrue(f.done())
         self.assertIsNone(f.result())
         self.assertFalse(self.loop._sock_sendall.called)
@@ -303,6 +319,9 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         fut = self.loop.sock_sendall(sock, b'data')
         if sys.version_info >= (3, 7):
             fut = self.loop.create_task(fut)
+
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+
         callback = self.loop.add_writer.call_args[0][1]
         params = self.loop.add_writer.call_args[0][2:]
 
@@ -311,6 +330,8 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         sock.fileno.return_value = -1
         sock.send.side_effect = OSError(9)
         callback(*params)
+
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
 
         self.assertIsInstance(fut.exception(), OSError)
         if sys.version_info >= (3, 6, 4):
