@@ -195,8 +195,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             self.assertEqual(type(f).__name__, asyncio.Future.__name__)
         self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
 
-        self.assertEqual(self.loop._sock_recv.call_args[0][1:],
-                         (None, sock, 1024))
+        self.assertEqual(self.loop._sock_recv.call_args[0][1:], (None, sock, 1024))
 
         f.cancel()
         with self.assertRaises(asyncio.CancelledError):
