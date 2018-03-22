@@ -25,6 +25,12 @@ __all__ = ['BaseTrioEventLoop', 'TrioExecutor']
 
 _mswindows = (sys.platform == "win32")
 
+try:
+    _wait_readable = trio.hazmat.wait_readable
+    _wait_writable = trio.hazmat.wait_writable
+except AttributeError:
+    _wait_readable = trio.hazmat.wait_socket_readable
+    _wait_writable = trio.hazmat.wait_socket_writable
 
 class _Clear:
     def clear(self):
@@ -516,7 +522,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             handle._scope = scope
             try:
                 while not handle._cancelled:  # pragma: no branch
-                    await trio.hazmat.wait_readable(fd)
+                    await _wait_readable(fd)
                     handle._call_sync()
                     await self.synchronize()
             except Exception as exc:
@@ -570,7 +576,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             task_status.started()
             try:
                 while not handle._cancelled:  # pragma: no branch
-                    await trio.hazmat.wait_writable(fd)
+                    await _wait_writable(fd)
                     handle._call_sync()
                     await self.synchronize()
             except Exception as exc:
