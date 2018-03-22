@@ -32,6 +32,7 @@ except AttributeError:
     _wait_readable = trio.hazmat.wait_socket_readable
     _wait_writable = trio.hazmat.wait_socket_writable
 
+
 class _Clear:
     def clear(self):
         pass
@@ -451,8 +452,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def add_signal_handler(self, sig, callback, *args):
         """asyncio's method to add a signal handler.
         """
-        self._check_signal(sig)
         self._check_closed()
+        self._check_signal(sig)
         if sig == signal.SIGKILL:
             raise RuntimeError("SIGKILL cannot be caught")
         h = Handle(callback, args, self, context=None, is_sync=True)
@@ -464,7 +465,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def remove_signal_handler(self, sig):
         """asyncio's method to remove a signal handler.
         """
-        self._check_signal(sig)
+        # self._check_signal(sig)
         try:
             h = self._signal_handlers.pop(sig)
         except KeyError:
