@@ -8,7 +8,7 @@ class TestTimer(aiotest.TestCase):
     @pytest.mark.trio
     async def test_display_date(self, loop):
         result = []
-        delay = 0.1
+        delay = 0.2
         count = 3
         h = trio.Event()
 
