@@ -128,7 +128,8 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
         super().set_child_watcher(watcher)
 
 
-class TrioChildWatcher(asyncio.AbstractChildWatcher):
+class TrioChildWatcher:  # (asyncio.AbstractChildWatcher):
+    # AbstractChildWatcher not available under Windows
     def __init__(self):
         super().__init__()
         self._callbacks = {}  # pid => handler

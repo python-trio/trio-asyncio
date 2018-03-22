@@ -4,8 +4,8 @@ os: Visual Studio 2015
 
 environment:
   matrix:
-    - PYTHON: "C:\\Python35"
-    - PYTHON: "C:\\Python35-x64"
+    #- PYTHON: "C:\\Python35"
+    #- PYTHON: "C:\\Python35-x64"
     - PYTHON: "C:\\Python36"
     - PYTHON: "C:\\Python36-x64"
 
@@ -16,7 +16,7 @@ build_script:
   - "python --version"
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
   - "pip install ."
-  - "pip install -Ur test-requirements.txt"
+  - "pip install -Ur ci/test-requirements.txt"
   - "pip install codecov"
 
 test_script:
