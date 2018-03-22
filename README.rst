@@ -62,7 +62,7 @@ Fortunately, this is not difficult.
 
 Trio-Asyncio's documentation is too large for a README.
 
-For further information, `see the manual on readthedocs <http://trio-asyncio.readthedocs.io/en/latest/>_`.
+For further information, `see the manual on readthedocs <http://trio-asyncio.readthedocs.io/en/latest/>`_.
 
 ++++++++++++++++++++++
  Hacking trio-asyncio
