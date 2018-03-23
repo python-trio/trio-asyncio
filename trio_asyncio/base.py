@@ -213,10 +213,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         coro = asyncio.ensure_future(coro, loop=self)
         return await run_future(coro)
 
-    def wrap_generator(self, gen):
-        # if inspect.isasyncgen(f):
-        # return self.wrap_generator(f)
-        return run_generator(self, gen())
+    def wrap_generator(self, gen, *args):
+        return run_generator(self, gen(*args))
 
     async def run_asyncio(self, proc, *args):
         """Run an asyncio function or method from Trio.
