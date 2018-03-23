@@ -45,3 +45,48 @@ async def run_future(future):
                 sys.exc_info()[1].__cause__ = exc
         else:
             raise
+
+
+STOP = object()
+
+async def run_generator(loop, async_generator):
+    task = trio.hazmat.current_task()
+    raise_cancel = None
+
+    async def consume_next():
+        try:
+            item = await async_generator.__anext__()
+        except StopAsyncIteration:
+            item = STOP
+
+        trio.hazmat.reschedule(task, trio.hazmat.Value(value=item))
+        #trio.hazmat.reschedule(task, STOP)
+
+    def abort_cb(raise_cancel_arg):
+        # Save the cancel-raising function
+        nonlocal raise_cancel
+        raise_cancel = raise_cancel_arg
+        # XXX: we need to cancel any actice consume_next() call.
+        # Keep waiting
+        return trio.hazmat.Abort.FAILED
+
+    try:
+        while True:
+            # schedule that we read the next one from the iterator
+            asyncio.ensure_future(consume_next(), loop=loop)
+
+            item = await trio.hazmat.wait_task_rescheduled(abort_cb)
+            if item == STOP:
+                break
+            yield item
+
+    except asyncio.CancelledError as exc:
+        if raise_cancel is not None:
+            try:
+                raise_cancel()
+            finally:
+                # Try to preserve the exception chain,
+                # for more detailed tracebacks
+                sys.exc_info()[1].__cause__ = exc
+        else:
+            raise
