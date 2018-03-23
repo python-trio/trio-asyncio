@@ -14,6 +14,7 @@ __all__ = ['trio2aio', 'aio2trio']
 
 def trio2aio(proc):
     if inspect.isasyncgenfunction(proc):
+
         @wraps(proc)
         def call(*args, **kwargs):
             proc_ = proc
@@ -22,6 +23,7 @@ def trio2aio(proc):
             return trio_asyncio.wrap_generator(proc_, *args)
 
     else:
+
         @wraps(proc)
         async def call(*args, **kwargs):
             proc_ = proc

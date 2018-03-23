@@ -49,6 +49,7 @@ async def run_future(future):
 
 STOP = object()
 
+
 async def run_generator(loop, async_generator):
     task = trio.hazmat.current_task()
     raise_cancel = None
