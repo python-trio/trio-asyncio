@@ -9,14 +9,6 @@ Importing ``trio_asyncio`` replaces the default ``asyncio`` event loop with
 ``trio_asyncio``'s version. Thus it's mandatory to do that import before
 using any ``asyncio`` code.
 
-----------------------
- Startup and shutdown
-----------------------
-
-.. _trio-loop:
-
-Trio main loop
-++++++++++++++
 
 Typically, you start with a Trio program which you need to extend with
 asyncio code.
@@ -24,31 +16,38 @@ asyncio code.
 Before::
 
     import trio
+   
+    async def async_main():
+        await trio.sleep(1)
 
     trio.run(async_main, *args)
 
 After::
 
     import trio
+    import asyncio
     import trio_asyncio
     
-    trio_asyncio.run(async_main, *args)
-
-Equivalently, wrap your main loop in a :func:`trio_asyncio.open_loop` call ::
-
-    import trio_asyncio
-
-    async def async_main(*args):
+    async def asyncio_code():
+        await asyncio.sleep(1)
+    
+    async def async_main():
+        await trio.sleep(1)
         async with trio_asyncio.open_loop() as loop:
-            pass # async main code goes here
+            await trio.sleep(1)
+            await loop.run_asyncio(asyncio_code)
+    
+    trio.run(async_main, *args)
 
 Within the ``async with`` block, the asyncio mainloop is active. You don't
 need to pass the ``loop`` argument around, as
 :func:`asyncio.get_event_loop` will do the right thing.
 
+There is no equivalent to ``loop.run_forever()``. The loop terminates
+when you leave the ``async with`` block; it cannot be halted or restarted.
+
 .. autofunction:: trio_asyncio.open_loop
 
-.. autofunction:: trio_asyncio.run
 
 Stopping
 --------
@@ -60,39 +59,11 @@ this step will be ignored.
 
 You cannot restart the loop, nor would you want to.
 
-Asyncio main loop
-+++++++++++++++++
-
-Well …
-
-What you really want to do is to use a Trio main loop, and run your asyncio
-code in its context. In other words, you should transform this code::
-
-    def main():
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(async_main())
-    
-to this::
-
-    async def trio_main():
-        async with trio_asyncio.open_loop() as loop:
-            await loop.run_asyncio(async_main)
-
-    def main():
-        trio.run(trio_main)
-    
-You don't need to pass around the ``loop`` argument since trio remembers it
-in its task structure: ``asyncio.get_event_loop()`` always works while
-your program is executing an ``async with open_loop():`` block.
-
-There is no Trio equivalent to ``loop.run_forever()``. The loop terminates
-when you leave the ``async with`` block; it cannot be halted or restarted.
-
-This mode is called an "async loop" or "asynchronous loop" because it is
-started from an async (Trio) context.
-
 Compatibility mode
 ------------------
+
+What we just described is called an "async loop" or "asynchronous loop" because 
+it is started from an async (Trio) context.
 
 You still can do things "the asyncio way": the to-be-replaced code from the
 previous section still works. However, behind the scenes
