@@ -34,36 +34,72 @@ After::
     
     trio_asyncio.run(async_main, *args)
 
-Equivalently, wrap your main loop in a :func:`trio_asyncio.open_loop` call ::
+Equivalently, wrap your main loop (or any other code that needs to talk to
+asyncio) in a :func:`trio_asyncio.open_loop` call ::
 
+    import trio
     import trio_asyncio
 
-    async def async_main(*args):
+    async def async_main_wrapper(*args):
         async with trio_asyncio.open_loop() as loop:
-            pass # async main code goes here
+            assert loop == asyncio.get_event_loop()
+            await async_main(*args)
 
-Within the ``async with`` block, the asyncio mainloop is active. You don't
-need to pass the ``loop`` argument around, as
-:func:`asyncio.get_event_loop` will do the right thing.
+    trio.run(async_main_wrapper, *args)
+
+Within the ``async with`` block, an asyncio mainloop is active.
+
+As this code demonstrates, you don't need to pass the ``loop`` argument
+around, as :func:`asyncio.get_event_loop` will retrieve it when you're in
+the loop's context.
+
+.. note::
+
+   Don't do both. The following code **will not work**::
+
+        import trio
+        import trio_asyncio
+
+        async def async_main_wrapper(*args):
+            async with trio_asyncio.open_loop() as loop:
+                await async_main(*args)
+
+        trio_asyncio.run(async_main_wrapper, *args)
 
 .. autofunction:: trio_asyncio.open_loop
 
 .. autofunction:: trio_asyncio.run
 
+.. note::
+
+   The ``async with open_loop()`` way of running ``trio_asyncio`` is
+   intended to transparently allow a library to use ``asyncio`` code,
+   supported by a "local" asyncio loop, without affecting the rest of your
+   Trio program.
+
+   However, currently this doesn't work because Trio does not yet support
+   ``contextvars``. Progress on this limitation is tracked in `this issue
+   on github <https://github.com/python-trio/trio-asyncio/issues/9>`_.
+
 Stopping
 --------
 
 The asyncio mainloop will be stopped automatically when the code within
-``async with open_loop()`` exits. Trio-asyncio will process all outstanding
-callbacks and terminate. As in asyncio, callbacks which are added during
-this step will be ignored.
+``async with open_loop()`` / ``trio_asyncion.run()`` exits. Trio-asyncio
+will process all outstanding callbacks and terminate. As in asyncio,
+callbacks which are added during this step will be ignored.
 
 You cannot restart the loop, nor would you want to.
 
-Asyncio main loop
-+++++++++++++++++
+Asyncio main loop.
+++++++++++++++++++
 
-Well …
+Short answer: don't.
+
+.. _native-loop:
+
+Native Mode
+-----------
 
 What you really want to do is to use a Trio main loop, and run your asyncio
 code in its context. In other words, you should transform this code::
@@ -75,35 +111,30 @@ code in its context. In other words, you should transform this code::
 to this::
 
     async def trio_main():
-        async with trio_asyncio.open_loop() as loop:
-            await loop.run_asyncio(async_main)
+        await loop.run_asyncio(async_main)
 
     def main():
-        trio.run(trio_main)
-    
-You don't need to pass around the ``loop`` argument since trio remembers it
-in its task structure: ``asyncio.get_event_loop()`` always works while
-your program is executing an ``async with open_loop():`` block.
+        trio_asyncio.run(trio_main)
 
-There is no Trio equivalent to ``loop.run_forever()``. The loop terminates
-when you leave the ``async with`` block; it cannot be halted or restarted.
+Beside this, no changes to your code are required.
 
-This mode is called an "async loop" or "asynchronous loop" because it is
-started from an async (Trio) context.
-
-Compatibility mode
+Compatibility Mode
 ------------------
 
 You still can do things "the asyncio way": the to-be-replaced code from the
-previous section still works. However, behind the scenes
-a separate thread executes the Trio main loop. It runs in lock-step with
-the thread that calls ``loop.run_forever()`` or
-``loop.run_until_complete(coro)``. Signals etc. get
-delegated if possible (except for [SIGCHLD]_). Thus, there should be no
-concurrency issues.
+:ref:`previosu section <native-loop>`
+still works – or at least it attempts to work.
 
-Caveat: you may still experience problems, particularly if your code (or
-a library you're calling) does not expect to run in a different thread.
+.. warning::
+
+   tl;dr: Don't use Compatibility Mode in production code.
+
+However, this is only possible because this mode starts a separate thread
+which executes the asyncio main
+loop. It runs in lock-step with the code that calls ``loop.run_forever()``
+or ``loop.run_until_complete(coro)``. Signals etc. get
+delegated if possible (except for [SIGCHLD]_). Thus, while there should be no
+concurrency issues, you may still experience hard-to-debug problems.
 
 .. [SIGCHLD] Python requires you to register SIGCHLD handlers in the main
    thread, but doesn't run them at all when waiting for another thread.
@@ -116,20 +147,18 @@ a library you're calling) does not expect to run in a different thread.
 with another call to ``loop.run_forever()`` or ``loop.run_until_complete(coro)``,
 just as with a regular asyncio loop.
 
-This mode is called a "sync loop" or "synchronous loop" because it is
-started and used from a traditional synchronous Python context.
+If you use a compatibility-mode loop in a separate thread, you *must* stop and close it
+before terminating that thread. Otherwise your thread will leak resources.
 
-If you use a sync loop in a separate thread, you *must* stop and close it
-before terminating the thread. Otherwise your thread will leak resources.
+.. note::
 
-.. warning::
    Compatibility mode has been added to verify that various test suites,
-   most notably the one from asyncio itself, continue to work. In a
+   most notably the tests from asyncio itself, continue to work. In a
    real-world program with a long-running asyncio mainloop, you *really*
-   want to use a :ref:`Trio mainloop <trio-loop>` instead.
+   want to use a :ref:`native-mode main loop <native-loop>` instead.
 
-   The authors reserve the right to not fix compatibility mode bugs if that
-   would negatively impact trio-asyncio's core functions.
+   The authors reserve the right to not fix compatibility mode bugs, or
+   even to remove compatibility mode entirely.
 
 .. autoclass:: trio_asyncio.sync.SyncTrioEventLoop
 
