@@ -13,6 +13,7 @@ __all__ = ['trio2aio', 'aio2trio']
 
 def trio2aio(proc):
     """Decorate an asyncio function so that it's callable by Trio (only)."""
+
     @wraps(proc)
     async def call(*args, **kwargs):
         if kwargs:
@@ -26,6 +27,7 @@ def trio2aio(proc):
 
 def aio2trio(proc):
     """Decorate a Trio function so that it's callable by asyncio (only)."""
+
     @wraps(proc)
     async def call(*args, **kwargs):
         if kwargs:
