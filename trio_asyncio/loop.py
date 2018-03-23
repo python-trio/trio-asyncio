@@ -25,6 +25,7 @@ __all__ = [
     'run_future',
     'run_coroutine',
     'run_asyncio',
+    'wrap_generator',
     'TrioChildWatcher',
     'TrioPolicy',
 ]
@@ -167,6 +168,13 @@ class TrioChildWatcher:  # (asyncio.AbstractChildWatcher):
 
     def __exit__(self, *tb):
         self.close()
+
+
+def wrap_generator(proc, *args):
+    loop = asyncio.get_event_loop()
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    return loop.wrap_generator(proc, *args)
 
 
 async def run_asyncio(proc, *args):

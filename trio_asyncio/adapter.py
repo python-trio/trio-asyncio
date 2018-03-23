@@ -1,6 +1,7 @@
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
+import inspect
 import trio_asyncio
 
 # import logging
@@ -12,9 +13,15 @@ __all__ = ['trio2aio', 'aio2trio']
 
 
 def trio2aio(proc):
-    @wraps(proc)
-    async def call(*args):
-        return await trio_asyncio.run_asyncio(proc, *args)
+    if inspect.isasyncgenfunction(proc):
+        @wraps(proc)
+        def call(*args):
+            return trio_asyncio.wrap_generator(proc, *args)
+
+    else:
+        @wraps(proc)
+        async def call(*args):
+            return await trio_asyncio.run_asyncio(proc, *args)
 
     return call
 

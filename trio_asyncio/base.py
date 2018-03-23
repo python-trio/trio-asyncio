@@ -1,5 +1,6 @@
 import os
 import sys
+import inspect
 import math
 import trio
 import heapq
@@ -11,7 +12,7 @@ from .handles import Handle, TimerHandle
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
-from .util import run_future
+from .util import run_future, run_generator
 
 try:
     from trio.hazmat import wait_for_child
@@ -211,6 +212,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._check_closed()
         coro = asyncio.ensure_future(coro, loop=self)
         return await run_future(coro)
+
+    def wrap_generator(self, gen):
+        # if inspect.isasyncgen(f):
+        # return self.wrap_generator(f)
+        return run_generator(self, gen())
 
     async def run_asyncio(self, proc, *args):
         """Run an asyncio function or method from Trio.
