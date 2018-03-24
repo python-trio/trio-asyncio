@@ -122,9 +122,17 @@ Compatibility Mode
 ------------------
 
 You still can do things "the asyncio way": the to-be-replaced code from the
-:ref:`previosu section <native-loop>`
-still works – or at least it attempts to work.
+:ref:`previous section <native-loop>`
+still works – or at least it attempts to work::
 
+    import asyncio
+    import trio_asyncio
+    asyncio.set_event_loop_policy(trio_asyncio.TrioPolicy())
+
+    def main():
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(async_main())
+    
 .. warning::
 
    tl;dr: Don't use Compatibility Mode in production code.
@@ -149,6 +157,11 @@ just as with a regular asyncio loop.
 
 If you use a compatibility-mode loop in a separate thread, you *must* stop and close it
 before terminating that thread. Otherwise your thread will leak resources.
+
+In a multi-threaded program, globally setting the event loop policy may not
+be a good idea. If you want to run trio-asyncio in a separate thread, you
+might get away with using ``TrioPolicy().new_event_loop()`` to create a new
+event loop – but a far better idea is to use native mode.
 
 .. note::
 

@@ -98,7 +98,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         # in a sub-task, which is exactly what we intend to be possible
         if self._trio_local._loop is not None and loop is not None and \
                 self._trio_local._task == task:
-            raise RuntimeError('You cannot replace an event loop.')
+            raise RuntimeError('You cannot replace an event loop.',self._trio_local._loop,loop)
         self._trio_local._loop = loop
         self._trio_local._task = task
 
@@ -231,5 +231,3 @@ def run(proc, *args, queue_len=None):
 
     trio.run(_run_task, proc, args)
 
-
-asyncio.set_event_loop_policy(TrioPolicy())
