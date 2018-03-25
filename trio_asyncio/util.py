@@ -77,7 +77,7 @@ async def run_generator(loop, async_generator):
             asyncio.ensure_future(consume_next(), loop=loop)
 
             item = await trio.hazmat.wait_task_rescheduled(abort_cb)
-            if item == STOP:
+            if item is STOP:
                 break
             yield item
 
