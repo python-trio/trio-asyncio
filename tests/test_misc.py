@@ -149,10 +149,10 @@ class TestMisc:
             raise Exception("should not run")
 
         async def cancel_sleep():
-            h = loop.call_later(0.1, do_not_run)
-            await asyncio.sleep(0.05, loop=loop)
+            h = loop.call_later(0.2, do_not_run)
+            await asyncio.sleep(0.1, loop=loop)
             h.cancel()
-            await asyncio.sleep(0.2, loop=loop)
+            await asyncio.sleep(0.3, loop=loop)
 
         await loop.run_asyncio(cancel_sleep)
         assert owch == 0
