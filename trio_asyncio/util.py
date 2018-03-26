@@ -4,6 +4,8 @@
 import trio
 import asyncio
 import sys
+from async_generator import async_generator, yield_
+
 
 __all__ = ['run_future']
 
@@ -49,6 +51,8 @@ async def run_future(future):
 
 STOP = object()
 
+
+@async_generator
 async def run_generator(loop, async_generator):
     task = trio.hazmat.current_task()
     raise_cancel = None
@@ -78,7 +82,7 @@ async def run_generator(loop, async_generator):
             item = await trio.hazmat.wait_task_rescheduled(abort_cb)
             if item is STOP:
                 break
-            yield item
+            await yield_(item)
 
     except asyncio.CancelledError as exc:
         if raise_cancel is not None:

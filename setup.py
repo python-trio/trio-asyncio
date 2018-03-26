@@ -61,6 +61,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "trio",
+        "async_generator >= 1.6",
     ],
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
