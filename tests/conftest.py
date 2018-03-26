@@ -46,3 +46,6 @@ def sync_loop():
 def pytest_pyfunc_call(pyfuncitem):
     if inspect.iscoroutinefunction(pyfuncitem.obj):
         pyfuncitem.obj = pytest.mark.trio(pyfuncitem.obj)
+
+
+asyncio.set_event_loop_policy(trio_asyncio.TrioPolicy())

@@ -98,7 +98,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         # in a sub-task, which is exactly what we intend to be possible
         if self._trio_local._loop is not None and loop is not None and \
                 self._trio_local._task == task:
-            raise RuntimeError('You cannot replace an event loop.')
+            raise RuntimeError('You cannot replace an event loop.', self._trio_local._loop, loop)
         self._trio_local._loop = loop
         self._trio_local._task = task
 
@@ -178,17 +178,35 @@ def wrap_generator(proc, *args):
 
 
 async def run_asyncio(proc, *args):
+    """Run an asyncio function or method from Trio.
+
+    :return: whatever the procedure returns.
+    :raises: whatever the procedure raises.
+
+    This is a Trio coroutine.
+    """
+
     loop = asyncio.get_event_loop()
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return await loop.run_asyncio(proc, *args)
 
 
-async def run_coroutine(fut, scope=None):
+async def run_coroutine(fut):
+    """Wait for an asyncio future/coroutine.
+
+    Cancelling the current Trio scope will cancel the future/coroutine.
+
+    Cancelling the future/coroutine will cause an
+    ``asyncio.CancelledError``.
+
+    This is a Trio coroutine.
+    """
+
     loop = asyncio.get_event_loop()
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
-    return await loop.run_coroutine(fut, scope=scope)
+    return await loop.run_coroutine(fut)
 
 
 def run_trio(proc, *args):
@@ -230,6 +248,3 @@ def run(proc, *args, queue_len=None):
             return await proc(*args)
 
     trio.run(_run_task, proc, args)
-
-
-asyncio.set_event_loop_policy(TrioPolicy())

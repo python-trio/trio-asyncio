@@ -106,11 +106,9 @@ async def open_loop(queue_len=None):
         self._thread = None
 
     async with trio.open_nursery() as nursery:
-        old_loop = asyncio.get_event_loop()
         loop = TrioEventLoop(queue_len=queue_len)
         try:
             loop._closed = False
-            asyncio.set_event_loop(loop)
             await loop._main_loop_init(nursery)
             await nursery.start(loop._main_loop)
             await yield_(loop)
@@ -120,5 +118,4 @@ async def open_loop(queue_len=None):
             finally:
                 await loop._main_loop_exit()
                 loop.close()
-                asyncio.set_event_loop(old_loop)
                 nursery.cancel_scope.cancel()

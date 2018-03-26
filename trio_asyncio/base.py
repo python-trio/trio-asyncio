@@ -646,6 +646,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._nursery = nursery
         self._task = trio.hazmat.current_task()
         self._token = trio.hazmat.current_trio_token()
+        asyncio.events._set_running_loop(self)
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """Run the loop by processing its event queue.
@@ -725,6 +726,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         # clean core fields
         self._nursery = None
         self._task = None
+        asyncio.events._set_running_loop(None)
 
     def is_running(self):
         if self._stopped is None:
