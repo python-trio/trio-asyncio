@@ -32,6 +32,7 @@ __all__ = [
 
 _current_loop = trio.TaskLocal(loop=None, policy=None)
 
+
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
 
@@ -96,13 +97,14 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
             return super().set_event_loop(loop)
 
 
-
 # We need to monkey-patch asyncio's policy+loop getters to return our
 # TrioPolicy+loop whenever we are within Trio.
 
 from asyncio import events as _aio_event
 
 _orig_policy_get = _aio_event.get_event_loop_policy
+
+
 def _new_policy_get():
     try:
         policy = _current_loop.policy
@@ -113,23 +115,33 @@ def _new_policy_get():
         policy = TrioPolicy()
         _current_loop.policy = policy
     return policy
+
+
 _aio_event.get_event_loop_policy = _new_policy_get
 asyncio.get_event_loop_policy = _new_policy_get
 
 _orig_run_get = _aio_event._get_running_loop
+
+
 def _new_loop_get():
     try:
         return _current_loop.loop
     except RuntimeError:
         return _orig_run_get()
+
+
 _aio_event._get_running_loop = _new_run_get
 
 _orig_loop_get = _aio_event.get_event_loop
+
+
 def _new_loop_get():
     try:
         return _current_loop.loop
     except RuntimeError:
         return _orig_loop_get()
+
+
 _aio_event.get_event_loop = _new_loop_get
 asyncio.get_event_loop = _new_loop_get
 

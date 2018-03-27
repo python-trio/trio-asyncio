@@ -52,6 +52,7 @@ _old_policy = asyncio.get_event_loop_policy()
 _new_policy = trio_asyncio.TrioPolicy()
 asyncio.set_event_loop_policy(_new_policy)
 
+
 @pytest.fixture
 def old_policy():
     asyncio.set_event_loop_policy(_old_policy)
@@ -59,4 +60,3 @@ def old_policy():
         yield _old_policy
     finally:
         asyncio.set_event_loop_policy(_new_policy)
-

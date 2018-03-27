@@ -124,4 +124,3 @@ async def open_loop(queue_len=None):
                 loop.close()
                 nursery.cancel_scope.cancel()
                 _current_loop.loop = outer_loop
-
