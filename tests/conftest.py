@@ -48,4 +48,15 @@ def pytest_pyfunc_call(pyfuncitem):
         pyfuncitem.obj = pytest.mark.trio(pyfuncitem.obj)
 
 
-asyncio.set_event_loop_policy(trio_asyncio.TrioPolicy())
+_old_policy = asyncio.get_event_loop_policy()
+_new_policy = trio_asyncio.TrioPolicy()
+asyncio.set_event_loop_policy(_new_policy)
+
+@pytest.fixture
+def old_policy():
+    asyncio.set_event_loop_policy(_old_policy)
+    try:
+        yield _old_policy
+    finally:
+        asyncio.set_event_loop_policy(_new_policy)
+

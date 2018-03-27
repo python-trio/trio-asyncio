@@ -30,13 +30,14 @@ __all__ = [
     'TrioPolicy',
 ]
 
+_current_loop = trio.TaskLocal(loop=None, policy=None)
 
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
 
     def __init__(self):
         super().__init__()
-        self._trio_local = trio.TaskLocal(_loop=None, _task=False)
+        current_loop = trio.TaskLocal(_loop=None, _task=False)
 
     def new_event_loop(self):
         try:
@@ -75,45 +76,68 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
             # this creates a new loop in the main task
             return super().get_event_loop()
         else:
-            return self._trio_local._loop
+            return _current_loop.loop
 
     @property
     def current_event_loop(self):
         """The currently-running event loop, if one exists."""
         try:
-            return self._trio_local._loop
+            return _current_loop.loop
         except RuntimeError:
             # in the main thread this would create a new loop
             # return super().get_event_loop()
-            return self._local._loop
+            return super().get_event_loop()
 
     def set_event_loop(self, loop):
         """Set the current event loop."""
         try:
-            task = trio.hazmat.current_task()
+            _current_loop.loop = loop
         except RuntimeError:
             return super().set_event_loop(loop)
 
-        # This test will not trigger if you create a new asyncio event loop
-        # in a sub-task, which is exactly what we intend to be possible
-        if self._trio_local._loop is not None and loop is not None and \
-                self._trio_local._task == task:
-            raise RuntimeError('You cannot replace an event loop.', self._trio_local._loop, loop)
-        self._trio_local._loop = loop
-        self._trio_local._task = task
+
+
+# We need to monkey-patch asyncio's policy+loop getters to return our
+# TrioPolicy+loop whenever we are within Trio.
+
+from asyncio import events as _aio_event
+
+_orig_policy_get = _aio_event.get_event_loop_policy
+def _new_policy_get():
+    try:
+        policy = _current_loop.policy
+    except RuntimeError:
+        return _orig_policy_get()
+
+    if policy is None:
+        policy = TrioPolicy()
+        _current_loop.policy = policy
+    return policy
+_aio_event.get_event_loop_policy = _new_policy_get
+asyncio.get_event_loop_policy = _new_policy_get
+
+_orig_loop_get = _aio_event._get_running_loop
+def _new_loop_get():
+    try:
+        return _current_loop.loop
+    except RuntimeError:
+        return _orig_loop_get()
+_aio_event._get_running_loop = _new_loop_get
 
 
 class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
+    """This is the loop policy that's active whenever we're in a Trio context."""
+
     def _init_watcher(self):
         with asyncio.events._lock:
             if self._watcher is None:  # pragma: no branch
                 self._watcher = TrioChildWatcher()
                 if isinstance(threading.current_thread(), threading._MainThread):
-                    self._watcher.attach_loop(self._trio_local._loop)
+                    self._watcher.attach_loop(_current_loop.loop)
 
         if self._watcher is not None and \
                 isinstance(threading.current_thread(), threading._MainThread):
-            self._watcher.attach_loop(self._trio_local._loop)
+            self._watcher.attach_loop(_current_loop.loop)
 
     def set_child_watcher(self, watcher):
         if watcher is not None:

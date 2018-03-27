@@ -105,8 +105,12 @@ async def open_loop(queue_len=None):
         super()._main_loop_exit()
         self._thread = None
 
+    from .loop import _current_loop
+    outer_loop = _current_loop.loop
+
     async with trio.open_nursery() as nursery:
         loop = TrioEventLoop(queue_len=queue_len)
+        _current_loop.loop = loop
         try:
             loop._closed = False
             await loop._main_loop_init(nursery)
@@ -119,3 +123,5 @@ async def open_loop(queue_len=None):
                 await loop._main_loop_exit()
                 loop.close()
                 nursery.cancel_scope.cancel()
+                _current_loop.loop = outer_loop
+
