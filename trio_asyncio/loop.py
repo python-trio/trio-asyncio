@@ -116,13 +116,22 @@ def _new_policy_get():
 _aio_event.get_event_loop_policy = _new_policy_get
 asyncio.get_event_loop_policy = _new_policy_get
 
-_orig_loop_get = _aio_event._get_running_loop
+_orig_run_get = _aio_event._get_running_loop
+def _new_loop_get():
+    try:
+        return _current_loop.loop
+    except RuntimeError:
+        return _orig_run_get()
+_aio_event._get_running_loop = _new_run_get
+
+_orig_loop_get = _aio_event.get_event_loop
 def _new_loop_get():
     try:
         return _current_loop.loop
     except RuntimeError:
         return _orig_loop_get()
-_aio_event._get_running_loop = _new_loop_get
+_aio_event.get_event_loop = _new_loop_get
+asyncio.get_event_loop = _new_loop_get
 
 
 class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
