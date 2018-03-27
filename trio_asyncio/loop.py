@@ -36,10 +36,6 @@ _current_loop = trio.TaskLocal(loop=None, policy=None)
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
 
-    def __init__(self):
-        super().__init__()
-        current_loop = trio.TaskLocal(_loop=None, _task=False)
-
     def new_event_loop(self):
         try:
             trio.hazmat.current_task()
@@ -102,6 +98,8 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
 
 from asyncio import events as _aio_event
 
+#####
+
 _orig_policy_get = _aio_event.get_event_loop_policy
 
 
@@ -120,10 +118,12 @@ def _new_policy_get():
 _aio_event.get_event_loop_policy = _new_policy_get
 asyncio.get_event_loop_policy = _new_policy_get
 
+#####
+
 _orig_run_get = _aio_event._get_running_loop
 
 
-def _new_loop_get():
+def _new_run_get():
     try:
         return _current_loop.loop
     except RuntimeError:
@@ -131,6 +131,8 @@ def _new_loop_get():
 
 
 _aio_event._get_running_loop = _new_run_get
+
+#####
 
 _orig_loop_get = _aio_event.get_event_loop
 

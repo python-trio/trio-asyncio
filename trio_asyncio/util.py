@@ -63,7 +63,7 @@ async def run_generator(loop, async_generator):
             item = STOP
 
         trio.hazmat.reschedule(task, trio.hazmat.Value(value=item))
-        #trio.hazmat.reschedule(task, STOP)
+        # trio.hazmat.reschedule(task, STOP)
 
     def abort_cb(raise_cancel_arg):
         # Save the cancel-raising function

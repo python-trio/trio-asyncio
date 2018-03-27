@@ -1,6 +1,5 @@
 import os
 import sys
-import inspect
 import math
 import trio
 import heapq

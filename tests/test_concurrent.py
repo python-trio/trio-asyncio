@@ -52,7 +52,7 @@ async def _test_same_task():
     def get_loop(i):
         loops[i] = (asyncio.get_event_loop(), asyncio.get_event_loop_policy())
 
-    async with trio.open_nursery() as n:
+    async with trio.open_nursery():
         async with trio_asyncio.open_loop() as loop1:
             async with trio_asyncio.open_loop() as loop2:
                 loop1.call_later(0.1, get_loop, 0)
