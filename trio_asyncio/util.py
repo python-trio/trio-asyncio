@@ -60,11 +60,13 @@ async def run_generator(loop, async_generator):
     async def consume_next():
         try:
             item = await async_generator.__anext__()
+            result = trio.hazmat.Value(value=item)
         except StopAsyncIteration:
-            item = STOP
+            result = trio.hazmat.Value(value=STOP)
+        except Exception as e:
+            result = trio.hazmat.Error(error=e)
 
-        trio.hazmat.reschedule(task, trio.hazmat.Value(value=item))
-        #trio.hazmat.reschedule(task, STOP)
+        trio.hazmat.reschedule(task, result)
 
     def abort_cb(raise_cancel_arg):
         # Save the cancel-raising function
