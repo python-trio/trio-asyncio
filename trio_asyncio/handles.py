@@ -130,11 +130,13 @@ if sys.version_info >= (3, 7):
 
     class Handle(_TrioHandle, asyncio.Handle):
         def __init__(self, callback, args, loop, context=None, is_sync=True):
+            assert not isinstance(context, bool)
             super().__init__(callback, args, loop, context=context)
             self._init(is_sync)
 
     class TimerHandle(_TrioHandle, asyncio.TimerHandle):
         def __init__(self, when, callback, args, loop, context=None, is_sync=True):
+            assert not isinstance(context, bool)
             super().__init__(when, callback, args, loop, context=context)
             self._init(is_sync)
 
