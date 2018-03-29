@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+import sys
 
 exec(open("trio_asyncio/_version.py", encoding="utf-8").read())
 
@@ -49,6 +50,13 @@ Matthias Urlichs <matthias@urlichs.de>
 
 """
 
+install_requires=[
+    "trio",
+    "async_generator >= 1.6",
+]
+if sys.version_info < (3, 7):
+    install_requires.append("contextvars >= 2.1")
+
 setup(
     name="trio_asyncio",
     version=__version__,  # noqa: F821
@@ -59,10 +67,7 @@ setup(
     url="https://github.com/python-trio/trio-asyncio",
     license="MIT -or- Apache License 2.0",
     packages=find_packages(),
-    install_requires=[
-        "trio",
-        "async_generator >= 1.6",
-    ],
+    install_requires=install_requires,
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
