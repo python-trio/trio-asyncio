@@ -10,3 +10,4 @@ __pycache__/
 /trio_asyncio.egg-info/
 /.pybuild/
 /dist
+/empty
