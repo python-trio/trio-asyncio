@@ -2114,7 +2114,6 @@ class BaseTaskTests:
         cvar = contextvars.ContextVar('cvar', default='nope')
 
         async def sub():
-            import pdb;pdb.set_trace()
             await asyncio.sleep(0.1, loop=loop)
             self.assertEqual(cvar.get(), 'nope')
             cvar.set('something else')
