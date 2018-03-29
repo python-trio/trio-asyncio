@@ -6,7 +6,6 @@ import asyncio
 import sys
 from async_generator import async_generator, yield_
 
-
 __all__ = ['run_future']
 
 

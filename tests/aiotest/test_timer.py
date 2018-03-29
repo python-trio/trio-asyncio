@@ -37,10 +37,10 @@ class TestTimer(aiotest.TestCase):
             result.append("World")
             loop.stop()
 
-        loop.call_later(0.001, hello)
-        loop.call_later(0.050, world, loop)
+        loop.call_later(0.1, hello)
+        loop.call_later(0.5, world, loop)
 
-        await trio.sleep(0.030)
+        await trio.sleep(0.3)
         assert result == ["Hello"]
 
         await loop.wait_stopped()
