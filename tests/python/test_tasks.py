@@ -2110,6 +2110,7 @@ class BaseTaskTests:
 
         self.loop.run_until_complete(coro())
 
+    @unittest.skipIf(sys.version_info < (3, 7), "no contextvars in asyncio")
     def test_context_1(self):
         cvar = contextvars.ContextVar('cvar', default='nope')
 
@@ -2133,6 +2134,7 @@ class BaseTaskTests:
         finally:
             loop.close()
 
+    @unittest.skipIf(sys.version_info < (3, 7), "no contextvars in asyncio")
     def test_context_2(self):
         cvar = contextvars.ContextVar('cvar', default='nope')
 
@@ -2167,6 +2169,7 @@ class BaseTaskTests:
 
         self.assertEqual(cvar.get(), 'nope')
 
+    @unittest.skipIf(sys.version_info < (3, 7), "no contextvars in asyncio")
     def test_context_3(self):
         # Run 100 Tasks in parallel, each modifying cvar.
 
