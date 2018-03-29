@@ -24,6 +24,18 @@ if not hasattr(asyncio, 'all_tasks'):
 
     asyncio.all_tasks = all_tasks
 
+if not hasattr(asyncio, 'create_task'):
+
+    if hasattr(asyncio.events, 'get_running_loop'):
+        def create_task(coro):
+            loop = asyncio.events.get_running_loop()
+            return loop.create_task(coro)
+    else:
+        def create_task(coro):
+            loop = asyncio.events._get_running_loop()
+            return loop.create_task(coro)
+
+    asyncio.create_task = create_task
 
 @pytest.fixture
 async def loop():

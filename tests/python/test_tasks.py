@@ -2,6 +2,7 @@
 
 import collections
 import contextlib
+import contextvars
 import functools
 import gc
 import io
@@ -9,7 +10,9 @@ import os
 import re
 import sys
 import types
+import random
 import unittest
+import textwrap
 import weakref
 from unittest import mock
 import pytest
@@ -70,6 +73,20 @@ class Dummy:
 
     def __call__(self, *args):
         pass
+
+
+class CoroLikeObject:
+    def send(self, v):
+        raise StopIteration(42)
+
+    def throw(self, *exc):
+        pass
+
+    def close(self):
+        pass
+
+    def __await__(self):
+        return self
 
 
 class BaseTaskTests:
@@ -2027,6 +2044,158 @@ class BaseTaskTests:
 
         self.assertEqual(asyncio.all_tasks(self.loop), set())
 
+    def test_create_task_with_noncoroutine(self):
+        with self.assertRaisesRegex(TypeError,
+                                    "a coroutine was expected, got 123"):
+            self.new_task(self.loop, 123)
+
+        # test it for the second time to ensure that caching
+        # in asyncio.iscoroutine() doesn't break things.
+        with self.assertRaisesRegex(TypeError,
+                                    "a coroutine was expected, got 123"):
+            self.new_task(self.loop, 123)
+
+    def test_create_task_with_oldstyle_coroutine(self):
+
+        @asyncio.coroutine
+        def coro():
+            pass
+
+        task = self.new_task(self.loop, coro())
+        self.assertIsInstance(task, asyncio.Task)
+        self.loop.run_until_complete(task)
+
+        # test it for the second time to ensure that caching
+        # in asyncio.iscoroutine() doesn't break things.
+        task = self.new_task(self.loop, coro())
+        self.assertIsInstance(task, asyncio.Task)
+        self.loop.run_until_complete(task)
+
+    def test_create_task_with_async_function(self):
+
+        async def coro():
+            pass
+
+        task = self.new_task(self.loop, coro())
+        self.assertIsInstance(task, asyncio.Task)
+        self.loop.run_until_complete(task)
+
+        # test it for the second time to ensure that caching
+        # in asyncio.iscoroutine() doesn't break things.
+        task = self.new_task(self.loop, coro())
+        self.assertIsInstance(task, asyncio.Task)
+        self.loop.run_until_complete(task)
+
+    def test_create_task_with_asynclike_function(self):
+        task = self.new_task(self.loop, CoroLikeObject())
+        self.assertIsInstance(task, asyncio.Task)
+        self.assertEqual(self.loop.run_until_complete(task), 42)
+
+        # test it for the second time to ensure that caching
+        # in asyncio.iscoroutine() doesn't break things.
+        task = self.new_task(self.loop, CoroLikeObject())
+        self.assertIsInstance(task, asyncio.Task)
+        self.assertEqual(self.loop.run_until_complete(task), 42)
+
+    def test_bare_create_task(self):
+
+        async def inner():
+            return 1
+
+        async def coro():
+            task = asyncio.create_task(inner())
+            self.assertIsInstance(task, asyncio.Task)
+            ret = await task
+            self.assertEqual(1, ret)
+
+        self.loop.run_until_complete(coro())
+
+    def test_context_1(self):
+        cvar = contextvars.ContextVar('cvar', default='nope')
+
+        async def sub():
+            import pdb;pdb.set_trace()
+            await asyncio.sleep(0.1, loop=loop)
+            self.assertEqual(cvar.get(), 'nope')
+            cvar.set('something else')
+
+        async def main():
+            self.assertEqual(cvar.get(), 'nope')
+            subtask = self.new_task(loop, sub())
+            cvar.set('yes')
+            self.assertEqual(cvar.get(), 'yes')
+            await subtask
+            self.assertEqual(cvar.get(), 'yes')
+
+        loop = asyncio.new_event_loop()
+        try:
+            task = self.new_task(loop, main())
+            loop.run_until_complete(task)
+        finally:
+            loop.close()
+
+    def test_context_2(self):
+        cvar = contextvars.ContextVar('cvar', default='nope')
+
+        async def main():
+            def fut_on_done(fut):
+                # This change must not pollute the context
+                # of the "main()" task.
+                cvar.set('something else')
+
+            self.assertEqual(cvar.get(), 'nope')
+
+            for j in range(2):
+                fut = self.new_future(loop)
+                fut.add_done_callback(fut_on_done)
+                cvar.set(f'yes{j}')
+                loop.call_soon(fut.set_result, None)
+                await fut
+                self.assertEqual(cvar.get(), f'yes{j}')
+
+                for i in range(3):
+                    # Test that task passed its context to add_done_callback:
+                    cvar.set(f'yes{i}-{j}')
+                    await asyncio.sleep(0.001, loop=loop)
+                    self.assertEqual(cvar.get(), f'yes{i}-{j}')
+
+        loop = asyncio.new_event_loop()
+        try:
+            task = self.new_task(loop, main())
+            loop.run_until_complete(task)
+        finally:
+            loop.close()
+
+        self.assertEqual(cvar.get(), 'nope')
+
+    def test_context_3(self):
+        # Run 100 Tasks in parallel, each modifying cvar.
+
+        cvar = contextvars.ContextVar('cvar', default=-1)
+
+        async def sub(num):
+            for i in range(10):
+                cvar.set(num + i)
+                await asyncio.sleep(
+                    random.uniform(0.001, 0.05), loop=loop)
+                self.assertEqual(cvar.get(), num + i)
+
+        async def main():
+            tasks = []
+            for i in range(100):
+                task = loop.create_task(sub(random.randint(0, 10)))
+                tasks.append(task)
+
+            await asyncio.gather(*tasks, loop=loop)
+
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(main())
+        finally:
+            loop.close()
+
+        self.assertEqual(cvar.get(), -1)
+
 
 def add_subclass_tests(cls):
     BaseTask = cls.Task
@@ -2067,7 +2236,7 @@ def add_subclass_tests(cls):
             self.loop.call_soon(lambda: fut.set_result('spam'))
             return await fut
 
-        task = self.Task(func(), loop=self.loop)
+        task = asyncio.Task(func(), loop=self.loop)
 
         result = self.loop.run_until_complete(task)
 
@@ -2484,22 +2653,29 @@ class RunCoroutineThreadsafeTests(test_utils.TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.loop.run_until_complete(future)
 
-    @unittest.skip("XXX does not terminate")
+    @unittest.skip("trio-asyncio doesn't use a task factory")
     def test_run_coroutine_threadsafe_task_factory_exception(self):
         """Test coroutine submission from a tread to an event loop
         when the task factory raise an exception."""
-        # Schedule the target
-        future = self.loop.run_in_executor(None, lambda: self.target(advance_coro=True))
-        # Set corrupted task factory
-        self.loop.set_task_factory(lambda loop, coro: wrong_name)  # noqa: F821
+
+        def task_factory(loop, coro):
+            raise NameError
+
+        run = self.loop.run_in_executor(
+            None, lambda: self.target(advance_coro=True))
+
         # Set exception handler
         callback = test_utils.MockCallback()
         self.loop.set_exception_handler(callback)
+
+        # Set corrupted task factory
+        self.loop.set_task_factory(task_factory)
+
         # Run event loop
         with self.assertRaises(NameError) as exc_context:
-            self.loop.run_until_complete(future)
+            self.loop.run_until_complete(run)
+
         # Check exceptions
-        self.assertIn('wrong_name', exc_context.exception.args[0])
         self.assertEqual(len(callback.call_args_list), 1)
         (loop, context), kwargs = callback.call_args
         self.assertEqual(context['exception'], exc_context.exception)
@@ -2533,6 +2709,62 @@ class SleepTests(test_utils.TestCase):
 
         self.loop.run_until_complete(coro())
         self.assertEqual(result, 11)
+
+class CompatibilityTests(test_utils.TestCase):
+    # Tests for checking a bridge between old-styled coroutines
+    # and async/await syntax
+
+    def setUp(self):
+        super().setUp()
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(None)
+
+    def tearDown(self):
+        self.loop.close()
+        self.loop = None
+        super().tearDown()
+
+    def test_yield_from_awaitable(self):
+
+        @asyncio.coroutine
+        def coro():
+            yield from asyncio.sleep(0, loop=self.loop)
+            return 'ok'
+
+        result = self.loop.run_until_complete(coro())
+        self.assertEqual('ok', result)
+
+    def test_await_old_style_coro(self):
+
+        @asyncio.coroutine
+        def coro1():
+            return 'ok1'
+
+        @asyncio.coroutine
+        def coro2():
+            yield from asyncio.sleep(0, loop=self.loop)
+            return 'ok2'
+        async def inner():
+            return await asyncio.gather(coro1(), coro2(), loop=self.loop)
+
+        result = self.loop.run_until_complete(inner())
+        self.assertEqual(['ok1', 'ok2'], result)
+
+    def test_debug_mode_interop(self):
+        # https://bugs.python.org/issue32636
+        code = textwrap.dedent("""
+            import asyncio
+
+            async def native_coro():
+                pass
+
+            @asyncio.coroutine
+            def old_style_coro():
+                yield from native_coro()
+
+            asyncio.run(old_style_coro())
+        """)
+        assert_python_ok("-c", code, PYTHONASYNCIODEBUG="1")
 
 
 if __name__ == '__main__':

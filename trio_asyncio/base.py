@@ -705,7 +705,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         # Don't go through the expensive nursery dance
         # if this is a sync function.
         if getattr(obj, '_is_sync', True):
-            obj._callback(*obj._args)
+            if hasattr(obj, '_context'):
+                obj._context.run(obj._callback, *obj._args)
+            else:
+                obj._callback(*obj._args)
         else:
             await self._nursery.start(obj._call_async)
 
