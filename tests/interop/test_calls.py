@@ -9,6 +9,13 @@ class Seen:
     flag = 0
 
 
+async def async_gen_to_list(generator):
+    result = []
+    async for item in generator:
+        result.append(item)
+    return result
+
+
 class TestCalls(aiotest.TestCase):
     async def call_t_a(self, proc, *args, loop=None):
         """called from Trio"""
@@ -230,4 +237,25 @@ class TestCalls(aiotest.TestCase):
 
         with pytest.raises(RuntimeError) as err:
             await self.call_t_a(err_asyncio, loop=loop)
+        assert err.value.args[0] == "I has an owie"
+
+    @pytest.mark.trio
+    async def test_trio_asyncio_generator(self, loop):
+        async def dly_asyncio():
+            yield 1
+            await asyncio.sleep(0.01, loop=loop)
+            yield 2
+
+        res = await async_gen_to_list(loop.wrap_generator(dly_asyncio))
+        assert res == [1, 2]
+
+    @pytest.mark.trio
+    async def test_trio_asyncio_generator_with_error(self, loop):
+        async def dly_asyncio():
+            yield 1
+            raise RuntimeError("I has an owie")
+            yield 2
+
+        with pytest.raises(RuntimeError) as err:
+            await async_gen_to_list(loop.wrap_generator(dly_asyncio))
         assert err.value.args[0] == "I has an owie"
