@@ -2044,16 +2044,15 @@ class BaseTaskTests:
 
         self.assertEqual(asyncio.all_tasks(self.loop), set())
 
+    @unittest.skipIf(sys.version_info < (3, 7), "caught in error handler")
     def test_create_task_with_noncoroutine(self):
-        with self.assertRaisesRegex(TypeError,
-                                    "a coroutine was expected, got 123"):
-            self.new_task(self.loop, 123)
-
-        # test it for the second time to ensure that caching
-        # in asyncio.iscoroutine() doesn't break things.
-        with self.assertRaisesRegex(TypeError,
-                                    "a coroutine was expected, got 123"):
-            self.new_task(self.loop, 123)
+        for x in range(2):
+            try:
+                self.new_task(self.loop, 123)
+            except (TypeError,AssertionError):
+                pass
+            else:
+                self.fail("Error not raised")
 
     def test_create_task_with_oldstyle_coroutine(self):
 
@@ -2752,6 +2751,7 @@ class CompatibilityTests(test_utils.TestCase):
         result = self.loop.run_until_complete(inner())
         self.assertEqual(['ok1', 'ok2'], result)
 
+    @unittest.skipIf(sys.version_info < (3, 7), 'need python 3.7 for asyncio.run')
     def test_debug_mode_interop(self):
         # https://bugs.python.org/issue32636
         code = textwrap.dedent("""

@@ -17,7 +17,7 @@ if not hasattr(asyncio, 'run'):
         loop.set_debug(debug)
         return loop.run(main)
 
-    asyncio.current_task = current_task
+    asyncio.run = run
 
 if not hasattr(asyncio, 'current_task'):
 
