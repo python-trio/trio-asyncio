@@ -266,7 +266,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         The returned handle may be used to cancel the background task.
 
         """
-        return self._queue_handle(Handle(proc, args, self, False))
+        return self._queue_handle(Handle(proc, args, self, is_sync=False))
 
     async def __run_trio(self, h):
         """Helper for copying the result of a Trio task to an asyncio future"""
