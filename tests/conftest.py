@@ -10,6 +10,15 @@ import trio_asyncio
 import inspect
 
 # Hacks for <3.7
+if not hasattr(asyncio, 'run'):
+
+    def run(main, *, debug=False):
+        loop = asyncio.new_event_loop()
+        loop.set_debug(debug)
+        return loop.run(main)
+
+    asyncio.current_task = current_task
+
 if not hasattr(asyncio, 'current_task'):
 
     def current_task(loop=None):
