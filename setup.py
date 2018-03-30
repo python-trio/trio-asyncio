@@ -50,7 +50,7 @@ Matthias Urlichs <matthias@urlichs.de>
 
 """
 
-install_requires=[
+install_requires = [
     "trio",
     "async_generator >= 1.6",
 ]

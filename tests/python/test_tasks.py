@@ -2049,13 +2049,12 @@ class BaseTaskTests:
         for x in range(2):
             try:
                 self.new_task(self.loop, 123)
-            except (TypeError,AssertionError):
+            except (TypeError, AssertionError):
                 pass
             else:
                 self.fail("Error not raised")
 
     def test_create_task_with_oldstyle_coroutine(self):
-
         @asyncio.coroutine
         def coro():
             pass
@@ -2071,7 +2070,6 @@ class BaseTaskTests:
         self.loop.run_until_complete(task)
 
     def test_create_task_with_async_function(self):
-
         async def coro():
             pass
 
@@ -2097,7 +2095,6 @@ class BaseTaskTests:
         self.assertEqual(self.loop.run_until_complete(task), 42)
 
     def test_bare_create_task(self):
-
         async def inner():
             return 1
 
@@ -2177,8 +2174,7 @@ class BaseTaskTests:
         async def sub(num):
             for i in range(10):
                 cvar.set(num + i)
-                await asyncio.sleep(
-                    random.uniform(0.001, 0.05), loop=loop)
+                await asyncio.sleep(random.uniform(0.001, 0.05), loop=loop)
                 self.assertEqual(cvar.get(), num + i)
 
         async def main():
@@ -2662,8 +2658,7 @@ class RunCoroutineThreadsafeTests(test_utils.TestCase):
         def task_factory(loop, coro):
             raise NameError
 
-        run = self.loop.run_in_executor(
-            None, lambda: self.target(advance_coro=True))
+        run = self.loop.run_in_executor(None, lambda: self.target(advance_coro=True))
 
         # Set exception handler
         callback = test_utils.MockCallback()
@@ -2711,6 +2706,7 @@ class SleepTests(test_utils.TestCase):
         self.loop.run_until_complete(coro())
         self.assertEqual(result, 11)
 
+
 class CompatibilityTests(test_utils.TestCase):
     # Tests for checking a bridge between old-styled coroutines
     # and async/await syntax
@@ -2726,7 +2722,6 @@ class CompatibilityTests(test_utils.TestCase):
         super().tearDown()
 
     def test_yield_from_awaitable(self):
-
         @asyncio.coroutine
         def coro():
             yield from asyncio.sleep(0, loop=self.loop)
@@ -2736,7 +2731,6 @@ class CompatibilityTests(test_utils.TestCase):
         self.assertEqual('ok', result)
 
     def test_await_old_style_coro(self):
-
         @asyncio.coroutine
         def coro1():
             return 'ok1'
@@ -2745,6 +2739,7 @@ class CompatibilityTests(test_utils.TestCase):
         def coro2():
             yield from asyncio.sleep(0, loop=self.loop)
             return 'ok2'
+
         async def inner():
             return await asyncio.gather(coro1(), coro2(), loop=self.loop)
 
@@ -2754,7 +2749,8 @@ class CompatibilityTests(test_utils.TestCase):
     @unittest.skipIf(sys.version_info < (3, 7), 'need python 3.7 for asyncio.run')
     def test_debug_mode_interop(self):
         # https://bugs.python.org/issue32636
-        code = textwrap.dedent("""
+        code = textwrap.dedent(
+            """
             import asyncio
 
             async def native_coro():
@@ -2765,7 +2761,8 @@ class CompatibilityTests(test_utils.TestCase):
                 yield from native_coro()
 
             asyncio.run(old_style_coro())
-        """)
+        """
+        )
         assert_python_ok("-c", code, PYTHONASYNCIODEBUG="1")
 
 
