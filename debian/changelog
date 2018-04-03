@@ -1,3 +1,10 @@
+trio-asyncio (0.7.2-1) unstable; urgency=medium
+
+  * TrioChildWatcher needs to descend from AbstractChildWatcher
+    (if not Windows)
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Tue, 03 Apr 2018 09:39:35 +0200
+
 trio-asyncio (0.7.1-1) unstable; urgency=medium
 
   * Handle errors in async generators

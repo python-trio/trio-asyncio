@@ -176,7 +176,7 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
         super().set_child_watcher(watcher)
 
 
-class TrioChildWatcher:  # (asyncio.AbstractChildWatcher):
+class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' else object):
     # AbstractChildWatcher not available under Windows
     def __init__(self):
         super().__init__()
