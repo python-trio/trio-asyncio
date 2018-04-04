@@ -169,9 +169,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def __repr__(self):
         try:
-            return "<%s running=%s>" % (
+            return "<%s running=%s at 0x%x>" % (
                 self.__class__.__name__, "closed" if self._closed else "no"
-                if self._stopped.is_set() else "yes"
+                if self._stopped.is_set() else "yes", id(self)
             )
         except Exception as exc:
             return "<%s ?:%s>" % (self.__class__.__name__, repr(exc))

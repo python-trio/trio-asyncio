@@ -46,27 +46,24 @@ async def test_nested():
 
 
 async def _test_same_task():
-    loops = [None, None]
-    assert isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
+    assert not isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
 
-    def get_loop(i):
-        loops[i] = (asyncio.get_event_loop(), asyncio.get_event_loop_policy())
+    def get_loop(i, loop, policy):
+        assert loop == asyncio.get_event_loop()
+        assert policy == asyncio.get_event_loop_policy()
 
     async with trio.open_nursery():
         async with trio_asyncio.open_loop() as loop1:
+            policy = asyncio.get_event_loop_policy()
+            assert isinstance(policy, trio_asyncio.TrioPolicy)
             async with trio_asyncio.open_loop() as loop2:
-                loop1.call_later(0.1, get_loop, 0)
-                loop2.call_later(0.1, get_loop, 1)
+                assert policy == asyncio.get_event_loop_policy()
+                loop1.call_later(0.1, get_loop, 0, loop1, policy)
+                loop2.call_later(0.1, get_loop, 1, loop2, policy)
                 await trio.sleep(0.2)
 
-    assert isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
+    assert not isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
     assert not isinstance(asyncio._get_running_loop(), trio_asyncio.TrioEventLoop)
-    assert isinstance(loops[0][0], trio_asyncio.TrioEventLoop)
-    assert isinstance(loops[1][0], trio_asyncio.TrioEventLoop)
-    assert isinstance(loops[1][1], trio_asyncio.TrioPolicy)
-    assert loops[0][0] is not loops[1][0]
-    assert loops[0][1] is loops[1][1]
-    assert loops[0][1] is asyncio.get_event_loop_policy()
 
 
 def test_same_task(old_policy):

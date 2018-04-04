@@ -104,12 +104,16 @@ async def open_loop(queue_len=None):
         super()._main_loop_exit()
         self._thread = None
 
-    from .loop import _current_loop
-    outer_loop = _current_loop.loop
+    from .loop import current_loop, current_policy, TrioPolicy
 
     async with trio.open_nursery() as nursery:
+        policy = current_policy.get() 
+        if not isinstance(policy, TrioPolicy):
+            policy = TrioPolicy()
+        old_policy = current_policy.set(policy)
+
         loop = TrioEventLoop(queue_len=queue_len)
-        _current_loop.loop = loop
+        old_loop = current_loop.set(loop)
         try:
             loop._closed = False
             await loop._main_loop_init(nursery)
@@ -122,4 +126,6 @@ async def open_loop(queue_len=None):
                 await loop._main_loop_exit()
                 loop.close()
                 nursery.cancel_scope.cancel()
-                _current_loop.loop = outer_loop
+                current_loop.reset(old_loop)
+                current_policy.reset(old_policy)
+
