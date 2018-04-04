@@ -105,7 +105,7 @@ def _new_policy_get():
     except RuntimeError:
         policy = None
     else:
-        policy = task.context[current_policy]
+        policy = task.context.get(current_policy, None)
     if policy is None:
         policy = _orig_policy_get()
     return policy
@@ -125,7 +125,7 @@ def _new_run_get():
     except RuntimeError:
         loop = None
     else:
-        loop = task.context[current_loop]
+        loop = task.context.get(current_loop, None)
 
     if loop is None:
         loop = _orig_run_get()
