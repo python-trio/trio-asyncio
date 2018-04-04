@@ -1,3 +1,9 @@
+trio-asyncio (0.7.3-1) unstable; urgency=medium
+
+  * Use contextvars instead of TaskLocal
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Wed, 04 Apr 2018 12:02:03 +0200
+
 trio-asyncio (0.7.2-1) unstable; urgency=medium
 
   * TrioChildWatcher needs to descend from AbstractChildWatcher
