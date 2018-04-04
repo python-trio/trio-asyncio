@@ -40,7 +40,7 @@ class TestBaseSelectorEventLoop(BaseSelectorEventLoop):
         pass
 
 
-def list_to_buffer(l=()):
+def list_to_buffer(l=()):  # noqa: E741
     return bytearray().join(l)
 
 

@@ -34,6 +34,7 @@ __all__ = [
 current_loop = ContextVar('trio_aio_loop', default=None)
 current_policy = ContextVar('trio_aio_policy', default=None)
 
+
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
 

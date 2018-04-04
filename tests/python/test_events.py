@@ -599,7 +599,7 @@ class EventLoopTestsMixin:
                     sock = socket.socket(family=family, type=type, proto=proto)
                     sock.setblocking(False)
                     self.loop.run_until_complete(self.loop.sock_connect(sock, address))
-                except:
+                except Exception:
                     pass
                 else:
                     break
@@ -1369,7 +1369,7 @@ class EventLoopTestsMixin:
                 sock = socket.socket(family=family, type=type, proto=proto)
                 sock.setblocking(False)
                 sock.bind(address)
-            except:
+            except Exception:
                 pass
             else:
                 break

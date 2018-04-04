@@ -525,12 +525,12 @@ class TestCase(unittest.TestCase):
         return loop
 
     def setUp(self):
-        #self._get_running_loop = events._get_running_loop
-        #events._get_running_loop = lambda: None
+        # self._get_running_loop = events._get_running_loop
+        # events._get_running_loop = lambda: None
         self._thread_cleanup = support.threading_setup()
 
     def tearDown(self):
-        #events._get_running_loop = self._get_running_loop
+        # events._get_running_loop = self._get_running_loop
 
         events.set_event_loop(None)
 

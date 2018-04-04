@@ -107,7 +107,7 @@ async def open_loop(queue_len=None):
     from .loop import current_loop, current_policy, TrioPolicy
 
     async with trio.open_nursery() as nursery:
-        policy = current_policy.get() 
+        policy = current_policy.get()
         if not isinstance(policy, TrioPolicy):
             policy = TrioPolicy()
         old_policy = current_policy.set(policy)
@@ -128,4 +128,3 @@ async def open_loop(queue_len=None):
                 nursery.cancel_scope.cancel()
                 current_loop.reset(old_loop)
                 current_policy.reset(old_policy)
-
