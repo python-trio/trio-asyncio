@@ -259,3 +259,23 @@ class TestCalls(aiotest.TestCase):
         with pytest.raises(RuntimeError) as err:
             await async_gen_to_list(loop.wrap_generator(dly_asyncio))
         assert err.value.args[0] == "I has an owie"
+
+    @pytest.mark.trio
+    async def test_trio_asyncio_generator_with_cancellation(self, loop):
+        async def dly_asyncio(hold, seen):
+            yield 1
+            seen.flag |= 1
+            await hold.wait()
+
+        async def cancel_soon(nursery):
+            await trio.sleep(0.01)
+            nursery.cancel_scope.cancel()
+
+        hold = asyncio.Event(loop=loop)
+        seen = Seen()
+
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(async_gen_to_list, loop.wrap_generator(dly_asyncio, hold, seen))
+            nursery.start_soon(cancel_soon, nursery)
+        assert nursery.cancel_scope.cancel_called
+        assert seen.flag == 1
