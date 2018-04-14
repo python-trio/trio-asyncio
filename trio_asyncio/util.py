@@ -55,6 +55,7 @@ STOP = object()
 async def run_generator(loop, async_generator):
     task = trio.hazmat.current_task()
     raise_cancel = None
+    current_read = None
 
     async def consume_next():
         try:
@@ -62,6 +63,9 @@ async def run_generator(loop, async_generator):
             result = trio.hazmat.Value(value=item)
         except StopAsyncIteration:
             result = trio.hazmat.Value(value=STOP)
+        except asyncio.CancelledError:
+            # Once we are cancelled, we do not call reschedule() anymore
+            return
         except Exception as e:
             result = trio.hazmat.Error(error=e)
 
@@ -71,16 +75,29 @@ async def run_generator(loop, async_generator):
         # Save the cancel-raising function
         nonlocal raise_cancel
         raise_cancel = raise_cancel_arg
-        # XXX: we need to cancel any actice consume_next() call.
-        # Keep waiting
-        return trio.hazmat.Abort.FAILED
+
+        if not current_read:
+            # There is no current read
+            return trio.hazmat.Abort.SUCCEEDED
+        else:
+            # Attempt to cancel the current iterator read, do not
+            # report success until the future was actually cancelled.
+            already_cancelled = current_read.cancel()
+            if already_cancelled:
+                return trio.hazmat.Abort.SUCCEEDED
+            else:
+                # Continue dealing with the cancellation once
+                # future.cancel() goes to the result of
+                # wait_task_rescheduled()
+                return trio.hazmat.Abort.FAILED
 
     try:
         while True:
-            # schedule that we read the next one from the iterator
-            asyncio.ensure_future(consume_next(), loop=loop)
+            # Schedule in asyncio that we read the next item from the iterator
+            current_read = asyncio.ensure_future(consume_next(), loop=loop)
 
             item = await trio.hazmat.wait_task_rescheduled(abort_cb)
+
             if item is STOP:
                 break
             await yield_(item)
