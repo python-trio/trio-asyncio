@@ -51,7 +51,7 @@ Matthias Urlichs <matthias@urlichs.de>
 """
 
 install_requires = [
-    "trio",
+    "trio ~= 0.4.0",
     "async_generator >= 1.6",
 ]
 if sys.version_info < (3, 7):

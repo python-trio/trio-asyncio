@@ -1,3 +1,9 @@
+trio-asyncio (0.7.4-1) unstable; urgency=medium
+
+  * Depend on Trio 0.4
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Sat, 14 Apr 2018 12:28:42 +0200
+
 trio-asyncio (0.7.3-1) unstable; urgency=medium
 
   * Use contextvars instead of TaskLocal
