@@ -31,7 +31,13 @@ __all__ = [
     'TrioPolicy',
 ]
 
+# The current environment. None=outside, False=trio, True=asyncio
+current_state = ContextVar('trio_aio_state', default=None)
+
+# The current (innermost, when within Trio code) asyncio loop.
 current_loop = ContextVar('trio_aio_loop', default=None)
+
+# The currently-set loop policy
 current_policy = ContextVar('trio_aio_policy', default=None)
 
 

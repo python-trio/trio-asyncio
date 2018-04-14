@@ -208,9 +208,17 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         This is a Trio coroutine.
         """
+        from .loop import current_state
+
+        if current_state.get() is not False:
+            raise RuntimeError("Must be called from within trio")
         self._check_closed()
+        prev = current_state.set(True)
         coro = asyncio.ensure_future(coro, loop=self)
-        return await run_future(coro)
+        try:
+            return await run_future(coro)
+        finally:
+            current_state.reset(prev)
 
     def wrap_generator(self, gen, *args):
         return run_generator(self, gen(*args))
@@ -241,6 +249,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         This is (essentially) an asyncio coroutine.
         """
+        from .loop import current_state
+
+        if current_state.get() is not True:
+            raise RuntimeError("Must be called from within asyncio")
+
         f = asyncio.Future(loop=self)
         h = Handle(
             self.__run_trio, (
@@ -270,9 +283,13 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     async def __run_trio(self, h):
         """Helper for copying the result of a Trio task to an asyncio future"""
+        from .loop import current_state
+
         f, proc, *args = h._args
         if f.cancelled():  # pragma: no cover
             return
+
+        prev = current_state.set(False)
         try:
             with trio.open_cancel_scope() as scope:
                 h._scope = scope
@@ -286,6 +303,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         else:
             if not f.cancelled():  # pragma: no branch
                 f.set_result(res)
+        finally:
+            current_state.reset(prev)
+            
 
     # Callback handling #
 
@@ -645,6 +665,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._nursery = nursery
         self._task = trio.hazmat.current_task()
         self._token = trio.hazmat.current_trio_token()
+        self._reset = current_state.set(False)
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """Run the loop by processing its event queue.
@@ -717,12 +738,15 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if self._closed:
             return
 
+        from .loop import current_state
+
         self.stop()
         await self.wait_stopped()
 
         # Kill off unprocessed work
         self._cancel_fds()
         self._cancel_timers()
+        current_state.reset(self._reset)
 
         # clean core fields
         self._nursery = None
