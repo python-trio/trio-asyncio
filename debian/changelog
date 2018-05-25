@@ -1,3 +1,9 @@
+trio-asyncio (0.7.4-2) unstable; urgency=medium
+
+  * fix packaging
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Fri, 25 May 2018 03:58:46 +0200
+
 trio-asyncio (0.7.4-1) unstable; urgency=medium
 
   * Depend on Trio 0.4

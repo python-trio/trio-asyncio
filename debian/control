@@ -4,14 +4,14 @@ Section: python
 Priority: optional
 Build-Depends: dh-python, python3-setuptools, python3-all, debhelper (>= 9),
   python3-pytest-trio,
-  python3-trio (>= 0.3.0+dev),
+  python3-trio (>= 0.4.0),
 Standards-Version: 3.9.6
 Homepage: https://github.com/smurfix/trio-asyncio
 
 Package: python3-trio-asyncio
 Architecture: all
 Depends: ${misc:Depends}, ${python3:Depends},
-  python3-trio (>= 0.3.0+dev)
+  python3-trio (>= 0.4.0)
 Description: A re-implementation of the asyncio mainloop on top of Trio
  ``trio-asyncio`` is a re-implementation of the ``asyncio`` mainloop on top of
  Trio.
