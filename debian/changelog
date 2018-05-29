@@ -1,3 +1,9 @@
+trio-asyncio (0.7.4-4) unstable; urgency=medium
+
+  * Merge larger-queue patch (for now)
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Tue, 29 May 2018 13:38:02 +0200
+
 trio-asyncio (0.7.4-3) unstable; urgency=medium
 
   * Don't depend on pytest-trio

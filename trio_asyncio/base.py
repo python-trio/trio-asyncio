@@ -142,7 +142,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def __init__(self, queue_len=None):
         if queue_len is None:
-            queue_len = 1000
+            queue_len = 10000
 
         # Processing queue
         self._q = trio.Queue(queue_len)
