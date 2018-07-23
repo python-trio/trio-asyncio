@@ -53,6 +53,7 @@ Matthias Urlichs <matthias@urlichs.de>
 install_requires = [
     "trio ~= 0.4.0",
     "async_generator >= 1.6",
+    "outcome",
 ]
 if sys.version_info < (3, 7):
     install_requires.append("contextvars >= 2.1")
@@ -74,7 +75,7 @@ setup(
     python_requires=">=3.5",
     keywords=["async", "io", "trio", "asyncio", "trio-asyncio"],
     setup_requires=['pytest-runner'],
-    tests_require=['pytest'],
+    tests_require=['pytest', 'outcome'],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

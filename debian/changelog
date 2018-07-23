@@ -1,3 +1,9 @@
+trio-asyncio (0.7.5-3) unstable; urgency=medium
+
+  * depend on outcome
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Mon, 23 Jul 2018 22:30:18 +0200
+
 trio-asyncio (0.7.5-2) unstable; urgency=medium
 
   * Test and .gitignore fix-ups
