@@ -86,7 +86,7 @@ class TestMisc:
     async def test_run_task(self):
         owch = 0
 
-        def nest(x):
+        async def nest(x):
             nonlocal owch
             owch += x
 
