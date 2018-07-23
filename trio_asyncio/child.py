@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 import weakref
+import outcome
 
 import trio
 
@@ -37,7 +38,8 @@ def _compute_returncode(status):
         raise UnknownStatus(status)
 
 
-NOT_FOUND = trio.hazmat.Error(ChildProcessError())
+def NOT_FOUND():
+    return outcome.Error(ChildProcessError())
 
 
 class ProcessWaiter:
@@ -131,7 +133,7 @@ class ProcessWaiter:
             except ChildProcessError:
                 # The child process may already be reaped
                 # (may happen if waitpid() is called elsewhere).
-                self.__result = NOT_FOUND
+                self.__result = NOT_FOUND()
             else:
                 if pid == 0:
                     # The child process is still alive.
@@ -141,7 +143,7 @@ class ProcessWaiter:
 
         def _handle_exitstatus(self, sts):
             """This overrides an internal API of subprocess.Popen"""
-            self.__result = trio.hazmat.Result.capture(_compute_returncode, sts)
+            self.__result = outcome.capture(_compute_returncode, sts)
 
     @property
     def returncode(self):

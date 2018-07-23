@@ -1,3 +1,9 @@
+trio-asyncio (0.7.5-1) unstable; urgency=medium
+
+  * trio.hazmat.Result is deprecated.
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Mon, 23 Jul 2018 20:54:55 +0200
+
 trio-asyncio (0.7.4-5) unstable; urgency=medium
 
   * Debianization

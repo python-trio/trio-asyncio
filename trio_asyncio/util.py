@@ -4,6 +4,7 @@
 import trio
 import asyncio
 import sys
+import outcome
 from async_generator import async_generator, yield_
 
 __all__ = ['run_future']
@@ -20,7 +21,7 @@ async def run_future(future):
     raise_cancel = None
 
     def done_cb(_):
-        trio.hazmat.reschedule(task, trio.hazmat.Result.capture(future.result))
+        trio.hazmat.reschedule(task, outcome.capture(future.result))
 
     future.add_done_callback(done_cb)
 
@@ -60,14 +61,14 @@ async def run_generator(loop, async_generator):
     async def consume_next():
         try:
             item = await async_generator.__anext__()
-            result = trio.hazmat.Value(value=item)
+            result = outcome.Value(value=item)
         except StopAsyncIteration:
-            result = trio.hazmat.Value(value=STOP)
+            result = outcome.Value(value=STOP)
         except asyncio.CancelledError:
             # Once we are cancelled, we do not call reschedule() anymore
             return
         except Exception as e:
-            result = trio.hazmat.Error(error=e)
+            result = outcome.Error(error=e)
 
         trio.hazmat.reschedule(task, result)
 

@@ -2,6 +2,7 @@ import trio
 import queue
 import asyncio
 import threading
+import outcome
 
 from .base import BaseTrioEventLoop
 from .handles import Handle
@@ -135,7 +136,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         def is_done(_):
             nonlocal result
 
-            result = trio.hazmat.Result.capture(future.result)
+            result = outcome.capture(future.result)
             self.stop()
 
         future.add_done_callback(is_done)
@@ -198,11 +199,11 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                     break
                 async_fn, args = req
 
-                result = await trio.hazmat.Result.acapture(async_fn, *args)
-                if type(result) == trio.hazmat.Error and type(result.error) == trio.Cancelled:
+                result = await outcome.acapture(async_fn, *args)
+                if type(result) == outcome.Error and type(result.error) == trio.Cancelled:
                     res = RuntimeError("Main loop cancelled")
                     res.__cause__ = result.error.__cause__
-                    result = trio.hazmat.Error(res)
+                    result = outcome.Error(res)
                 self.__blocking_result_queue.put(result)
             with trio.open_cancel_scope(shield=True):
                 await self._main_loop_exit()
