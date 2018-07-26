@@ -94,108 +94,49 @@ You cannot restart the loop, nor would you want to.
 Asyncio main loop.
 ++++++++++++++++++
 
-Short answer: don't.
+Doesn't work. However: read on.
 
 .. _native-loop:
 
-Native Mode
------------
-
-What you really want to do is to use a Trio main loop, and run your asyncio
-code in its context. In other words, you should transform this code::
+What you really want to do is to use a Trio main loop. You then run your
+complete asyncio code in its context. In other words, you should transform
+this code::
 
     def main():
         loop = asyncio.get_event_loop()
         loop.run_until_complete(async_main())
+    
+or (Python 3.7 ++)::
+
+    def main():
+        asyncio.run(async_main())
     
 to this::
 
     async def trio_main():
-        await loop.run_asyncio(async_main)
+        await trio_asyncio.run_asyncio(async_main)
 
     def main():
         trio_asyncio.run(trio_main)
 
-Beside this, no changes to your code are required.
+That's all you need to to to support cross-calling from asyncio to trio
+code, or vice versa. You still need to use adapters, though:
+:ref:`see below <cross-calling>` for details.
 
-Compatibility Mode
-------------------
+If your program's start-up code consists of more than one
+``loop.run_until_complete`` or ``loop.run_forever`` calls, and/or it
+accesses the asyncio mainloop outside of these two calls, you may have to
+do some refactoring. Sorry about that.
 
-You still can do things "the asyncio way": the to-be-replaced code from the
-:ref:`previous section <native-loop>`
-still works – or at least it attempts to work::
+Compatibility mode
+++++++++++++++++++
 
-    import asyncio
-    import trio_asyncio
-    asyncio.set_event_loop_policy(trio_asyncio.TrioPolicy())
+… or, running ``trio_asyncio`` on top of an unmodified '`asyncio`` main loop.
 
-    def main():
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(async_main())
-    
-.. warning::
-
-   tl;dr: Don't use Compatibility Mode in production code.
-
-However, this is only possible because this mode starts a separate thread
-which executes the asyncio main
-loop. It runs in lock-step with the code that calls ``loop.run_forever()``
-or ``loop.run_until_complete(coro)``. Signals etc. get
-delegated if possible (except for [SIGCHLD]_). Thus, while there should be no
-concurrency issues, you may still experience hard-to-debug problems.
-
-.. [SIGCHLD] Python requires you to register SIGCHLD handlers in the main
-   thread, but doesn't run them at all when waiting for another thread.
-   
-    Use :func:`trio_asyncio.wait_for_child` instead.
-
-.. autodoc: trio_asyncio.wait_for_child
-
-``loop.stop()`` tells the loop to suspend itself. You can restart it
-with another call to ``loop.run_forever()`` or ``loop.run_until_complete(coro)``,
-just as with a regular asyncio loop.
-
-If you use a compatibility-mode loop in a separate thread, you *must* stop and close it
-before terminating that thread. Otherwise your thread will leak resources.
-
-In a multi-threaded program, globally setting the event loop policy may not
-be a good idea. If you want to run trio-asyncio in a separate thread, you
-might get away with using ``TrioPolicy().new_event_loop()`` to create a new
-event loop – but a far better idea is to use native mode.
-
-.. note::
-
-   Compatibility mode has been added to verify that various test suites,
-   most notably the tests from asyncio itself, continue to work. In a
-   real-world program with a long-running asyncio mainloop, you *really*
-   want to use a :ref:`native-mode main loop <native-loop>` instead.
-
-   The authors reserve the right to not fix compatibility mode bugs, or
-   even to remove compatibility mode entirely.
-
-.. autoclass:: trio_asyncio.sync.SyncTrioEventLoop
-
-Stopping
---------
-
-Call ``loop.stop()`` as usual.
-
-Before stopping, the loop will process all outstanding callbacks.
-
-Closing
--------
-
-A synchronous loop starts a separate thread for running the asynchronous
-part of your code. You **must** call ``loop.close()`` before abandoning the
-loop.
-
-.. note::
-
-   This is not a problem in "normal" programs – when the program
-   terminates, the loop dies along with it. However, when testing you don't
-   want to leave 1000 asyncio threads lying around.
-   
-   This also applies in multi-threaded programs with more than one event loop.
+Unfortunately, we had to discontinue support for this mode. The code was
+too intrusive and not particularly stable, caused problems with debugging,
+and crashed asyncio when trio_asyncio was imported after starting the
+asyncio mainloop.
 
 ---------------
  Cross-calling
