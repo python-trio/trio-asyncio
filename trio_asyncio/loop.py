@@ -27,6 +27,7 @@ __all__ = [
     'run_coroutine',
     'run_asyncio',
     'wrap_generator',
+    'run_iterator',
     'TrioChildWatcher',
     'TrioPolicy',
 ]
@@ -225,6 +226,12 @@ def wrap_generator(proc, *args):
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return loop.wrap_generator(proc, *args)
+
+def run_iterator(aiter):
+    loop = asyncio.get_event_loop()
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    return loop.run_iterator(aiter)
 
 
 async def run_asyncio(proc, *args):
