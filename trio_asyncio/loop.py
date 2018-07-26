@@ -125,12 +125,12 @@ def _new_run_get():
     try:
         task = trio.hazmat.current_task()
     except RuntimeError:
-        loop = None
+        loop = _orig_run_get()
     else:
         loop = task.context.get(current_loop, None)
+        if loop is None:
+            raise RuntimeError("No trio_asyncio loop is active.")
 
-    if loop is None:
-        loop = _orig_run_get()
     return loop
 
 
