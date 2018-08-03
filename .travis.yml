@@ -33,6 +33,8 @@ matrix:
       env: CHECK_DOCS=1
     - python: 3.6
       env: CHECK_FORMATTING=1
+  allow_failures:
+    - python: 3.8-dev
 
 script:
   - ci/travis.sh
