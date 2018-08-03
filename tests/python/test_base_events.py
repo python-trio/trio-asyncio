@@ -100,13 +100,17 @@ class BaseEventTests(test_utils.TestCase):
         # IPv4 address with family IPv6.
         self.assertIsNone(base_events._ipaddr_info('1.2.3.4', 1, INET6, STREAM, TCP))
 
+        if sys.version_info >= (3, 7):
+            RTuple = (0,0)
+        else:
+            RTuple = ()
         self.assertEqual(
-            (INET6, STREAM, TCP, '', ('::3', 1)),
+            (INET6, STREAM, TCP, '', ('::3', 1)+RTuple),
             base_events._ipaddr_info('::3', 1, INET6, STREAM, TCP)
         )
 
         self.assertEqual(
-            (INET6, STREAM, TCP, '', ('::3', 1)),
+            (INET6, STREAM, TCP, '', ('::3', 1)+RTuple),
             base_events._ipaddr_info('::3', 1, UNSPEC, STREAM, TCP)
         )
 
