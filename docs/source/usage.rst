@@ -131,12 +131,19 @@ do some refactoring. Sorry about that.
 Compatibility mode
 ++++++++++++++++++
 
-… or, running ``trio_asyncio`` on top of an unmodified '`asyncio`` main loop.
+… or, running ``trio_asyncio`` on top of an unmodified ``asyncio`` main loop.
 
 Unfortunately, we had to discontinue support for this mode. The code was
 too intrusive and not particularly stable, caused problems with debugging,
-and crashed asyncio when trio_asyncio was imported after starting the
-asyncio mainloop.
+and crashed ``asyncio`` when ``trio_asyncio`` was imported after starting
+the asyncio mainloop.
+
+``trio_asyncio`` still contains the code, as it is required to run
+``asyncio``'s testcases, which pretty much require synchronous mode.
+However, if you want to run this in production you'd neet to jump through
+various hoops which are neither supported nor documented. Sorry.
+
+.. _cross-calling:
 
 ---------------
  Cross-calling
