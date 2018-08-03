@@ -35,6 +35,14 @@ __all__ = [
 current_loop = ContextVar('trio_aio_loop', default=None)
 current_policy = ContextVar('trio_aio_policy', default=None)
 
+_faked_policy = threading.local()
+
+# We can monkey-patch asyncio's get_event_loop_policy but if asyncio is
+# imported before Trio, the asyncio acceleration C code in 3.7+ caches
+# get_event_loop_policy.
+# Thus we always set our policy. After that, our monkeypatched
+# setter stores the policy in a thread-local variable to which our policy
+# will forward all requests when Trio is not running.
 
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
@@ -49,6 +57,10 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
                     DeprecationWarning,
                     stacklevel=2
                 )
+            real_policy = getattr(_faked_policy, 'policy', None)
+            if real_policy is not None:
+                return real_policy.new_event_loop()
+
             from .sync import SyncTrioEventLoop
             loop = SyncTrioEventLoop()
             return loop
@@ -74,6 +86,10 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
             trio.hazmat.current_task()
         except RuntimeError:  # no Trio task is active
             # this creates a new loop in the main task
+            real_policy = getattr(_faked_policy, 'policy', None)
+            if real_policy is not None:
+                return real_policy.get_event_loop()
+
             return super().get_event_loop()
         else:
             return current_loop.get()
@@ -88,11 +104,17 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
 
     def set_event_loop(self, loop):
         """Set the current event loop."""
-        current_loop.set(loop)
+        try:
+            trio.hazmat.current_task()
+        except RuntimeError:  # no Trio task is active
+            # this creates a new loop in the main task
+            real_policy = getattr(_faked_policy, 'policy', None)
+            if real_policy is not None:
+                return real_policy.set_event_loop(loop)
+            return super().set_event_loop(loop)
+        else:
+            current_loop.set(loop)
 
-
-# We need to monkey-patch asyncio's policy+loop getters to return our
-# TrioPolicy and the current loop whenever we are within Trio.
 
 from asyncio import events as _aio_event
 
@@ -100,8 +122,33 @@ from asyncio import events as _aio_event
 
 _orig_policy_get = _aio_event.get_event_loop_policy
 
-
 def _new_policy_get():
+    try:
+        task = trio.hazmat.current_task()
+    except RuntimeError:
+        policy = getattr(_faked_policy, "policy", None)
+        if policy is None:
+            policy = _original_policy
+    else:
+        policy = task.context.get(current_policy, None)
+        if policy is None:
+            policy = _new_policy
+    return policy
+
+
+_aio_event.get_event_loop_policy = _new_policy_get
+asyncio.get_event_loop_policy = _new_policy_get
+
+#####
+
+_orig_policy_set = _aio_event.set_event_loop_policy
+
+def _new_policy_set(new_policy):
+    if isinstance(new_policy, TrioPolicy):
+        raise RuntimeError("You can't set the Trio loop policy manually")
+    assert isinstance(new_policy, asyncio.AbstractEventLoopPolicy)
+    _faked_policy.policy = new_policy
+
     try:
         task = trio.hazmat.current_task()
     except RuntimeError:
@@ -113,8 +160,9 @@ def _new_policy_get():
     return policy
 
 
-_aio_event.get_event_loop_policy = _new_policy_get
-asyncio.get_event_loop_policy = _new_policy_get
+_aio_event.set_event_loop_policy = _new_policy_set
+asyncio.set_event_loop_policy = _new_policy_set
+
 
 #####
 
@@ -179,6 +227,9 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
                 watcher.attach_loop(loop)
         super().set_child_watcher(watcher)
 
+_original_policy = _orig_policy_get()
+_new_policy = TrioPolicy()
+_orig_policy_set(_new_policy)
 
 class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' else object):
     # AbstractChildWatcher not available under Windows
