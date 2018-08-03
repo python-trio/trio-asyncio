@@ -2,12 +2,23 @@ language: python
 python:
   - 3.6
   - 3.6-dev
-  - 3.7-dev
 sudo: false
 dist: trusty
 
 matrix:
   include:
+    # As of 2018-07-05, Travis's 3.7 and 3.8 builds only work if you
+    # use dist: xenial AND sudo: required
+    # See: https://github.com/python-trio/trio/pull/556#issuecomment-402879391
+    - python: 3.7
+      dist: xenial
+      sudo: required
+    - python: 3.7-dev
+      dist: xenial
+      sudo: required
+    - python: 3.8-dev
+      dist: xenial
+      sudo: required
     # - os: linux
     #   language: generic
     #   env: USE_PYPY_RELEASE_VERSION=5.9-beta
@@ -18,13 +29,9 @@ matrix:
     - os: osx
       language: generic
       env: MACPYTHON=3.6.3
-    - os: linux
-      language: python
-      python: 3.6
+    - python: 3.6
       env: CHECK_DOCS=1
-    - os: linux
-      language: python
-      python: 3.6
+    - python: 3.6
       env: CHECK_FORMATTING=1
 
 script:
