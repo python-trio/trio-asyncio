@@ -3,6 +3,7 @@ import sys
 import unittest
 import warnings
 from unittest import mock
+import pytest
 
 import asyncio
 from asyncio import base_subprocess
@@ -192,6 +193,7 @@ class SubprocessMixin:
         proc = self.loop.run_until_complete(create)
         return (proc, large_data)
 
+    @pytest.mark.xfail(msg="XXX doesn't always trigger")
     def test_stdin_broken_pipe(self):
         proc, large_data = self.prepare_broken_pipe_test()
 
