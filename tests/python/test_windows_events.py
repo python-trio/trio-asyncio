@@ -13,7 +13,7 @@ try:
     import _overlapped
 except ImportError: # py<3.7
     from asyncio import _overlapped
-from asyncio import test_utils
+from .. import utils as test_utils
 from asyncio import windows_events
 
 
