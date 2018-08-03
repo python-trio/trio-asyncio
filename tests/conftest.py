@@ -7,6 +7,7 @@
 import pytest
 import asyncio
 import trio_asyncio
+import trio_asyncio.loop as loop_
 import inspect
 
 # Hacks for <3.7
@@ -58,29 +59,8 @@ async def loop():
             await loop.stop().wait()
 
 
-@pytest.fixture
-def sync_loop():
-    loop = asyncio.new_event_loop()
-    with loop:
-        yield loop
-
-
 # auto-trio-ize all async functions
 @pytest.hookimpl(tryfirst=True)
 def pytest_pyfunc_call(pyfuncitem):
     if inspect.iscoroutinefunction(pyfuncitem.obj):
         pyfuncitem.obj = pytest.mark.trio(pyfuncitem.obj)
-
-
-_old_policy = asyncio.get_event_loop_policy()
-_new_policy = trio_asyncio.TrioPolicy()
-asyncio.set_event_loop_policy(_new_policy)
-
-
-@pytest.fixture
-def old_policy():
-    asyncio.set_event_loop_policy(_old_policy)
-    try:
-        yield _old_policy
-    finally:
-        asyncio.set_event_loop_policy(_new_policy)

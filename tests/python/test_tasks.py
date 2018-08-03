@@ -1829,8 +1829,9 @@ class BaseTaskTests:
         # See http://bugs.python.org/issue29271 for details:
         asyncio.set_event_loop(self.loop)
         try:
-            self.assertEqual(asyncio.all_tasks(), {task})
-            self.assertEqual(asyncio.all_tasks(None), {task})
+            self.assertEqual(asyncio.all_tasks(self.loop), {task})
+            # self.assertEqual(asyncio.all_tasks(None), {task})
+            # with 3.7 all_tasks uses get_running_loop, which isn't
         finally:
             asyncio.set_event_loop(None)
 

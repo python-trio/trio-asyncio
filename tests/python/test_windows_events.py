@@ -1,5 +1,6 @@
 import os
 import sys
+import socket
 import unittest
 from unittest import mock
 
@@ -9,8 +10,11 @@ if sys.platform != 'win32':
 import _winapi
 
 import asyncio
-from asyncio import _overlapped
-from asyncio import test_utils
+try:
+    import _overlapped
+except ImportError: # py<3.7
+    from asyncio import _overlapped
+from .. import utils as test_utils
 from asyncio import windows_events
 
 
@@ -35,9 +39,9 @@ class ProactorTests(test_utils.TestCase):
         self.set_event_loop(self.loop)
 
     def test_close(self):
-        a, b = self.loop._socketpair()
+        a, b = socket.socketpair()
         trans = self.loop._make_socket_transport(a, asyncio.Protocol())
-        f = asyncio.ensure_future(self.loop.sock_recv(b, 100))
+        f = asyncio.ensure_future(self.loop.sock_recv(b, 100), loop=self.loop)
         trans.close()
         self.loop.run_until_complete(f)
         self.assertEqual(f.result(), b'')
@@ -54,6 +58,7 @@ class ProactorTests(test_utils.TestCase):
         res = self.loop.run_until_complete(self._test_pipe())
         self.assertEqual(res, 'done')
 
+    @asyncio.coroutine
     def _test_pipe(self):
         ADDRESS = r'\\.\pipe\_test_pipe-%s' % os.getpid()
 

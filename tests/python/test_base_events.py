@@ -100,15 +100,18 @@ class BaseEventTests(test_utils.TestCase):
         # IPv4 address with family IPv6.
         self.assertIsNone(base_events._ipaddr_info('1.2.3.4', 1, INET6, STREAM, TCP))
 
-        self.assertEqual(
-            (INET6, STREAM, TCP, '', ('::3', 1)),
-            base_events._ipaddr_info('::3', 1, INET6, STREAM, TCP)
-        )
+        def chk(inf):
+            assert inf[0] == INET6
+            assert inf[1] == STREAM
+            assert inf[2] == TCP
+            assert inf[3] == ''
+            assert inf[4][0] == '::3'
+            assert inf[4][1] == 1
+            assert len(inf) == 5
+            assert len(inf[4]) in (2, 4)
 
-        self.assertEqual(
-            (INET6, STREAM, TCP, '', ('::3', 1)),
-            base_events._ipaddr_info('::3', 1, UNSPEC, STREAM, TCP)
-        )
+        chk(base_events._ipaddr_info('::3', 1, INET6, STREAM, TCP))
+        chk(base_events._ipaddr_info('::3', 1, UNSPEC, STREAM, TCP))
 
         # IPv6 address with family IPv4.
         self.assertIsNone(base_events._ipaddr_info('::3', 1, INET, STREAM, TCP))

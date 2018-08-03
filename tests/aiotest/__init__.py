@@ -4,10 +4,7 @@ import threading
 import time
 
 import asyncio as _asyncio
-if sys.platform == 'win32':
-    from asyncio.windows_utils import socketpair
-else:
-    socketpair = socket.socketpair
+socketpair = socket.socketpair
 
 
 class TestConfig:

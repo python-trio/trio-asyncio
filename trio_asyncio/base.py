@@ -215,6 +215,23 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def wrap_generator(self, gen, *args):
         return run_generator(self, gen(*args))
 
+    def run_iterator(self, aiter):
+        """Call an asyncio iterator from Trio.
+
+        Example Usage::
+            async def slow_nums():
+                n = 0
+                while True:
+                    asyncio.sleep(1)
+                    yield n
+                    n += 1
+
+            async def trio_code(loop):
+                async for n in loop.run_iterator(slow_nums()):
+                    print(n)
+        """
+        return run_generator(self, aiter)
+
     async def run_asyncio(self, proc, *args):
         """Run an asyncio function or method from Trio.
 

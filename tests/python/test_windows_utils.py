@@ -11,7 +11,10 @@ if sys.platform != 'win32':
 
 import _winapi
 
-from asyncio import _overlapped
+try:
+    import _overlapped
+except ImportError: # py<3.7
+    from asyncio import _overlapped
 from asyncio import windows_utils
 try:
     from test import support
@@ -27,40 +30,18 @@ class WinsocketpairTests(unittest.TestCase):
         ssock.close()
 
     def test_winsocketpair(self):
-        ssock, csock = windows_utils.socketpair()
+        ssock, csock = socket.socketpair()
         self.check_winsocketpair(ssock, csock)
 
     @unittest.skipUnless(support.IPV6_ENABLED, 'IPv6 not supported or enabled')
     def test_winsocketpair_ipv6(self):
-        ssock, csock = windows_utils.socketpair(family=socket.AF_INET6)
+        ssock, csock = socket.socketpair(family=socket.AF_INET6)
         self.check_winsocketpair(ssock, csock)
 
-    @unittest.skipIf(hasattr(socket, 'socketpair'), 'socket.socketpair is available')
-    @mock.patch('asyncio.windows_utils.socket')
-    def test_winsocketpair_exc(self, m_socket):
-        m_socket.AF_INET = socket.AF_INET
-        m_socket.SOCK_STREAM = socket.SOCK_STREAM
-        m_socket.socket.return_value.getsockname.return_value = ('', 12345)
-        m_socket.socket.return_value.accept.return_value = object(), object()
-        m_socket.socket.return_value.connect.side_effect = OSError()
-
-        self.assertRaises(OSError, windows_utils.socketpair)
-
     def test_winsocketpair_invalid_args(self):
-        self.assertRaises(ValueError, windows_utils.socketpair, family=socket.AF_UNSPEC)
-        self.assertRaises(ValueError, windows_utils.socketpair, type=socket.SOCK_DGRAM)
-        self.assertRaises(ValueError, windows_utils.socketpair, proto=1)
-
-    @unittest.skipIf(hasattr(socket, 'socketpair'), 'socket.socketpair is available')
-    @mock.patch('asyncio.windows_utils.socket')
-    def test_winsocketpair_close(self, m_socket):
-        m_socket.AF_INET = socket.AF_INET
-        m_socket.SOCK_STREAM = socket.SOCK_STREAM
-        sock = mock.Mock()
-        m_socket.socket.return_value = sock
-        sock.bind.side_effect = OSError
-        self.assertRaises(OSError, windows_utils.socketpair)
-        self.assertTrue(sock.close.called)
+        self.assertRaises(ValueError, socket.socketpair, family=socket.AF_UNSPEC)
+        self.assertRaises(ValueError, socket.socketpair, type=socket.SOCK_DGRAM)
+        self.assertRaises(ValueError, socket.socketpair, proto=1)
 
 
 class PipeTests(unittest.TestCase):

@@ -35,31 +35,6 @@ class TestCallback(aiotest.TestCase):
         # event loop, when func() is done.
         assert result == ['[]', 'yes']
 
-    def test_soon_stop_soon(self, sync_loop):
-        result = []
-
-        def hello():
-            result.append("Hello")
-
-        def world():
-            result.append("World")
-            sync_loop.stop()
-
-        sync_loop.call_soon(hello)
-        sync_loop.stop()
-        sync_loop.call_soon(world)
-
-        sync_loop.run_forever()
-        if False:  # config.stopping:
-            assert result == ["Hello", "World"]
-        else:
-            # ensure that world() is not called, since stop() was scheduled
-            # before call_soon(world)
-            assert result == ["Hello"]
-
-            sync_loop.run_forever()
-            assert result == ["Hello", "World"]
-
     @pytest.mark.trio
     async def test_close(self, loop, config):
         if not config.call_soon_check_closed:

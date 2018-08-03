@@ -17,20 +17,20 @@ With trio-asyncio, you can:
 
 * incrementally convert your code to Trio. Start with a Trio mainloop, call
   your existing asyncio code, then successively convert procedures to Trio
-  conventions.
+  calling conventions.
 
 * use any asyncio-capable library.
 
 * use trio-asyncio as a building block for convincing other async-ish
   libraries (Twisted, Promise, …) to be compatible with Trio.
 
-Trio-Asyncio passes the complete Python 3.6 test suite for asyncio. The
-test suites for some well-known libraries like aiohttp also Just Work.
+Trio-Asyncio passes the test suite of some complex programs like
+``home-assistant``.
 
-There's also compatibility code for not running the asyncio loop
-continuously, as in repeated run_until_complete / run_forever-and-call-stop
-calls. This mode will probably not be supported forever, but for now it works
-well.
+In the past, the complete Python 3.6 test suite for asyncio and the tests
+for some well-known libraries like aiohttp also Just Work(ed). This is no
+longer the case because these tests rely heavily on stopping and restarting
+the ``asyncio`` event loop. ``trio_asyncio`` no longer supports this.
 
 Helpful facts:
 
