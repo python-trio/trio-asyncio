@@ -11,8 +11,6 @@ trio-asyncio: A re-implementation of the asyncio mainloop on top of Trio
 Trio-Asyncio is *the* library of choice for a Python program that 
 contains both `trio`_ and `asyncio`_ code.
 
-.. _trio: https://trio.readtedocs.io
-
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
 
 With trio-asyncio, you can:
