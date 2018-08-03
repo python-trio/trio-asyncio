@@ -58,7 +58,7 @@ async def _test_same_task():
             assert isinstance(policy, trio_asyncio.TrioPolicy)
             async with trio_asyncio.open_loop() as loop2:
                 p2 = asyncio.get_event_loop_policy()
-                assert policy is p2, (policy,p2)
+                assert policy is p2, (policy, p2)
                 loop1.call_later(0.1, get_loop, 0, loop1, policy)
                 loop2.call_later(0.1, get_loop, 1, loop2, policy)
                 await trio.sleep(0.2)
@@ -66,7 +66,7 @@ async def _test_same_task():
     assert isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
     assert asyncio._get_running_loop() is None
 
+
 def test_same_task():
     assert not isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
     trio.run(_test_same_task)
-

@@ -2394,7 +2394,10 @@ class HandleTests(test_utils.TestCase):
         # Some coroutines might not have '__name__', such as
         # built-in async_gen.asend().
 
-        self.assertEqual(coroutines._format_coroutine(coro), 'Coro()' if sys.version_info < (3, 7) else '<Coro without __name__>()')
+        self.assertEqual(
+            coroutines._format_coroutine(coro), 'Coro()'
+            if sys.version_info < (3, 7) else '<Coro without __name__>()'
+        )
 
 
 class TimerTests(unittest.TestCase):

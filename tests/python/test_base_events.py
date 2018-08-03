@@ -108,7 +108,7 @@ class BaseEventTests(test_utils.TestCase):
             assert inf[4][0] == '::3'
             assert inf[4][1] == 1
             assert len(inf) == 5
-            assert len(inf[4]) in (2,4)
+            assert len(inf[4]) in (2, 4)
 
         chk(base_events._ipaddr_info('::3', 1, INET6, STREAM, TCP))
         chk(base_events._ipaddr_info('::3', 1, UNSPEC, STREAM, TCP))

@@ -64,4 +64,3 @@ async def loop():
 def pytest_pyfunc_call(pyfuncitem):
     if inspect.iscoroutinefunction(pyfuncitem.obj):
         pyfuncitem.obj = pytest.mark.trio(pyfuncitem.obj)
-

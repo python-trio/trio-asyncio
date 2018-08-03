@@ -44,6 +44,7 @@ _faked_policy = threading.local()
 # setter stores the policy in a thread-local variable to which our policy
 # will forward all requests when Trio is not running.
 
+
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     _loop_factory = TrioEventLoop
 
@@ -122,6 +123,7 @@ from asyncio import events as _aio_event
 
 _orig_policy_get = _aio_event.get_event_loop_policy
 
+
 def _new_policy_get():
     try:
         task = trio.hazmat.current_task()
@@ -143,6 +145,7 @@ asyncio.get_event_loop_policy = _new_policy_get
 
 _orig_policy_set = _aio_event.set_event_loop_policy
 
+
 def _new_policy_set(new_policy):
     if isinstance(new_policy, TrioPolicy):
         raise RuntimeError("You can't set the Trio loop policy manually")
@@ -162,7 +165,6 @@ def _new_policy_set(new_policy):
 
 _aio_event.set_event_loop_policy = _new_policy_set
 asyncio.set_event_loop_policy = _new_policy_set
-
 
 #####
 
@@ -227,9 +229,11 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
                 watcher.attach_loop(loop)
         super().set_child_watcher(watcher)
 
+
 _original_policy = _orig_policy_get()
 _new_policy = TrioPolicy()
 _orig_policy_set(_new_policy)
+
 
 class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' else object):
     # AbstractChildWatcher not available under Windows
@@ -277,6 +281,7 @@ def wrap_generator(proc, *args):
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return loop.wrap_generator(proc, *args)
+
 
 def run_iterator(aiter):
     loop = asyncio.get_event_loop()

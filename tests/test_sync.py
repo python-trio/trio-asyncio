@@ -16,4 +16,3 @@ class TestSync:
         res = loop.run_until_complete(bar())
         assert res == "baz"
         loop.close()
-
