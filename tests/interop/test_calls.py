@@ -15,6 +15,33 @@ async def async_gen_to_list(generator):
         result.append(item)
     return result
 
+class TrioContext:
+    def __init__(self, parent):
+        self.parent = parent
+    async def __aenter__(self):
+        assert self.parent.did_it == 0
+        self.parent.did_it = 1
+        await trio.sleep(0.01)
+        self.parent.did_it = 2
+        return self
+    async def __aexit__(self, *tb):
+        assert self.parent.did_it == 3
+        self.parent.did_it = 4
+
+class AioContext:
+    def __init__(self, parent, loop):
+        self.parent = parent
+        self.loop = loop
+    async def __aenter__(self):
+        assert self.parent.did_it == 0
+        self.parent.did_it = 1
+        await asyncio.sleep(0.01, loop=self.loop)
+        self.parent.did_it = 2
+        return self
+    async def __aexit__(self, *tb):
+        assert self.parent.did_it == 3
+        self.parent.did_it = 4
+
 
 class TestCalls(aiotest.TestCase):
     async def call_t_a(self, proc, *args, loop=None):
@@ -52,6 +79,24 @@ class TestCalls(aiotest.TestCase):
         res = await loop.run_asyncio(partial(self.call_a_t, loop=loop), dly_trio, seen)
         assert res == 8
         assert seen.flag == 2
+
+    @pytest.mark.trio
+    async def test_call_asyncio_ctx(self, loop):
+        self.did_it = 0
+        async with loop.wrap_asyncio_context(AioContext(self, loop)) as ctx:
+            assert self.did_it == 2
+            self.did_it = 3
+        assert self.did_it == 4
+
+    @pytest.mark.trio
+    async def test_call_trio_ctx(self, loop):
+        async def _call_trio_ctx():
+            self.did_it = 0
+            async with loop.wrap_trio_context(TrioContext(self)) as ctx:
+                assert self.did_it == 2
+                self.did_it = 3
+            assert self.did_it == 4
+        await loop.run_asyncio(_call_trio_ctx)
 
     @pytest.mark.trio
     async def test_asyncio_trio_sync(self, loop):

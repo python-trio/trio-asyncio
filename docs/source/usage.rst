@@ -189,6 +189,20 @@ If you want to start a task that shall be monitored by trio (i.e. an
 uncaught error will propagate and terminate the loop), use
 ``run_trio_task()`` instead.
 
+.. autodoc: trio_asyncio.adapter.aio2trio_task
+
+If you need to call a Trio-style async context manager from asyncio, use
+``loop.wrap_trio_context()``::
+
+    async with loop.wrap_trio_context(context()) as ctx:
+        await loop.run_trio(ctx.do_whatever)
+
+As you can see from this example, the context that's returned is a "native"
+Trio context, so you still need to use ``run_trio()`` if you call its
+methods.
+
+.. autodoc: trio_asyncio.wrap_trio_context
+
 Calling asyncio from Trio
 +++++++++++++++++++++++++
 
@@ -245,6 +259,18 @@ If you already have a future, you can wait for it directly.
 
 :func:`trio_asyncio.run_future` does not require a running trio-asyncio
 main loop.
+
+If you need to call a Trio-style async context manager from asyncio, use
+``loop.wrap_asyncio_context()``::
+
+    async with loop.wrap_asyncio_context(generate_context()) as ctx:
+        await loop.run_asyncio(ctx.do_whatever)
+
+As you can see from this example, the context that's returned is a "native"
+asyncio context, so you still need to use ``run_asyncio()`` if you call its
+methods.
+
+.. autodoc: trio_asyncio.wrap_asyncio_context
 
 Multiple asyncio loops
 ++++++++++++++++++++++

@@ -277,6 +277,8 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' e
 
 
 def wrap_generator(proc, *args):
+    """Run an asyncio generator from Trio.
+    """
     loop = asyncio.get_event_loop()
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
@@ -284,10 +286,30 @@ def wrap_generator(proc, *args):
 
 
 def run_iterator(aiter):
+    """Run an asyncio iterator from Trio.
+    """
     loop = asyncio.get_event_loop()
     if not isinstance(loop, TrioEventLoop):
         raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
     return loop.run_iterator(aiter)
+
+
+def wrap_asyncio_context(ctx):
+    """Run an asyncio context manager from Trio.
+    """
+    loop = asyncio.get_event_loop()
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    return loop.wrap_asyncio_context(ctx)
+
+
+def wrap_trio_context(ctx):
+    """Run a Trio context manager from asyncio.
+    """
+    loop = asyncio.get_event_loop()
+    if not isinstance(loop, TrioEventLoop):
+        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    return loop.wrap_trio_context(ctx)
 
 
 async def run_asyncio(proc, *args):

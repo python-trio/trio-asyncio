@@ -6,6 +6,7 @@ import heapq
 import signal
 import asyncio
 import warnings
+from async_generator import asynccontextmanager
 
 from .handles import Handle, TimerHandle
 
@@ -231,6 +232,32 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     print(n)
         """
         return run_generator(self, aiter)
+
+    @asynccontextmanager
+    async def wrap_asyncio_context(self, ctx):
+        """Run an asyncio context manager from Trio.
+        """
+        res = await self.run_asyncio(ctx.__aenter__)
+        try:
+            yield res
+        except BaseException as exc:
+            if not await self.run_asyncio(ctx.__aexit__, type(exc), exc, exc.__traceback__):
+                raise
+        else:
+            await self.run_asyncio(ctx.__aexit__, None, None, None)
+
+    @asynccontextmanager
+    async def wrap_trio_context(self, ctx):
+        """Run a Trio context manager from asyncio.
+        """
+        res = await self.run_trio(ctx.__aenter__)
+        try:
+            yield res
+        except BaseException as exc:
+            if not await self.run_trio(ctx.__aexit__, type(exc), exc, exc.__traceback__):
+                raise
+        else:
+            await self.run_trio(ctx.__aexit__, None, None, None)
 
     async def run_asyncio(self, proc, *args):
         """Run an asyncio function or method from Trio.
