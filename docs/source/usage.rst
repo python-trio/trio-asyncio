@@ -204,7 +204,7 @@ conforms to Trio's standard task semantics.
         await asyncio.sleep(1)
         return foo*20
     
-    res = await trio_asyncio.run_asyncio(some_trio_code, 21)
+    res = await trio_asyncio.run_asyncio(some_asyncio_code, 21)
     assert res == 420
 
 .. autodoc: trio_asyncio.run_asyncio
