@@ -294,15 +294,6 @@ def run_iterator(aiter):
     return loop.run_iterator(aiter)
 
 
-def wrap_asyncio_context(ctx):
-    """Run an asyncio context manager from Trio.
-    """
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
-    return loop.wrap_asyncio_context(ctx)
-
-
 def wrap_trio_context(ctx):
     """Run a Trio context manager from asyncio.
     """

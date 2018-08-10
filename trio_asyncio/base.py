@@ -234,19 +234,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         return run_generator(self, aiter)
 
     @asynccontextmanager
-    async def wrap_asyncio_context(self, ctx):
-        """Run an asyncio context manager from Trio.
-        """
-        res = await self.run_asyncio(ctx.__aenter__)
-        try:
-            yield res
-        except BaseException as exc:
-            if not await self.run_asyncio(ctx.__aexit__, type(exc), exc, exc.__traceback__):
-                raise
-        else:
-            await self.run_asyncio(ctx.__aexit__, None, None, None)
-
-    @asynccontextmanager
     async def wrap_trio_context(self, ctx):
         """Run a Trio context manager from asyncio.
         """
@@ -259,16 +246,29 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         else:
             await self.run_trio(ctx.__aexit__, None, None, None)
 
-    async def run_asyncio(self, proc, *args):
+    def run_asyncio(self, proc, *args):
         """Run an asyncio function or method from Trio.
 
         :return: whatever the procedure returns.
         :raises: whatever the procedure raises.
 
-        This is a Trio coroutine.
+        This is (essentially) a Trio coroutine.
         """
-        f = proc(*args)
-        return await self.run_coroutine(f)
+        class t2aWrapper:
+            def __init__(slf, proc, args):
+                slf.proc = proc
+                slf.args = args
+            def __await__(slf):
+                f = slf.proc(*slf.args)
+                return self.run_coroutine(f).__await__()
+            def __aenter__(slf):
+                f = slf.proc.__aenter__()
+                return self.run_coroutine(f)
+            def __aexit__(slf, *tb):
+                f = slf.proc.__aexit__(*tb)
+                return self.run_coroutine(f)
+
+        return t2aWrapper(proc, args)
 
     def run_trio(self, proc, *args):
         """Run an asynchronous Trio function from asyncio.

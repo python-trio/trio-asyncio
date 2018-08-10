@@ -260,17 +260,15 @@ If you already have a future, you can wait for it directly.
 :func:`trio_asyncio.run_future` does not require a running trio-asyncio
 main loop.
 
-If you need to call a Trio-style async context manager from asyncio, use
-``loop.wrap_asyncio_context()``::
+If you need to call a Trio-style async context manager from asyncio,
+``loop.run_asyncio()`` works::
 
-    async with loop.wrap_asyncio_context(generate_context()) as ctx:
+    async with loop.run_asyncio(generate_context()) as ctx:
         await loop.run_asyncio(ctx.do_whatever)
 
 As you can see from this example, the context that's returned is a "native"
 asyncio context, so you still need to use ``run_asyncio()`` if you call its
 methods.
-
-.. autodoc: trio_asyncio.wrap_asyncio_context
 
 Multiple asyncio loops
 ++++++++++++++++++++++

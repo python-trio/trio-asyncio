@@ -83,7 +83,7 @@ class TestCalls(aiotest.TestCase):
     @pytest.mark.trio
     async def test_call_asyncio_ctx(self, loop):
         self.did_it = 0
-        async with loop.wrap_asyncio_context(AioContext(self, loop)) as ctx:
+        async with loop.run_asyncio(AioContext(self, loop)) as ctx:
             assert self.did_it == 2
             self.did_it = 3
         assert self.did_it == 4
