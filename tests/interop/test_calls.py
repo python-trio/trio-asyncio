@@ -324,3 +324,16 @@ class TestCalls(aiotest.TestCase):
             nursery.start_soon(cancel_soon, nursery)
         assert nursery.cancel_scope.cancel_called
         assert seen.flag == 1
+
+    @pytest.mark.trio
+    async def test_trio_asyncio_iterator(self, loop):
+        async def slow_nums():
+            for n in range(1,6):
+                asyncio.sleep(0.01, loop=loop)
+                yield n
+
+        sum=0
+        async for n in loop.run_asyncio(slow_nums()):
+            sum += n
+        assert sum == 15
+

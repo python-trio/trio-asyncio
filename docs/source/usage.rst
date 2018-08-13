@@ -149,60 +149,6 @@ various hoops which are neither supported nor documented. Sorry.
  Cross-calling
 ---------------
 
-Calling Trio from asyncio
-+++++++++++++++++++++++++
-
-Pass the function and any arguments to ``loop.run_trio()``. This method
-returns a standard asyncio Future which you can await, add callbacks to,
-or whatever.
-
-::
-
-    async def some_trio_code(foo):
-        await trio.sleep(1)
-        return foo*2
-    
-    future = loop.run_trio(some_trio_code, 21)
-    res = await future
-    assert res == 42
-
-You can also use the ``aio2trio`` decorator::
-
-    @aio2trio
-    async def some_trio_code(self, foo):
-        await trio.sleep(1)
-        return foo+33
-
-    res = await some_trio_code(9)
-    assert res == 42
-
-.. autodoc: trio_asyncio.adapter.aio2trio
-
-.. autodoc: trio_asyncio.adapter.aio2trio_task
-
-It is OK to call ``run_trio()``, or a decorated function or method, from a
-synchronous context (e.g. a callback hook). However, you're responsible for
-catching any errors – either await() the future, or use
-``.add_done_callback()``.
-
-If you want to start a task that shall be monitored by trio (i.e. an
-uncaught error will propagate and terminate the loop), use
-``run_trio_task()`` instead.
-
-.. autodoc: trio_asyncio.adapter.aio2trio_task
-
-If you need to call a Trio-style async context manager from asyncio, use
-``loop.wrap_trio_context()``::
-
-    async with loop.wrap_trio_context(context()) as ctx:
-        await loop.run_trio(ctx.do_whatever)
-
-As you can see from this example, the context that's returned is a "native"
-Trio context, so you still need to use ``run_trio()`` if you call its
-methods.
-
-.. autodoc: trio_asyncio.wrap_trio_context
-
 Calling asyncio from Trio
 +++++++++++++++++++++++++
 
@@ -269,6 +215,76 @@ If you need to call a Trio-style async context manager from asyncio,
 As you can see from this example, the context that's returned is a "native"
 asyncio context, so you still need to use ``run_asyncio()`` if you call its
 methods.
+
+Wrapping an async iterator also works::
+
+    async def slow_nums():
+        n = 0
+        while True:
+            asyncio.sleep(1)
+            yield n
+            n += 1
+
+    async def trio_code(loop):
+        async for n in loop.run_asyncio(slow_nums()):
+            print(n)
+
+    trio_asyncio.run(trio_code)
+
+Calling Trio from asyncio
++++++++++++++++++++++++++
+
+For basic async calls, pass the function and any arguments to
+``loop.run_trio()``. This method returns a standard asyncio Future which
+you can await, add callbacks to, or whatever.
+
+::
+
+    async def some_trio_code(foo):
+        await trio.sleep(1)
+        return foo*2
+    
+    future = loop.run_trio(some_trio_code, 21)
+    res = await future
+    assert res == 42
+
+You can also use the ``aio2trio`` decorator::
+
+    @aio2trio
+    async def some_trio_code(self, foo):
+        await trio.sleep(1)
+        return foo+33
+
+    res = await some_trio_code(9)
+    assert res == 42
+
+.. autodoc: trio_asyncio.adapter.aio2trio
+
+.. autodoc: trio_asyncio.adapter.aio2trio_task
+
+It is OK to call ``run_trio()``, or a decorated function or method, from a
+synchronous context (e.g. a callback hook). However, you're responsible for
+catching any errors – either await() the future, or use
+``.add_done_callback()``.
+
+If you want to start a task that shall be monitored by trio (i.e. an
+uncaught error will propagate and terminate the loop), use
+``run_trio_task()`` instead.
+
+.. autodoc: trio_asyncio.adapter.aio2trio_task
+
+If you need to call a Trio-style async context manager from asyncio, use
+``loop.wrap_trio_context()``::
+
+    async with loop.wrap_trio_context(context()) as ctx:
+        await loop.run_trio(ctx.do_whatever)
+
+As you can see from this example, the context that's returned is a "native"
+Trio context, so you still need to use ``run_trio()`` if you call its
+methods.
+
+.. autodoc: trio_asyncio.wrap_trio_context
+
 
 Multiple asyncio loops
 ++++++++++++++++++++++
