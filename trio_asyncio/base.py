@@ -6,6 +6,7 @@ import heapq
 import signal
 import asyncio
 import warnings
+from contextvars import ContextVar
 from async_generator import asynccontextmanager
 
 from .handles import Handle, TimerHandle
@@ -25,6 +26,8 @@ logger = logging.getLogger(__name__)
 __all__ = ['BaseTrioEventLoop', 'TrioExecutor']
 
 _mswindows = (sys.platform == "win32")
+
+_shim_running = ContextVar("shim_running", default=False)
 
 try:
     _wait_readable = trio.hazmat.wait_readable

@@ -233,6 +233,8 @@ class TestCalls(aiotest.TestCase):
                 await asyncio.sleep(9999, loop=loop)
             except asyncio.CancelledError:
                 seen.flag |= 1
+            except trio.Cancelled:
+                seen.flag |= 16
             else:
                 seen.flag |= 4
             finally:

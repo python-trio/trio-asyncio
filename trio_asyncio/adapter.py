@@ -1,15 +1,18 @@
 # This code implements a clone of the asyncio mainloop which hooks into
 # Trio.
 
+import types
 from async_generator import isasyncgenfunction
+import asyncio
 import trio_asyncio
+from contextvars import copy_context
 
 # import logging
 # logger = logging.getLogger(__name__)
 
 from functools import wraps, partial
 
-__all__ = ['trio2aio', 'aio2trio']
+__all__ = ['trio2aio', 'aio2trio', 'allow_asyncio']
 
 
 def trio2aio(proc):
@@ -56,3 +59,44 @@ def aio2trio_task(proc):
         trio_asyncio.run_trio_task(proc_, *args)
 
     return call
+
+
+@types.coroutine
+def _allow_asyncio(fn, *args):
+    """
+    ;)
+    """
+    shim = trio_asyncio.base._shim_running
+    shim.set(True)
+
+    coro = fn(*args)
+    # start the coroutine
+    if isinstance(coro, asyncio.Future):
+        return (yield from trio_asyncio.run_future(coro))
+
+    p,a = coro.send,None
+    while True:
+        try:
+            yielded = p(a)
+        except StopIteration as e:
+            return e.value
+        try:
+            if isinstance(yielded, asyncio.Future):
+                next_send = yield from trio_asyncio.run_future(yielded)
+            else:
+                next_send = yield yielded
+        except BaseException as exc:
+            p,a = coro.throw,exc
+        else:
+            p,a = coro.send,next_send
+
+async def allow_asyncio(fn, *args):
+    shim = trio_asyncio.base._shim_running
+    if shim.get(): # nested call: skip
+        return await fn(*args)
+    token = shim.set(True)
+    try:
+        return await _allow_asyncio(fn, *args)
+    finally:
+        shim.reset(token)
+
