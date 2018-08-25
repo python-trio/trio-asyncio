@@ -12,7 +12,7 @@ import _winapi
 import asyncio
 try:
     import _overlapped
-except ImportError: # py<3.7
+except ImportError:  # py<3.7
     from asyncio import _overlapped
 from .. import utils as test_utils
 from asyncio import windows_events

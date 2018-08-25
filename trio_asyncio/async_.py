@@ -128,4 +128,3 @@ async def open_loop(queue_len=None):
                 nursery.cancel_scope.cancel()
                 current_loop.reset(old_loop)
                 current_policy.reset(old_policy)
-

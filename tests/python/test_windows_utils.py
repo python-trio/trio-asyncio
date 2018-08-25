@@ -13,7 +13,7 @@ import _winapi
 
 try:
     import _overlapped
-except ImportError: # py<3.7
+except ImportError:  # py<3.7
     from asyncio import _overlapped
 from asyncio import windows_utils
 try:

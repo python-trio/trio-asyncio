@@ -71,7 +71,7 @@ def _allow_asyncio(fn, *args):
     if isinstance(coro, asyncio.Future):
         return (yield from trio_asyncio.run_future(coro))
 
-    p,a = coro.send,None
+    p, a = coro.send, None
     while True:
         try:
             yielded = p(a)
@@ -83,9 +83,10 @@ def _allow_asyncio(fn, *args):
             else:
                 next_send = yield yielded
         except BaseException as exc:
-            p,a = coro.throw,exc
+            p, a = coro.throw, exc
         else:
-            p,a = coro.send,next_send
+            p, a = coro.send, next_send
+
 
 async def allow_asyncio(fn, *args):
     """
@@ -100,11 +101,10 @@ async def allow_asyncio(fn, *args):
     This function must be called from :mod:`trio` context.
     """
     shim = trio_asyncio.base._shim_running
-    if shim.get(): # nested call: skip
+    if shim.get():  # nested call: skip
         return await fn(*args)
     token = shim.set(True)
     try:
         return await _allow_asyncio(fn, *args)
     finally:
         shim.reset(token)
-

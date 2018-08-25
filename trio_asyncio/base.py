@@ -271,23 +271,31 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         You can also use this for calling an asyncio-style
         async iterator or async context manager.
         """
+
         class t2aWrapper:
             def __await__(slf):
                 f = proc(*args)
                 return self.run_coroutine(f).__await__()
+
             def __aenter__(slf):
                 proc_enter = getattr(proc, "__aenter__", None)
                 if proc_enter is None or args:
-                    raise RuntimeError("Call 'run_asyncio(ctxfactory(*args))', not 'run_asyncio(ctxfactory, *args)'")
+                    raise RuntimeError(
+                        "Call 'run_asyncio(ctxfactory(*args))', not 'run_asyncio(ctxfactory, *args)'"
+                    )
                 f = proc_enter()
                 return self.run_coroutine(f)
+
             def __aexit__(slf, *tb):
                 f = proc.__aexit__(*tb)
                 return self.run_coroutine(f)
+
             def __aiter__(slf):
                 proc_iter = getattr(proc, "__anext__", None)
                 if proc_iter is None or args:
-                    raise RuntimeError("Call 'run_asyncio(gen(*args))', not 'run_asyncio(gen, *args)'")
+                    raise RuntimeError(
+                        "Call 'run_asyncio(gen(*args))', not 'run_asyncio(gen, *args)'"
+                    )
                 return run_generator(self, proc)
 
         return t2aWrapper()

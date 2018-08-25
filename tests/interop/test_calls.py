@@ -16,9 +16,11 @@ async def async_gen_to_list(generator):
         result.append(item)
     return result
 
+
 class TrioContext:
     def __init__(self, parent):
         self.parent = parent
+
     async def __aenter__(self):
         assert self.parent.did_it == 0
         self.parent.did_it = 1
@@ -26,14 +28,17 @@ class TrioContext:
         await trio.sleep(0.01)
         self.parent.did_it = 2
         return self
+
     async def __aexit__(self, *tb):
         assert self.parent.did_it == 3
         self.parent.did_it = 4
+
 
 class AioContext:
     def __init__(self, parent, loop):
         self.parent = parent
         self.loop = loop
+
     async def __aenter__(self):
         assert self.parent.did_it == 0
         self.parent.did_it = 1
@@ -41,6 +46,7 @@ class AioContext:
         await asyncio.sleep(0.01, loop=self.loop)
         self.parent.did_it = 2
         return self
+
     async def __aexit__(self, *tb):
         assert self.parent.did_it == 3
         self.parent.did_it = 4
@@ -99,6 +105,7 @@ class TestCalls(aiotest.TestCase):
                 assert self.did_it == 2
                 self.did_it = 3
             assert self.did_it == 4
+
         await loop.run_asyncio(_call_trio_ctx)
 
     @pytest.mark.trio
@@ -333,12 +340,11 @@ class TestCalls(aiotest.TestCase):
     @pytest.mark.trio
     async def test_trio_asyncio_iterator(self, loop):
         async def slow_nums():
-            for n in range(1,6):
+            for n in range(1, 6):
                 asyncio.sleep(0.01, loop=loop)
                 yield n
 
-        sum=0
+        sum = 0
         async for n in loop.run_asyncio(slow_nums()):
             sum += n
         assert sum == 15
-
