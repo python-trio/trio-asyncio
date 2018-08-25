@@ -214,8 +214,12 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         This is a Trio coroutine.
         """
         self._check_closed()
+        t = sniffio.current_async_library_cvar.set("asyncio")
         coro = asyncio.ensure_future(coro, loop=self)
-        return await run_future(coro)
+        try:
+            return await run_future(coro)
+        finally:
+            sniffio.current_async_library_cvar.reset(t)
 
     def wrap_generator(self, gen, *args):
         """Call an asyncio generator.

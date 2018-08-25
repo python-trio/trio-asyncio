@@ -1,6 +1,7 @@
 import sys
 import trio
 import asyncio
+import sniffio
 try:
     from asyncio.format_helpers import _format_callback, _get_function_source
 except ImportError:  # <3.7
@@ -15,6 +16,11 @@ def _format_callback_source(func, args):
     if source:  # pragma: no cover
         func_repr += ' at %s:%s' % source
     return func_repr
+
+
+async def _set_sniff(proc, *args):
+    sniffio.current_async_library_cvar.set("trio")
+    return await proc(*args)
 
 
 class _TrioHandle:
@@ -98,9 +104,9 @@ class _TrioHandle:
                 with trio.open_cancel_scope() as scope:
                     self._scope = scope
                     if self._is_sync is None:
-                        await self._context.run(self._callback, self)
+                        await self._context.run(_set_sniff, self._callback, self)
                     else:
-                        await self._context.run(self._callback, *self._args)
+                        await self._context.run(_set_sniff, self._callback, *self._args)
             except Exception as exc:
                 self._raise(exc)
             finally:
