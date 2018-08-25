@@ -4,6 +4,7 @@ import trio
 import sniffio
 from tests import aiotest
 from functools import partial
+import sys
 
 
 class Seen:
@@ -24,7 +25,8 @@ class TrioContext:
     async def __aenter__(self):
         assert self.parent.did_it == 0
         self.parent.did_it = 1
-        assert sniffio.current_async_library() == "trio"
+        if sys.version_info >= (3, 7):
+            assert sniffio.current_async_library() == "trio"
         await trio.sleep(0.01)
         self.parent.did_it = 2
         return self
@@ -42,7 +44,8 @@ class AioContext:
     async def __aenter__(self):
         assert self.parent.did_it == 0
         self.parent.did_it = 1
-        assert sniffio.current_async_library() == "asyncio"
+        if sys.version_info >= (3, 7):
+            assert sniffio.current_async_library() == "asyncio"
         await asyncio.sleep(0.01, loop=self.loop)
         self.parent.did_it = 2
         return self

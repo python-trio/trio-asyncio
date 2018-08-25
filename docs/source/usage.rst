@@ -195,7 +195,8 @@ call async code from both contexts – they have different semantics, esp.
 concerning cancellation.
 
 If you really need to do this, :meth:`sniffio.current_async_library`
-correctly reports "asyncio" when appropriate.
+correctly reports "asyncio" when appropriate. (This requires Python 3.7
+for :mod:`contextvars` support in :mod:`asyncio`.
 
 .. _cross-calling:
 
