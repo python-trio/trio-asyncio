@@ -189,7 +189,7 @@ Detecting the loop context
 
 Short answer: You don't want to.
 
-Long answer: You either are running within a call to :func:`trio_asyncio`,
+Long answer: You either are running within a call to :func:`run_asyncio`,
 or you don't. There is no "maybe" here, and you shouldn't indiscriminately
 call async code from both contexts – they have different semantics, esp.
 concerning cancellation.
