@@ -358,7 +358,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             if scope.cancelled_caught:
                 f.cancel()
                 return
-        except Exception as exc:
+        except BaseException as exc:
             if not f.cancelled():  # pragma: no branch
                 f.set_exception(exc)
         else:
