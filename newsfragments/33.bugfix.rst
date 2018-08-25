@@ -1,3 +1,0 @@
-The test suite requires Python 3.6.
-
-:mod:`trio_asyncio` itself requires Python 3.5.3.
