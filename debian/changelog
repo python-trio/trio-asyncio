@@ -1,3 +1,9 @@
+trio-asyncio (0.8.4-1) unstable; urgency=medium
+
+  * Fix python_requires
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Sat, 25 Aug 2018 20:38:16 +0200
+
 trio-asyncio (0.8.3-1) unstable; urgency=medium
 
   * sniffio fixes
