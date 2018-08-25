@@ -1,3 +1,9 @@
+trio-asyncio (0.8.3-1) unstable; urgency=medium
+
+  * sniffio fixes
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Sat, 25 Aug 2018 20:36:01 +0200
+
 trio-asyncio (0.8.0-2) unstable; urgency=medium
 
   * Test fixes
