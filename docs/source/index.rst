@@ -35,7 +35,7 @@ the ``asyncio`` event loop. ``trio_asyncio`` no longer supports this.
 Helpful facts:
 
 * Supported environments: Linux, MacOS, or Windows running some kind of Python
-  3.5-or-better (either CPython or PyPy3 is fine). \*BSD and illumus likely
+  3.5.3-or-better (either CPython or PyPy3 is fine). \*BSD and illumus likely
   work too, but are untested.
 
 * Install: ``python3 -m pip install -U trio-asyncio`` (or on Windows, maybe
