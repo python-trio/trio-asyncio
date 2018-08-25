@@ -4,6 +4,7 @@ import math
 import trio
 import heapq
 import signal
+import sniffio
 import asyncio
 import warnings
 from contextvars import ContextVar
@@ -722,9 +723,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         self._stopped.clear()
         task_status.started()
+        sniffio.current_async_library_cvar.set("asyncio")
 
         try:
-            while True:
+            while not self._stopped.is_set():
                 await self._main_loop_one()
         except StopAsyncIteration:
             # raised by .stop_me() to interrupt the loop

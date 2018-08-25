@@ -194,6 +194,9 @@ or you don't. There is no "maybe" here, and you shouldn't indiscriminately
 call async code from both contexts – they have different semantics, esp.
 concerning cancellation.
 
+If you really need to do this, :meth:`sniffio.current_async_library`
+correctly reports "asyncio" when appropriate.
+
 .. _cross-calling:
 
 ---------------

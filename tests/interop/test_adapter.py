@@ -2,6 +2,7 @@ import pytest
 from trio_asyncio import aio2trio, trio2aio
 import asyncio
 import trio
+import sniffio
 from tests import aiotest
 
 
@@ -13,12 +14,14 @@ class SomeThing:
 
     @aio2trio
     async def dly_trio(self):
+        assert sniffio.current_async_library() == "trio"
         await trio.sleep(0.01)
         self.flag |= 2
         return 8
 
     @trio2aio
     async def dly_asyncio(self):
+        assert sniffio.current_async_library() == "asyncio"
         await asyncio.sleep(0.01, loop=self.loop)
         self.flag |= 1
         return 4
