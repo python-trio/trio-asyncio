@@ -16,24 +16,6 @@ STR_RGX_REPR = (
 )
 RGX_REPR = re.compile(STR_RGX_REPR)
 
-if sys.version_info >= (3, 7):
-
-    def deprecate(self):
-        return self.assertWarns(DeprecationWarning)
-
-else:
-
-    class deprecate:
-        def __init__(self, tc):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *tb):
-            pass
-
-
 class LockTests(test_utils.TestCase):
     def setUp(self):
         super().setUp()
@@ -59,7 +41,7 @@ class LockTests(test_utils.TestCase):
 
         @asyncio.coroutine
         def acquire_lock():
-            with deprecate(self):
+            with test_utils.deprecate(self, (3, 7)):
                 yield from lock
 
         self.loop.run_until_complete(acquire_lock())
@@ -71,7 +53,7 @@ class LockTests(test_utils.TestCase):
 
         @asyncio.coroutine
         def acquire_lock():
-            with deprecate(self):
+            with test_utils.deprecate(self, (3, 7)):
                 return (yield from lock)
 
         res = self.loop.run_until_complete(acquire_lock())
@@ -230,7 +212,7 @@ class LockTests(test_utils.TestCase):
 
         @asyncio.coroutine
         def acquire_lock():
-            with deprecate(self):
+            with test_utils.deprecate(self, (3, 7)):
                 return (yield from lock)
 
         with self.loop.run_until_complete(acquire_lock()):
@@ -243,7 +225,7 @@ class LockTests(test_utils.TestCase):
 
         @asyncio.coroutine
         def acquire_lock():
-            with deprecate(self):
+            with test_utils.deprecate(self, (3, 7)):
                 return (yield from lock)
 
         # This spells "yield from lock" outside a generator.
@@ -675,7 +657,7 @@ class ConditionTests(test_utils.TestCase):
 
         @asyncio.coroutine
         def acquire_cond():
-            with deprecate(self):
+            with test_utils.deprecate(self, (3, 7)):
                 return (yield from cond)
 
         with self.loop.run_until_complete(acquire_cond()):
@@ -759,7 +741,7 @@ class SemaphoreTests(test_utils.TestCase):
 
         @asyncio.coroutine
         def acquire_lock():
-            with deprecate(self):
+            with test_utils.deprecate(self, (3, 7)):
                 return (yield from sem)
 
         res = self.loop.run_until_complete(acquire_lock())
@@ -899,7 +881,7 @@ class SemaphoreTests(test_utils.TestCase):
 
         @asyncio.coroutine
         def acquire_lock():
-            with deprecate(self):
+            with test_utils.deprecate(self, (3, 7)):
                 return (yield from sem)
 
         with self.loop.run_until_complete(acquire_lock()):

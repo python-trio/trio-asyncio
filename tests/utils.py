@@ -15,6 +15,7 @@ import threading
 import time
 import unittest
 import weakref
+import pytest
 
 from unittest import mock
 
@@ -580,3 +581,23 @@ def get_function_source(func):
     if source is None:
         raise ValueError("unable to get the source of %r" % (func,))
     return source
+
+
+
+def deprecate(tc, vers=None):
+    if vers is None or sys.version_info >= vers:
+        return pytest.deprecated_call()
+
+    class _deprecate:
+        def __init__(self, tc):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *tb):
+            pass
+
+    return _deprecate(tc)
+
+

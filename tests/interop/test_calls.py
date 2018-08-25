@@ -5,6 +5,7 @@ import sniffio
 from tests import aiotest
 from functools import partial
 import sys
+from .. import utils
 
 
 class Seen:
@@ -306,7 +307,8 @@ class TestCalls(aiotest.TestCase):
             await asyncio.sleep(0.01, loop=loop)
             yield 2
 
-        res = await async_gen_to_list(loop.wrap_generator(dly_asyncio))
+        with utils.deprecate(self):
+            res = await async_gen_to_list(loop.wrap_generator(dly_asyncio))
         assert res == [1, 2]
 
     @pytest.mark.trio
@@ -316,8 +318,9 @@ class TestCalls(aiotest.TestCase):
             raise RuntimeError("I has an owie")
             yield 2
 
-        with pytest.raises(RuntimeError) as err:
-            await async_gen_to_list(loop.wrap_generator(dly_asyncio))
+        with utils.deprecate(self):
+            with pytest.raises(RuntimeError) as err:
+                await async_gen_to_list(loop.wrap_generator(dly_asyncio))
         assert err.value.args[0] == "I has an owie"
 
     @pytest.mark.trio
@@ -334,9 +337,10 @@ class TestCalls(aiotest.TestCase):
         hold = asyncio.Event(loop=loop)
         seen = Seen()
 
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(async_gen_to_list, loop.wrap_generator(dly_asyncio, hold, seen))
-            nursery.start_soon(cancel_soon, nursery)
+        with utils.deprecate(self):
+            async with trio.open_nursery() as nursery:
+                nursery.start_soon(async_gen_to_list, loop.wrap_generator(dly_asyncio, hold, seen))
+                nursery.start_soon(cancel_soon, nursery)
         assert nursery.cancel_scope.cancel_called
         assert seen.flag == 1
 
