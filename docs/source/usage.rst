@@ -45,7 +45,7 @@ After::
     trio_asyncio.run(async_main, *args)
 
 Within ``async_main``, calls to :func:`asyncio.get_event_loop` will return
-the currently-running :class:`trio_asyncio:TrioEventLoop` instance. See
+the currently-running :class:`trio_asyncio.TrioEventLoop` instance. See
 :ref:`below <cross-calling>` on how to use it to actually call async code.
 
 Equivalently, wrap your main loop (or any other code that needs to talk to
@@ -155,9 +155,9 @@ supported. You need to refactor your main loop. Broadly speaking, this
 means to replace::
 
     async def setup():
-        …
+        pass # … do whatever
     async def shutdown():
-        …
+        pass # … do whatever
         loop.stop()
 
     loop = asyncio.get_event_loop()
@@ -167,9 +167,9 @@ means to replace::
 with::
 
     async def setup():
-        …
+        pass
     async def shutdown():
-        …
+        pass # … do whatever
         stopped_event.set()
 
     async def async_main():
@@ -189,12 +189,12 @@ Detecting the loop context
 
 Short answer: You don't want to.
 
-Long answer: You either are running within a call to :func:`run_asyncio`,
+Long answer: You either are running within a call to :func:`trio_asyncio.run_asyncio`,
 or you don't. There is no "maybe" here, and you shouldn't indiscriminately
 call async code from both contexts – they have different semantics, esp.
 concerning cancellation.
 
-If you really need to do this, :meth:`sniffio.current_async_library`
+If you really need to do this, :func:`sniffio.current_async_library`
 correctly reports "asyncio" when appropriate. (This requires Python 3.7
 for :mod:`contextvars` support in :mod:`asyncio`.
 
