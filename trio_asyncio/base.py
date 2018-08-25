@@ -9,6 +9,7 @@ import asyncio
 import warnings
 from contextvars import ContextVar
 from async_generator import asynccontextmanager
+from async_generator import async_generator, yield_
 
 from .handles import Handle, TimerHandle
 
@@ -252,12 +253,13 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         return run_generator(self, aiter)
 
     @asynccontextmanager
+    @async_generator
     async def wrap_trio_context(self, ctx):
         """Run a Trio context manager from asyncio.
         """
         res = await self.run_trio(ctx.__aenter__)
         try:
-            yield res
+            await yield_(res)
         except BaseException as exc:
             if not await self.run_trio(ctx.__aexit__, type(exc), exc, exc.__traceback__):
                 raise
