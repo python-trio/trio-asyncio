@@ -5,9 +5,19 @@
 
 .. module: trio_asyncio
 
-Importing ``trio_asyncio`` replaces the default ``asyncio`` event loop with
-``trio_asyncio``'s version. Thus it's mandatory to do that import before
-using any ``asyncio`` code.
+Using :mod:`trio` from :mod:`asyncio`, or vice versa, requires two steps:
+
+* :ref:`Set up a main loop that supports both <startup>`
+* :ref:`Use cross-domain function calls <cross-calling>`
+
+Because :mod:`trio` and :mod:`asyncio` differ in some key semantics, most
+notably how they handle tasks and cancellation, usually their domains are
+strictly separated – i.e. you need to call a wrapper that translates from
+one to the other. While :mod:`trio_asyncio` includes a wrapper that
+allows you ignore that separation, you probably should not use it in
+non-trivial programs.
+
+.. _startup:
 
 ----------------------
  Startup and shutdown
@@ -34,8 +44,12 @@ After::
     
     trio_asyncio.run(async_main, *args)
 
+Within ``async_main``, calls to :func:`asyncio.get_event_loop` will return
+the currently-running :class:`trio_asyncio:TrioEventLoop` instance. See
+:ref:`below <cross-calling>` on how to use it to actually call async code.
+
 Equivalently, wrap your main loop (or any other code that needs to talk to
-asyncio) in a :func:`trio_asyncio.open_loop` call ::
+asyncio) in a :func:`trio_asyncio.open_loop` call::
 
     import trio
     import trio_asyncio
@@ -47,39 +61,26 @@ asyncio) in a :func:`trio_asyncio.open_loop` call ::
 
     trio.run(async_main_wrapper, *args)
 
-Within the ``async with`` block, an asyncio mainloop is active.
+Within the ``async with`` block, an asyncio mainloop is active. Note that
+unlike a traditional :mod:`asyncio` mainloop, this loop will be
+automatically closed (not just stopped) when the end of the ``with
+open_loop`` block is reached.
 
 As this code demonstrates, you don't need to pass the ``loop`` argument
 around, as :func:`asyncio.get_event_loop` will retrieve it when you're in
 the loop's context.
 
-.. note::
-
-   Don't do both. The following code **will not work**::
-
-        import trio
-        import trio_asyncio
-
-        async def async_main_wrapper(*args):
-            async with trio_asyncio.open_loop() as loop:
-                await async_main(*args)
-
-        trio_asyncio.run(async_main_wrapper, *args)
-
 .. autofunction:: trio_asyncio.open_loop
 
 .. autofunction:: trio_asyncio.run
 
-.. note::
+.. note:
 
    The ``async with open_loop()`` way of running ``trio_asyncio`` is
-   intended to transparently allow a library to use ``asyncio`` code,
-   supported by a "local" asyncio loop, without affecting the rest of your
-   Trio program.
+   useful for writing a library that can use ``asyncio`` code, supported by
+   a "local" asyncio loop, without affecting the rest of your Trio program.
 
-   However, currently this doesn't work because Trio does not yet support
-   ``contextvars``. Progress on this limitation is tracked in `this issue
-   on github <https://github.com/python-trio/trio-asyncio/issues/9>`_.
+   Thus, under Trio you can have multiple concurrent ``asyncio`` loops.
 
 Stopping
 --------
@@ -94,11 +95,17 @@ You cannot restart the loop, nor would you want to.
 Asyncio main loop.
 ++++++++++++++++++
 
-Doesn't work. However: read on.
+If you'd like to keep your plain ``asyncio`` main loop and call Trio code
+from it, there's one small problem: It won't work. Sorry.
+
+There are two workarounds. One is to use ``asyncio``'s support for
+threading and start a Trio loop in another thread. ``trio_asyncio`` might
+learn some dedicated support for this mode, but basic ``trio`` and
+``asyncio`` thread support is sufficient.
 
 .. _native-loop:
 
-What you really want to do is to use a Trio main loop. You then run your
+The other way is to use a ``trio_asyncio`` main loop. You then run your
 complete asyncio code in its context. In other words, you should transform
 this code::
 
@@ -119,29 +126,73 @@ to this::
     def main():
         trio_asyncio.run(trio_main)
 
-That's all you need to to to support cross-calling from asyncio to trio
-code, or vice versa. You still need to use adapters, though:
-:ref:`see below <cross-calling>` for details.
+In real-world programs, this may be somewhat difficult. The good part is
+that ``asyncio`` itself is transitioning towards the ``asyncio.run()`` way,
+so the effort won't be wasted.
 
-If your program's start-up code consists of more than one
-``loop.run_until_complete`` or ``loop.run_forever`` calls, and/or it
-accesses the asyncio mainloop outside of these two calls, you may have to
-do some refactoring. Sorry about that.
+Compatibility issues
+++++++++++++++++++++
 
-Compatibility mode
-++++++++++++++++++
+Loop implementations
+--------------------
 
-… or, running ``trio_asyncio`` on top of an unmodified ``asyncio`` main loop.
+There are replacements event loops for ``asyncio``, e.g. ``uvloop``.
+``trio_asyncio`` is not compatible with them.
 
-Unfortunately, we had to discontinue support for this mode. The code was
-too intrusive and not particularly stable, caused problems with debugging,
-and crashed ``asyncio`` when ``trio_asyncio`` was imported after starting
-the asyncio mainloop.
+Multithreading
+--------------
 
-``trio_asyncio`` still contains the code, as it is required to run
-``asyncio``'s testcases, which pretty much require synchronous mode.
-However, if you want to run this in production you'd neet to jump through
-various hoops which are neither supported nor documented. Sorry.
+``trio_asyncio`` monkey-patches ``asyncio``'s loop policy to be thread-local.
+
+This lets you use ``uvloop`` in one thread while running ``trio_asyncio``
+in another.
+
+Interrupting the asyncio loop
+-----------------------------
+
+Does not work: ``run_until_complete`` / ``run_forever`` are no longer
+supported. You need to refactor your main loop. Broadly speaking, this
+means to replace::
+
+    async def setup():
+        …
+    async def shutdown():
+        …
+        loop.stop()
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(setup)
+    loop.run_forever()
+        
+with::
+
+    async def setup():
+        …
+    async def shutdown():
+        …
+        stopped_event.set()
+
+    async def async_main():
+        await setup()
+        await stopped_event.wait()
+    trio_asyncio.run(trio_asyncio.run_asyncio, async_main)
+
+``trio_asyncio`` still contains code for supporting ``run_until_complete``
+and ``run_forever`` because it is required to run ``asyncio``'s testcases,
+most of which require these calls.
+
+However, to run this in production you'd need to jump through
+a couple of hoops which are neither supported nor documented. Sorry.
+
+Detecting the loop context
+--------------------------
+
+Short answer: You don't want to.
+
+Long answer: You either are running within a call to :func:`trio_asyncio`,
+or you don't. There is no "maybe" here, and you shouldn't indiscriminately
+call async code from both contexts – they have different semantics, esp.
+concerning cancellation.
 
 .. _cross-calling:
 
@@ -186,7 +237,7 @@ If you already have a coroutine you need to await, call ``loop.run_coroutine()``
 
 .. autodoc: trio_asyncio.run_coroutine
 
-You can also use the ``trio2aio`` decorator::
+You can also use the ``trio2aio`` function decorator::
 
     @trio2aio
     async def some_asyncio_code(self, foo):
@@ -206,8 +257,8 @@ If you already have a future, you can wait for it directly.
 :func:`trio_asyncio.run_future` does not require a running trio-asyncio
 main loop.
 
-If you need to call a Trio-style async context manager from asyncio,
-``loop.run_asyncio()`` works::
+If you need to call an asyncio-ish async context manager from Trio,
+``loop.run_asyncio()`` also works::
 
     async with loop.run_asyncio(generate_context()) as ctx:
         await loop.run_asyncio(ctx.do_whatever)
@@ -230,6 +281,17 @@ Wrapping an async iterator also works::
             print(n)
 
     trio_asyncio.run(trio_code)
+
+Note that in this case we're wrapping an async iterator, i.e. the object
+returned by calling ``slow_nums``, not the function itself.
+
+Too complicated?
+++++++++++++++++
+
+There's also a somewhat-magic wrapper which allows you to directly call
+:mod:`asyncio` functions from :mod:`trio`.
+
+.. autodoc: trio_asyncio.allow_asyncio
 
 Calling Trio from asyncio
 +++++++++++++++++++++++++
@@ -262,13 +324,13 @@ You can also use the ``aio2trio`` decorator::
 
 .. autodoc: trio_asyncio.adapter.aio2trio_task
 
-It is OK to call ``run_trio()``, or a decorated function or method, from a
+``run_trio()`` is not itself an async function, so you can call it from a
 synchronous context (e.g. a callback hook). However, you're responsible for
 catching any errors – either await() the future, or use
 ``.add_done_callback()``.
 
-If you want to start a task that shall be monitored by trio (i.e. an
-uncaught error will propagate and terminate the loop), use
+If you want to start a task that shall be monitored by ``trio_asyncio``
+(i.e. an uncaught error will propagate to, and terminate, the loop), use
 ``run_trio_task()`` instead.
 
 .. autodoc: trio_asyncio.adapter.aio2trio_task
@@ -285,12 +347,11 @@ methods.
 
 .. autodoc: trio_asyncio.wrap_trio_context
 
-
 Multiple asyncio loops
 ++++++++++++++++++++++
 
 Trio-asyncio supports running multiple concurrent asyncio loops in the same
-thread. You may even nest them (if they're asynchronous, of course).
+thread. You may even nest them.
 
 This means that you can write a trio-ish wrapper around an asyncio-using
 library without regard to whether the main loop or another library also use
@@ -316,18 +377,18 @@ For errors, this is straightforward.
 
 Cancellations are also propagated whenever possible. This means
 
-* the code called from ``run_trio()`` is cancelled when you cancel
-  the future it returns
+* the task started with ``run_trio()`` is cancelled when you cancel
+  the future which ``run_trio`` returns
 
-* when the code called from ``run_trio()`` is cancelled, 
-  the future it returns gets cancelled
+* when the task started with ``run_trio()`` is cancelled, 
+  the future gets cancelled
 
 * the future used in ``run_future()`` is cancelled when the Trio code
-  calling it is stopped
+  calling it is cancelled
 
 * However, when the future passed to ``run_future()`` is cancelled (i.e.
-  when the code inside raises ``asyncio.CancelledError``), that exception is
-  passed along unchanged.
+  when the task associated with it raises ``asyncio.CancelledError``), that
+  exception is passed along unchanged.
 
   This asymmetry is intentional since the code that waits for the future
   often is not within the cancellation context of the part that
@@ -375,13 +436,8 @@ Subprocesses
 
 You might want to convert these calls to native Trio subprocesses.
 
-.. note::
+.. note:
 
    The class that watches for child processes must be an instance of
    :class:`trio_asyncio.TrioChildWatcher`. Trio-Asyncio enforces this.
-
-   Note that if you use compatibility mode, Python's ``SIGCHLD`` handling
-   **will not work** anyway: The signal handler must run in the main
-   thread, which is blocked waiting for the result of the current
-   invocation of :meth:`trio_asyncio.sync.SyncTrioEventLoop.run_until_complete` call.
 

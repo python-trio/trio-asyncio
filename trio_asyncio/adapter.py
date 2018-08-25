@@ -63,9 +63,6 @@ def aio2trio_task(proc):
 
 @types.coroutine
 def _allow_asyncio(fn, *args):
-    """
-    ;)
-    """
     shim = trio_asyncio.base._shim_running
     shim.set(True)
 
@@ -91,6 +88,17 @@ def _allow_asyncio(fn, *args):
             p,a = coro.send,next_send
 
 async def allow_asyncio(fn, *args):
+    """
+    This wrapper allows you to indiscrimnately mix :mod:`trio` and
+    :mod:`asyncio` functions, generators, or iterators.
+
+    Unfortunately, this wrapper imposes a slight delay, and there are
+    issues with cancellation (specifically, :mod:`asyncio` function will
+    see :class:`trio.Cancelled` instead of
+    :class:`asyncio.CancelledError`). Thus, this mode is not the default.
+
+    This function must be called from :mod:`trio` context.
+    """
     shim = trio_asyncio.base._shim_running
     if shim.get(): # nested call: skip
         return await fn(*args)
