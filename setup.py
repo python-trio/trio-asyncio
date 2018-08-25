@@ -43,6 +43,8 @@ This works rather well: ``trio_asyncio`` consists of just ~700 lines of
 code (asyncio: ~8000) but passes the complete Python 3.6 test suite with no
 errors.
 
+``trio_asyncio`` requires Python 3.5.3 or better.
+
 Author
 ======
 
