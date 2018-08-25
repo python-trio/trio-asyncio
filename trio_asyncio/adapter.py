@@ -91,11 +91,25 @@ def _allow_asyncio(fn, *args):
 async def allow_asyncio(fn, *args):
     """
     This wrapper allows you to indiscrimnately mix :mod:`trio` and
-    :mod:`asyncio` functions, generators, or iterators.
+    :mod:`asyncio` functions, generators, or iterators::
 
-    Unfortunately, this wrapper imposes a slight delay, and there are
-    issues with cancellation (specifically, :mod:`asyncio` function will
-    see :class:`trio.Cancelled` instead of
+        import trio
+        import asyncio
+        import trio_asyncio
+
+        async def hello(loop):
+            await asyncio.sleep(1, loop=loop)
+            print("Hello")
+            await trio.sleep(1)
+            print("World")
+
+        async def main():
+            with trio_asyncio.open_loop() as loop:
+                await trio_asyncio.allow_asyncio(hello, loop)
+        trio.run(main)
+
+    Unfortunately, there are issues with cancellation (specifically,
+    :mod:`asyncio` function will see :class:`trio.Cancelled` instead of
     :class:`asyncio.CancelledError`). Thus, this mode is not the default.
 
     This function must be called from :mod:`trio` context.
