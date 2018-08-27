@@ -168,23 +168,27 @@ asyncio.set_event_loop_policy = _new_policy_set
 
 #####
 
-_orig_run_get = _aio_event._get_running_loop
+try:
+    _orig_run_get = _aio_event._get_running_loop
+
+except AttributeError:
+    pass
+
+else:
+    def _new_run_get():
+        try:
+            task = trio.hazmat.current_task()
+        except RuntimeError:
+            loop = _orig_run_get()
+        else:
+            loop = task.context.get(current_loop, None)
+            if loop is None:
+                raise RuntimeError("No trio_asyncio loop is active.")
+
+        return loop
 
 
-def _new_run_get():
-    try:
-        task = trio.hazmat.current_task()
-    except RuntimeError:
-        loop = _orig_run_get()
-    else:
-        loop = task.context.get(current_loop, None)
-        if loop is None:
-            raise RuntimeError("No trio_asyncio loop is active.")
-
-    return loop
-
-
-_aio_event._get_running_loop = _new_run_get
+    _aio_event._get_running_loop = _new_run_get
 
 #####
 
