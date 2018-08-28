@@ -11,11 +11,12 @@ from contextvars import ContextVar
 from async_generator import asynccontextmanager
 from async_generator import async_generator, yield_
 
+from .adapter import Asyncio_Trio_Wrapper
 from .handles import Handle, TimerHandle
+from .util import run_aio_future, run_aio_generator
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
-from .util import run_future, run_generator
 
 try:
     from trio.hazmat import wait_for_child
@@ -201,10 +202,19 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         return self._task._runner.clock.current_time()
 
     # A future doesn't require a trio_asyncio loop
-    run_future = staticmethod(run_future)
+    run_aio_future = staticmethod(run_aio_future)
+
+    def run_future(self, *args, **kwargs):
+        warnings.warn("Use 'await loop.run_aio_future(fut)' instead'", DeprecationWarning)
+        return self.run_aio_future(*args, **kwargs)
 
     # A coroutine (usually) does.
-    async def run_coroutine(self, coro):
+    def run_coroutine(self, coro):
+        warnings.warn("Use 'await loop.run_aio_coroutine(coro)' instead'", DeprecationWarning)
+
+        return self.run_aio_coroutine(coro)
+
+    async def run_aio_coroutine(self, coro):
         """Wait for an asyncio future/coroutine.
 
         Cancelling the current Trio scope will cancel the future/coroutine.
@@ -218,7 +228,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         t = sniffio.current_async_library_cvar.set("asyncio")
         coro = asyncio.ensure_future(coro, loop=self)
         try:
-            return await run_future(coro)
+            return await run_aio_future(coro)
         finally:
             sniffio.current_async_library_cvar.reset(t)
 
@@ -233,9 +243,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
             await loop.run_asyncio(gen(*args))
         """
-        warnings.warn("Use 'run_asyncio(gen(*args))' instead'", DeprecationWarning)
+        warnings.warn("Use 'async with aio_as_trio(gen(*args))' instead'", DeprecationWarning)
 
-        return run_generator(self, gen(*args))
+        return run_aio_generator(self, gen(*args))
 
     def run_iterator(self, aiter):
         """Call an asyncio iterator from Trio.
@@ -248,9 +258,24 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
             await loop.run_asyncio(iter)
         """
-        warnings.warn("Use 'run_asyncio(iter)' instead'", DeprecationWarning)
+        warnings.warn("Use 'async for X in aio_as_trio(iter)' instead'", DeprecationWarning)
 
-        return run_generator(self, aiter)
+        return run_aio_generator(self, aiter)
+
+    def run_asyncio(self, proc, *args):
+        """Run an asyncio function or method from Trio.
+
+        :return: whatever the procedure returns.
+        :raises: whatever the procedure raises.
+
+        This is (essentially) a Trio coroutine.
+
+        You can also use this for calling an asyncio-style
+        async iterator or async context manager.
+        """
+
+        return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
+
 
     @asynccontextmanager
     @async_generator
@@ -265,46 +290,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 raise
         else:
             await self.run_trio(ctx.__aexit__, None, None, None)
-
-    def run_asyncio(self, proc, *args):
-        """Run an asyncio function or method from Trio.
-
-        :return: whatever the procedure returns.
-        :raises: whatever the procedure raises.
-
-        This is (essentially) a Trio coroutine.
-
-        You can also use this for calling an asyncio-style
-        async iterator or async context manager.
-        """
-
-        class t2aWrapper:
-            def __await__(slf):
-                f = proc(*args)
-                return self.run_coroutine(f).__await__()
-
-            def __aenter__(slf):
-                proc_enter = getattr(proc, "__aenter__", None)
-                if proc_enter is None or args:
-                    raise RuntimeError(
-                        "Call 'run_asyncio(ctxfactory(*args))', not 'run_asyncio(ctxfactory, *args)'"
-                    )
-                f = proc_enter()
-                return self.run_coroutine(f)
-
-            def __aexit__(slf, *tb):
-                f = proc.__aexit__(*tb)
-                return self.run_coroutine(f)
-
-            def __aiter__(slf):
-                proc_iter = getattr(proc, "__anext__", None)
-                if proc_iter is None or args:
-                    raise RuntimeError(
-                        "Call 'run_asyncio(gen(*args))', not 'run_asyncio(gen, *args)'"
-                    )
-                return run_generator(self, proc)
-
-        return t2aWrapper()
 
     def run_trio(self, proc, *args):
         """Run an asynchronous Trio function from asyncio.

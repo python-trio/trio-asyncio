@@ -1,6 +1,7 @@
 from tests import aiotest
 import signal
 import pytest
+from .. import utils as test_utils
 
 
 class TestCallback(aiotest.TestCase):
@@ -70,7 +71,10 @@ class TestCallback(aiotest.TestCase):
             with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.run_in_executor(None, func)
             with pytest.raises(RuntimeError, match='Event loop is closed'):
-                await loop.run_coroutine(coro)
+                await loop.run_aio_coroutine(coro)
+            with test_utils.deprecate(self):
+                with pytest.raises(RuntimeError, match='Event loop is closed'):
+                    await loop.run_coroutine(coro)
             with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.add_signal_handler(signal.SIGTERM, func)
         finally:

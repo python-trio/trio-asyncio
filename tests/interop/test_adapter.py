@@ -1,4 +1,5 @@
 import pytest
+from trio_asyncio import aio_as_trio
 from trio_asyncio import aio2trio, trio2aio
 import asyncio
 import trio
@@ -22,6 +23,14 @@ class SomeThing:
         return 8
 
     @trio2aio
+    async def dly_asyncio_depr(self):
+        if sys.version_info >= (3, 7):
+            assert sniffio.current_async_library() == "asyncio"
+        await asyncio.sleep(0.01, loop=self.loop)
+        self.flag |= 1
+        return 4
+
+    @aio_as_trio
     async def dly_asyncio(self):
         if sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "asyncio"
@@ -46,3 +55,11 @@ class TestAdapt(aiotest.TestCase):
         res = await sth.dly_asyncio()
         assert res == 4
         assert sth.flag == 1
+
+    @pytest.mark.trio
+    async def test_trio_asyncio_depr(self, loop):
+        sth = SomeThing(loop)
+        res = await sth.dly_asyncio_depr()
+        assert res == 4
+        assert sth.flag == 1
+

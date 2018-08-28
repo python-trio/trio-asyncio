@@ -7,10 +7,10 @@ import sys
 import outcome
 from async_generator import async_generator, yield_
 
-__all__ = ['run_future']
+__all__ = ['run_aio_future', 'run_aio_generator']
 
 
-async def run_future(future):
+async def run_aio_future(future):
     """Wait for an asyncio future/coroutine from Trio code.
 
     Cancelling the current Trio scope will cancel the future/coroutine.
@@ -53,7 +53,7 @@ STOP = object()
 
 
 @async_generator
-async def run_generator(loop, async_generator):
+async def run_aio_generator(loop, async_generator):
     task = trio.hazmat.current_task()
     raise_cancel = None
     current_read = None

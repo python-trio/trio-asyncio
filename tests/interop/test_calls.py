@@ -2,10 +2,11 @@ import pytest
 import asyncio
 import trio
 import sniffio
+from trio_asyncio import aio_as_trio
 from tests import aiotest
 from functools import partial
 import sys
-from .. import utils
+from .. import utils as test_utils
 
 
 class Seen:
@@ -307,7 +308,7 @@ class TestCalls(aiotest.TestCase):
             await asyncio.sleep(0.01, loop=loop)
             yield 2
 
-        with utils.deprecate(self):
+        with test_utils.deprecate(self):
             res = await async_gen_to_list(loop.wrap_generator(dly_asyncio))
         assert res == [1, 2]
 
@@ -318,7 +319,7 @@ class TestCalls(aiotest.TestCase):
             raise RuntimeError("I has an owie")
             yield 2
 
-        with utils.deprecate(self):
+        with test_utils.deprecate(self):
             with pytest.raises(RuntimeError) as err:
                 await async_gen_to_list(loop.wrap_generator(dly_asyncio))
         assert err.value.args[0] == "I has an owie"
@@ -337,7 +338,7 @@ class TestCalls(aiotest.TestCase):
         hold = asyncio.Event(loop=loop)
         seen = Seen()
 
-        with utils.deprecate(self):
+        with test_utils.deprecate(self):
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(async_gen_to_list, loop.wrap_generator(dly_asyncio, hold, seen))
                 nursery.start_soon(cancel_soon, nursery)
@@ -352,6 +353,19 @@ class TestCalls(aiotest.TestCase):
                 yield n
 
         sum = 0
+        async for n in aio_as_trio(slow_nums()):
+            sum += n
+        assert sum == 15
+
+    @pytest.mark.trio
+    async def test_trio_asyncio_iterator_depr(self, loop):
+        async def slow_nums():
+            for n in range(1, 6):
+                asyncio.sleep(0.01, loop=loop)
+                yield n
+
+        sum = 0
+        # with test_utils.deprecate(self): ## not yet
         async for n in loop.run_asyncio(slow_nums()):
             sum += n
         assert sum == 15
