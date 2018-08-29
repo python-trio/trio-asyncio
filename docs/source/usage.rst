@@ -121,7 +121,7 @@ or (Python 3.7 ++)::
 to this::
 
     async def trio_main():
-        await trio_asyncio.run_asyncio(async_main)
+        await trio_asyncio.aio_as_trio(async_main)()
 
     def main():
         trio_asyncio.run(trio_main)
@@ -152,12 +152,12 @@ Interrupting the asyncio loop
 
 Does not work: ``run_until_complete`` / ``run_forever`` are no longer
 supported. You need to refactor your main loop. Broadly speaking, this
-means to replace::
+means that you need to replace this code::
 
     async def setup():
-        pass # … do whatever
+        pass # … start your services
     async def shutdown():
-        pass # … do whatever
+        pass # … terminate services and clean up
         loop.stop()
 
     loop = asyncio.get_event_loop()
@@ -166,37 +166,39 @@ means to replace::
         
 with::
 
+    stopped_event = trio.Event()
     async def setup():
-        pass
-    async def shutdown():
-        pass # … do whatever
+        pass # … start your services
+    async def cleanup():
+        pass # … terminate services and clean up
+    async def shutdown(): # no longer needs to be async
         stopped_event.set()
 
     async def async_main():
-        await setup()
+        await aio_as_trio(setup)()
         await stopped_event.wait()
-    trio_asyncio.run(trio_asyncio.run_asyncio, async_main)
-
-``trio_asyncio`` still contains code for supporting ``run_until_complete``
-and ``run_forever`` because it is required to run ``asyncio``'s testcases,
-most of which require these calls.
-
-However, to run this in production you'd need to jump through
-a couple of hoops which are neither supported nor documented. Sorry.
+        await aio_as_trio(cleanup)()
+    trio_asyncio.run(async_main)
 
 Detecting the loop context
 --------------------------
 
-Short answer: You don't want to.
+:func:`sniffio.current_async_library` correctly reports "asyncio" when
+running in an asyncio context. (This requires Python 3.7, for
+:mod:`contextvars` support in :mod:`asyncio`).
 
-Long answer: You either are running within a call to :func:`trio_asyncio.run_asyncio`,
-or you don't. There is no "maybe" here, and you shouldn't indiscriminately
+However, this feature should not be necessary because 
+your code either is running within a call to :func:`trio_asyncio.aio_as_trio`,
+or it is not. There should not be any "maybe" here: you shouldn't indiscriminately
 call async code from both contexts – they have different semantics, esp.
 concerning cancellation.
 
-If you really need to do this, :func:`sniffio.current_async_library`
-correctly reports "asyncio" when appropriate. (This requires Python 3.7
-for :mod:`contextvars` support in :mod:`asyncio`.
+The only reasonable use for detecting the loop context is as ::
+
+    assert sniffio.current_async_library() == "trio"
+
+(or "asyncio"), to detect mismatched contexts while porting code
+from :mod:`asyncio` to :mod:`trio`.
 
 .. _cross-calling:
 
@@ -206,18 +208,18 @@ for :mod:`contextvars` support in :mod:`asyncio`.
 
 First, a bit of background.
 
-For historical reasons, running an async function (of any
-flavor) with Python is a two-step process – that is, given ::
+For historical reasons, calling an async function (of any
+flavor) is a two-step process – that is, given ::
 
     async def proc():
-        whatever()
+        pass
 
 a call to ``await proc()`` does two things:
 
   * ``proc()`` creates an ``awaitable``, i.e. something that has an
     ``__await__`` method.
 
-  * ``await proc()`` thus iterates this awaitable until it ends,
+  * ``await proc()`` then iterates this awaitable until it ends,
     supported by your event loop's runtime system.
 
 :mod:`asyncio` traditionally uses awaitables for indirect procedure calls,
@@ -241,7 +243,7 @@ Trio, in contrast, uses (async) callables::
         await proc()
     await run(some_code)
 
-Here, calling ``proc`` multiple times is not a problem.
+Here, calling ``proc`` multiple times from within ``run`` is not a problem.
 
 :mod:`trio_asyncio` adheres to Trio conventions, but the
 :mod:`asyncio` way is also supported when possible.
