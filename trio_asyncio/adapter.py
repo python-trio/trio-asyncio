@@ -66,14 +66,18 @@ class Asyncio_Trio_Wrapper:
 
     async def __call__(self, *args, **kwargs):
         if self.args:
-            "Call 'aio_as_trio(oroc)(*args)', not 'aio_as_trio(proc, *args)'"
+            raise RuntimeError("Call 'aio_as_trio(proc)(*args)', not 'aio_as_trio(proc, *args)'")
 
         f = self.proc(*args, **kwargs)
         return await self.loop.run_aio_coroutine(f)
 
     def __await__(self):
         """Compatbility code for loop.run_asyncio"""
-        f = self.proc(*self.args)
+        f = self.proc
+        if not hasattr(f,"__await__"):
+            f = f(*self.args)
+        elif self.args:
+            raise RuntimeError("You can't supply arguments to a coroutine")
         return self.loop.run_aio_coroutine(f).__await__()
 
     def __aenter__(self):
@@ -144,7 +148,7 @@ def _allow_asyncio(fn, *args):
             return e.value
         try:
             if isinstance(yielded, asyncio.Future):
-                next_send = yield from trio_asyncio.run_future(yielded)
+                next_send = yield from trio_asyncio.run_aio_future(yielded)
             else:
                 next_send = yield yielded
         except BaseException as exc:
