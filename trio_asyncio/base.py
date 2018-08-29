@@ -241,7 +241,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         simply call
 
-            await loop.run_asyncio(gen(*args))
+            await aio_as_trio(gen(*args), loop=loop)
         """
         warnings.warn("Use 'async with aio_as_trio(gen(*args))' instead'", DeprecationWarning)
 
@@ -256,7 +256,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         simply call
 
-            await loop.run_asyncio(iter)
+            await aio_as_trio(iter, loop=loop)
         """
         warnings.warn("Use 'async for X in aio_as_trio(iter)' instead'", DeprecationWarning)
 
@@ -270,10 +270,15 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         This is (essentially) a Trio coroutine.
 
-        You can also use this for calling an asyncio-style
-        async iterator or async context manager.
+        Depreated; use
+
+            aio_as_trio(proc)(*args)
+
+        instead.
         """
 
+        warnings.warn("Use 'await aio_as_trio(proc)(*args)' instead'", DeprecationWarning)
+        
         return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
 
 

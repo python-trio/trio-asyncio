@@ -28,11 +28,6 @@ def trio2aio(proc):
 
         Deprecated: Use aio_as_trio() instead.
 
-            await loop.run_iterator(iter)
-
-        simply call
-
-            await loop.run_asyncio(iter)
         """
         warnings.warn("Use 'aio_as_trio(proc)' instead'", DeprecationWarning)
 
@@ -72,7 +67,8 @@ class Asyncio_Trio_Wrapper:
         return await self.loop.run_aio_coroutine(f)
 
     def __await__(self):
-        """Compatbility code for loop.run_asyncio"""
+        """Compatibility code for "await loop.run_asyncio(coro)"
+        """
         f = self.proc
         if not hasattr(f,"__await__"):
             f = f(*self.args)
@@ -97,7 +93,7 @@ class Asyncio_Trio_Wrapper:
         proc_iter = getattr(self.proc, "__anext__", None)
         if proc_iter is None or self.args:
             raise RuntimeError(
-                "Call 'run_asyncio(gen(*args))', not 'run_asyncio(gen, *args)'"
+                "Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'"
             )
         return run_aio_generator(self.loop, self.proc)
 

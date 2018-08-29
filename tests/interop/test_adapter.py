@@ -7,7 +7,7 @@ import sniffio
 from tests import aiotest
 import sys
 from async_generator import asynccontextmanager
-
+from .. import utils as test_utils
 
 class SomeThing:
     flag = 0
@@ -70,7 +70,17 @@ class TestAdapt(aiotest.TestCase):
         """Call asyncio from trio"""
 
         sth = SomeThing(loop)
-        res = await loop.run_asyncio(sth.dly_trio)
+        res = await aio_as_trio(sth.dly_trio, loop=loop)()
+        assert res == 8
+        assert sth.flag == 2
+
+    @pytest.mark.trio
+    async def test_asyncio_trio_depr(self, loop):
+        """Call asyncio from trio"""
+
+        sth = SomeThing(loop)
+        with test_utils.deprecate(self):
+            res = await loop.run_asyncio(sth.dly_trio)
         assert res == 8
         assert sth.flag == 2
 
