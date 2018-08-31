@@ -782,6 +782,12 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self.stop()
         await self.wait_stopped()
 
+        while True:
+            try:
+                await self._main_loop_one(no_wait=True)
+            except trio.WouldBlock:
+                break
+
         # Kill off unprocessed work
         self._cancel_fds()
         self._cancel_timers()

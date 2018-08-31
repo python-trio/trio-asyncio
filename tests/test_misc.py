@@ -282,20 +282,22 @@ class TestMisc:
 
 @pytest.mark.trio
 async def test_wrong_context_manager_order():
+    take_down = trio.Event()
     async def work_in_asyncio():
         await asyncio.sleep(0)
 
     async def runner(*, task_status=trio.TASK_STATUS_IGNORED):
-        await trio_asyncio.run_asyncio(work_in_asyncio)
+        await trio_asyncio.aio_as_trio(work_in_asyncio)()
         try:
             task_status.started()
-            await trio.sleep_forever()
+            await take_down.wait()
         finally:
-            await trio_asyncio.run_asyncio(work_in_asyncio)
+            await trio_asyncio.aio_as_trio(work_in_asyncio)()
 
     async with trio.open_nursery() as nursery:
         async with trio_asyncio.open_loop():
             await nursery.start(runner)
+            take_down.set()
 
 
 @pytest.mark.trio
@@ -303,7 +305,7 @@ async def test_keyboard_interrupt_teardown():
     asyncio_loop_closed = trio.Event()
 
     async def work_in_trio_no_matter_what(*, task_status=trio.TASK_STATUS_IGNORED):
-        await trio_asyncio.run_asyncio(work_in_asyncio)
+        await trio_asyncio.aio_as_trio(work_in_asyncio)()
         try:
             # KeyboardInterrupt won't cancel this coroutine thanks to the shield
             with trio.open_cancel_scope(shield=True):
@@ -311,7 +313,8 @@ async def test_keyboard_interrupt_teardown():
                 await asyncio_loop_closed.wait()
         finally:
             # Hence this call will be exceuted after run_asyncio_loop is cancelled
-            await trio_asyncio.run_asyncio(work_in_asyncio)
+            with pytest.raises(RuntimeError):
+                await trio_asyncio.aio_as_trio(work_in_asyncio)()
 
     async def work_in_asyncio():
         await asyncio.sleep(0)
@@ -331,7 +334,8 @@ async def test_keyboard_interrupt_teardown():
     import signal
     import threading
     with pytest.raises(KeyboardInterrupt):
-        async with trio.open_nursery() as nursery:
-            await nursery.start(run_asyncio_loop, nursery)
-            # Trigger KeyboardInterrupt that should propagate accross the coroutines
-            signal.pthread_kill(threading.get_ident(), signal.SIGINT)
+        with pytest.warns(RuntimeWarning):
+            async with trio.open_nursery() as nursery:
+                await nursery.start(run_asyncio_loop, nursery)
+                # Trigger KeyboardInterrupt that should propagate accross the coroutines
+                signal.pthread_kill(threading.get_ident(), signal.SIGINT)

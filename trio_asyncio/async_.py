@@ -123,8 +123,11 @@ async def open_loop(queue_len=None):
             try:
                 await loop.stop().wait()
             finally:
-                await loop._main_loop_exit()
-                loop.close()
-                nursery.cancel_scope.cancel()
-                current_loop.reset(old_loop)
-                current_policy.reset(old_policy)
+                try:
+                    await loop._main_loop_exit()
+                finally:
+                    loop.close()
+                    nursery.cancel_scope.cancel()
+                    current_loop.reset(old_loop)
+                    current_policy.reset(old_policy)
+

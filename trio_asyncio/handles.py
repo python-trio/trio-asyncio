@@ -46,9 +46,18 @@ class _TrioHandle:
         self._scope = None
 
     def cancel(self):
+        try:
+            task = self._callback.__self__
+        except AttributeError:
+            task = None
+        else:
+            if not isinstance(task, asyncio.Task):
+                task = None
         super().cancel()
         if self._scope is not None:
             self._scope.cancel()
+        elif task is not None:
+            task.cancel()
 
     def _cb_future_cancel(self, f):
         """If a Trio task completes an asyncio Future,
