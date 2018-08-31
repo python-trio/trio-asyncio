@@ -222,45 +222,6 @@ class MyWritePipeProto(asyncio.BaseProtocol):
             self.done.set_result(None)
 
 
-class MySubprocessProtocol(asyncio.SubprocessProtocol):
-    def __init__(self, loop):
-        self.state = 'INITIAL'
-        self.transport = None
-        self.connected = asyncio.Future(loop=loop)
-        self.completed = asyncio.Future(loop=loop)
-        self.disconnects = {fd: asyncio.Future(loop=loop) for fd in range(3)}
-        self.data = {1: b'', 2: b''}
-        self.returncode = None
-        self.got_data = {1: asyncio.Event(loop=loop), 2: asyncio.Event(loop=loop)}
-
-    def connection_made(self, transport):
-        self.transport = transport
-        assert self.state == 'INITIAL', self.state
-        self.state = 'CONNECTED'
-        self.connected.set_result(None)
-
-    def connection_lost(self, exc):
-        assert self.state == 'CONNECTED', self.state
-        self.state = 'CLOSED'
-        self.completed.set_result(None)
-
-    def pipe_data_received(self, fd, data):
-        assert self.state == 'CONNECTED', self.state
-        self.data[fd] += data
-        self.got_data[fd].set()
-
-    def pipe_connection_lost(self, fd, exc):
-        assert self.state == 'CONNECTED', self.state
-        if exc:
-            self.disconnects[fd].set_exception(exc)
-        else:
-            self.disconnects[fd].set_result(exc)
-
-    def process_exited(self):
-        assert self.state == 'CONNECTED', self.state
-        self.returncode = self.transport.get_returncode()
-
-
 class EventLoopTestsMixin:
     def setUp(self):
         super().setUp()
@@ -1796,296 +1757,13 @@ class EventLoopTestsMixin:
             self.loop.add_signal_handler(signal.SIGTERM, func)
 
 
-class SubprocessTestsMixin:
-    def check_terminated(self, returncode):
-        if sys.platform == 'win32':
-            self.assertIsInstance(returncode, int)
-            # expect 1 but sometimes get 0
-        else:
-            self.assertEqual(-signal.SIGTERM, returncode)
-
-    def check_killed(self, returncode):
-        if sys.platform == 'win32':
-            self.assertIsInstance(returncode, int)
-            # expect 1 but sometimes get 0
-        else:
-            self.assertEqual(-signal.SIGKILL, returncode)
-
-    def test_subprocess_exec(self):
-        prog = os.path.join(os.path.dirname(__file__), 'echo.py')
-
-        connect = self.loop.subprocess_exec(
-            functools.partial(MySubprocessProtocol, self.loop), sys.executable, prog
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.connected)
-        self.assertEqual('CONNECTED', proto.state)
-
-        stdin = transp.get_pipe_transport(0)
-        stdin.write(b'Python The Winner')
-        self.loop.run_until_complete(proto.got_data[1].wait())
-        with test_utils.disable_logger():
-            transp.close()
-        self.loop.run_until_complete(proto.completed)
-        self.check_killed(proto.returncode)
-        self.assertEqual(b'Python The Winner', proto.data[1])
-
-    def test_subprocess_interactive(self):
-        prog = os.path.join(os.path.dirname(__file__), 'echo.py')
-
-        connect = self.loop.subprocess_exec(
-            functools.partial(MySubprocessProtocol, self.loop), sys.executable, prog
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.connected)
-        self.assertEqual('CONNECTED', proto.state)
-
-        stdin = transp.get_pipe_transport(0)
-        stdin.write(b'Python ')
-        self.loop.run_until_complete(proto.got_data[1].wait())
-        proto.got_data[1].clear()
-        self.assertEqual(b'Python ', proto.data[1])
-
-        stdin.write(b'The Winner')
-        self.loop.run_until_complete(proto.got_data[1].wait())
-        self.assertEqual(b'Python The Winner', proto.data[1])
-
-        with test_utils.disable_logger():
-            transp.close()
-        self.loop.run_until_complete(proto.completed)
-        self.check_killed(proto.returncode)
-
-    def test_subprocess_shell(self):
-        connect = self.loop.subprocess_shell(
-            functools.partial(MySubprocessProtocol, self.loop), 'echo Python'
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.connected)
-
-        transp.get_pipe_transport(0).close()
-        self.loop.run_until_complete(proto.completed)
-        self.assertEqual(0, proto.returncode)
-        self.assertTrue(all(f.done() for f in proto.disconnects.values()))
-        self.assertEqual(proto.data[1].rstrip(b'\r\n'), b'Python')
-        self.assertEqual(proto.data[2], b'')
-        transp.close()
-
-    def test_subprocess_exitcode(self):
-        connect = self.loop.subprocess_shell(
-            functools.partial(MySubprocessProtocol, self.loop),
-            'exit 7',
-            stdin=None,
-            stdout=None,
-            stderr=None
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.completed)
-        self.assertEqual(7, proto.returncode)
-        transp.close()
-
-    def test_subprocess_close_after_finish(self):
-        connect = self.loop.subprocess_shell(
-            functools.partial(MySubprocessProtocol, self.loop),
-            'exit 7',
-            stdin=None,
-            stdout=None,
-            stderr=None
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.assertIsNone(transp.get_pipe_transport(0))
-        self.assertIsNone(transp.get_pipe_transport(1))
-        self.assertIsNone(transp.get_pipe_transport(2))
-        self.loop.run_until_complete(proto.completed)
-        self.assertEqual(7, proto.returncode)
-        self.assertIsNone(transp.close())
-
-    def test_subprocess_kill(self):
-        prog = os.path.join(os.path.dirname(__file__), 'echo.py')
-
-        connect = self.loop.subprocess_exec(
-            functools.partial(MySubprocessProtocol, self.loop), sys.executable, prog
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.connected)
-
-        transp.kill()
-        self.loop.run_until_complete(proto.completed)
-        self.check_killed(proto.returncode)
-        transp.close()
-
-    def test_subprocess_terminate(self):
-        prog = os.path.join(os.path.dirname(__file__), 'echo.py')
-
-        connect = self.loop.subprocess_exec(
-            functools.partial(MySubprocessProtocol, self.loop), sys.executable, prog
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.connected)
-
-        transp.terminate()
-        self.loop.run_until_complete(proto.completed)
-        self.check_terminated(proto.returncode)
-        transp.close()
-
-    @unittest.skipIf(sys.platform == 'win32', "Don't have SIGHUP")
-    def test_subprocess_send_signal(self):
-        # bpo-31034: Make sure that we get the default signal handler (killing
-        # the process). The parent process may have decided to ignore SIGHUP,
-        # and signal handlers are inherited.
-        old_handler = signal.signal(signal.SIGHUP, signal.SIG_DFL)
-        try:
-            prog = os.path.join(os.path.dirname(__file__), 'echo.py')
-
-            connect = self.loop.subprocess_exec(
-                functools.partial(MySubprocessProtocol, self.loop), sys.executable, prog
-            )
-            transp, proto = self.loop.run_until_complete(connect)
-            self.assertIsInstance(proto, MySubprocessProtocol)
-            self.loop.run_until_complete(proto.connected)
-
-            transp.send_signal(signal.SIGHUP)
-            self.loop.run_until_complete(proto.completed)
-            self.assertEqual(-signal.SIGHUP, proto.returncode)
-            transp.close()
-        finally:
-            signal.signal(signal.SIGHUP, old_handler)
-
-    def test_subprocess_stderr(self):
-        prog = os.path.join(os.path.dirname(__file__), 'echo2.py')
-
-        connect = self.loop.subprocess_exec(
-            functools.partial(MySubprocessProtocol, self.loop), sys.executable, prog
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.connected)
-
-        stdin = transp.get_pipe_transport(0)
-        stdin.write(b'test')
-
-        self.loop.run_until_complete(proto.completed)
-
-        transp.close()
-        self.assertEqual(b'OUT:test', proto.data[1])
-        self.assertTrue(proto.data[2].startswith(b'ERR:test'), proto.data[2])
-        self.assertEqual(0, proto.returncode)
-
-    def test_subprocess_stderr_redirect_to_stdout(self):
-        prog = os.path.join(os.path.dirname(__file__), 'echo2.py')
-
-        connect = self.loop.subprocess_exec(
-            functools.partial(MySubprocessProtocol, self.loop),
-            sys.executable,
-            prog,
-            stderr=subprocess.STDOUT
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.connected)
-
-        stdin = transp.get_pipe_transport(0)
-        self.assertIsNotNone(transp.get_pipe_transport(1))
-        self.assertIsNone(transp.get_pipe_transport(2))
-
-        stdin.write(b'test')
-        self.loop.run_until_complete(proto.completed)
-        self.assertTrue(proto.data[1].startswith(b'OUT:testERR:test'), proto.data[1])
-        self.assertEqual(b'', proto.data[2])
-
-        transp.close()
-        self.assertEqual(0, proto.returncode)
-
-    def test_subprocess_close_client_stream(self):
-        prog = os.path.join(os.path.dirname(__file__), 'echo3.py')
-
-        connect = self.loop.subprocess_exec(
-            functools.partial(MySubprocessProtocol, self.loop), sys.executable, prog
-        )
-        transp, proto = self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.connected)
-
-        stdin = transp.get_pipe_transport(0)
-        stdout = transp.get_pipe_transport(1)
-        stdin.write(b'test')
-        self.loop.run_until_complete(proto.got_data[1].wait())
-        self.assertEqual(b'OUT:test', proto.data[1])
-
-        stdout.close()
-        self.loop.run_until_complete(proto.disconnects[1])
-        stdin.write(b'xxx')
-        self.loop.run_until_complete(proto.got_data[2].wait())
-        if sys.platform != 'win32':
-            self.assertEqual(b'ERR:BrokenPipeError', proto.data[2])
-        else:
-            # After closing the read-end of a pipe, writing to the
-            # write-end using os.write() fails with errno==EINVAL and
-            # GetLastError()==ERROR_INVALID_NAME on Windows!?!  (Using
-            # WriteFile() we get ERROR_BROKEN_PIPE as expected.)
-            self.assertEqual(b'ERR:OSError', proto.data[2])
-        with test_utils.disable_logger():
-            transp.close()
-        self.loop.run_until_complete(proto.completed)
-        self.check_killed(proto.returncode)
-
-    def test_subprocess_wait_no_same_group(self):
-        # start the new process in a new session
-        connect = self.loop.subprocess_shell(
-            functools.partial(MySubprocessProtocol, self.loop),
-            'exit 7',
-            stdin=None,
-            stdout=None,
-            stderr=None,
-            start_new_session=True
-        )
-        _, proto = yield self.loop.run_until_complete(connect)
-        self.assertIsInstance(proto, MySubprocessProtocol)
-        self.loop.run_until_complete(proto.completed)
-        self.assertEqual(7, proto.returncode)
-
-    def test_subprocess_exec_invalid_args(self):
-        @asyncio.coroutine
-        def connect(**kwds):
-            yield from self.loop.subprocess_exec(asyncio.SubprocessProtocol, 'pwd', **kwds)
-
-        with self.assertRaises(ValueError):
-            self.loop.run_until_complete(connect(universal_newlines=True))
-        with self.assertRaises(ValueError):
-            self.loop.run_until_complete(connect(bufsize=4096))
-        with self.assertRaises(ValueError):
-            self.loop.run_until_complete(connect(shell=True))
-
-    def test_subprocess_shell_invalid_args(self):
-        @asyncio.coroutine
-        def connect(cmd=None, **kwds):
-            if not cmd:
-                cmd = 'pwd'
-            yield from self.loop.subprocess_shell(asyncio.SubprocessProtocol, cmd, **kwds)
-
-        with self.assertRaises(ValueError):
-            self.loop.run_until_complete(connect(['ls', '-l']))
-        with self.assertRaises(ValueError):
-            self.loop.run_until_complete(connect(universal_newlines=True))
-        with self.assertRaises(ValueError):
-            self.loop.run_until_complete(connect(bufsize=4096))
-        with self.assertRaises(ValueError):
-            self.loop.run_until_complete(connect(shell=False))
-
-
 if sys.platform == 'win32':
 
     class SelectEventLoopTests(EventLoopTestsMixin, test_utils.TestCase):
         def create_event_loop(self):
             return asyncio.SelectorEventLoop()
 
-    class ProactorEventLoopTests(EventLoopTestsMixin, SubprocessTestsMixin, test_utils.TestCase):
+    class ProactorEventLoopTests(EventLoopTestsMixin, test_utils.TestCase):
         def create_event_loop(self):
             return asyncio.ProactorEventLoop()
 
@@ -2158,7 +1836,7 @@ else:
 
     if False and hasattr(selectors, 'KqueueSelector'):
 
-        class KqueueEventLoopTests(UnixEventLoopTestsMixin, SubprocessTestsMixin,
+        class KqueueEventLoopTests(UnixEventLoopTestsMixin, 
                                    test_utils.TestCase):
             def create_event_loop(self):
                 return asyncio.SelectorEventLoop(selectors.KqueueSelector())
@@ -2180,20 +1858,20 @@ else:
 
     if False and hasattr(selectors, 'EpollSelector'):
 
-        class EPollEventLoopTests(UnixEventLoopTestsMixin, SubprocessTestsMixin,
+        class EPollEventLoopTests(UnixEventLoopTestsMixin, 
                                   test_utils.TestCase):
             def create_event_loop(self):
                 return asyncio.SelectorEventLoop(selectors.EpollSelector())
 
     if False and hasattr(selectors, 'PollSelector'):
 
-        class PollEventLoopTests(UnixEventLoopTestsMixin, SubprocessTestsMixin,
+        class PollEventLoopTests(UnixEventLoopTestsMixin, 
                                  test_utils.TestCase):
             def create_event_loop(self):
                 return asyncio.SelectorEventLoop(selectors.PollSelector())
 
     # Should always exist.
-    class TrioEventLoopTests(UnixEventLoopTestsMixin, SubprocessTestsMixin, test_utils.TestCase):
+    class TrioEventLoopTests(UnixEventLoopTestsMixin, test_utils.TestCase):
         def create_event_loop(self):
             import trio_asyncio.sync
             return trio_asyncio.sync.SyncTrioEventLoop()
