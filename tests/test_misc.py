@@ -2,6 +2,7 @@ import pytest
 import trio_asyncio
 import asyncio
 import trio
+import sys
 from . import utils as test_utils
 
 # from tests import aiotest
@@ -301,6 +302,8 @@ async def test_wrong_context_manager_order():
 
 
 @pytest.mark.trio
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Not supported on Windows")
 async def test_keyboard_interrupt_teardown():
     asyncio_loop_closed = trio.Event()
 
