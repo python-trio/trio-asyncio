@@ -30,23 +30,6 @@ nitpick_ignore = [
     ("py:class", "CapacityLimiter-like object"),
     ("py:class", "bytes-like"),
     ("py:class", "None"),
-    ("py:func", "trio_asyncio.wait_for_child"),
-    ("py:func", "trio_asyncio.run_future"),
-    ("py:func", "trio_asyncio.run_coroutine"),
-    ("py:func", "trio_asyncio.run_asyncio"),
-    ("py:func", "trio_asyncio.aio_as_trio"),
-    ("py:func", "trio_asyncio.trio_as_aio"),
-    ("py:func", "trio_asyncio.allow_asyncio"),
-    ("py:func", "sniffio.current_async_library"),
-    ("py:class", "trio_asyncio.TrioEventLoop"),
-    ("py:class", "trio_asyncio.TrioExecutor"),
-    ("py:class", "trio_asyncio.TrioChildWatcher"),
-    ("py:meth", "trio_asyncio.TrioEventLoop.autoclose"),
-    ("py:meth", "trio_asyncio.TrioEventLoop.add_reader"),
-    ("py:meth", "trio_asyncio.TrioEventLoop.add_writer"),
-    ("py:meth", "trio_asyncio.TrioEventLoop.run_trio_task"),
-    ("py:meth", "trio_asyncio.sync.SyncTrioEventLoop.run_until_complete"),
-    ("py:mod", "trio_asyncio"), ## ???
 ]
 
 autodoc_inherit_docstrings = False
@@ -71,7 +54,7 @@ extensions = [
 intersphinx_mapping = {
     "python": ('https://docs.python.org/3', None),
     "trio": ('https://trio.readthedocs.io/en/stable', None),
-    # "sniffio": ('https://sniffio.readthedocs.io/en/stable', None),
+    "sniffio": ('https://sniffio.readthedocs.io/en/latest', None),
 }
 
 autodoc_member_order = "bysource"

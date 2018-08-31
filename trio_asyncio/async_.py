@@ -11,8 +11,7 @@ __all__ = ['TrioEventLoop', 'open_loop']
 class TrioEventLoop(BaseTrioEventLoop):
     """A Trio-compatible asyncio event loop.
 
-    This loop runs in an async Trio context. If you really do need a
-    stand-alone implementation, use :class:`SyncTrioEventLoop`.
+    This loop runs in an async Trio context.
     """
 
     def _queue_handle(self, handle):

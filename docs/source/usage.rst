@@ -3,7 +3,7 @@
  Usage
 +++++++
 
-.. module: trio_asyncio
+.. module:: trio_asyncio
 
 Using :mod:`trio` from :mod:`asyncio`, or vice versa, requires two steps:
 
@@ -73,6 +73,8 @@ the loop's context.
 .. autofunction:: trio_asyncio.open_loop
 
 .. autofunction:: trio_asyncio.run
+
+.. autoclass:: trio_asyncio.TrioEventLoop
 
 .. note:
 
@@ -349,7 +351,7 @@ to wrap the iterator, not the code creating it – the following code
         async for n in aio_as_trio(aio_slow)():
             print(n)
 
-.. autodoc: trio_asyncio.aio_as_trio
+.. autofunction:: trio_asyncio.aio_as_trio
 
 
 Too complicated?
@@ -375,7 +377,7 @@ code to Trio callers, but not vice versa.
 
 Thus, you really should not use it for "real" programs or libraries.
 
-.. autodoc: trio_asyncio.allow_asyncio
+.. autofunction:: trio_asyncio.allow_asyncio
 
 Calling Trio from asyncio
 +++++++++++++++++++++++++
@@ -450,7 +452,7 @@ You can also wrap async generators or iterators::
             print(n)
     trio_asyncio.run(aio_as_trio, printer)
 
-.. autodoc: trio_asyncio.trio_as_aio
+.. autofunction:: trio_as_aio
 
 
 Trio background tasks
@@ -461,7 +463,7 @@ If you want to start a Trio task that shall be monitored by ``trio_asyncio``
 loop) instead of a :class:`asyncio.Future`, use
 :meth:`trio_asyncio.TrioEventLoop.run_trio_task`.
 
-.. autodoc: trio_asyncio.TrioEventLoop.run_trio_task
+.. automethod:: trio_asyncio.TrioEventLoop.run_trio_task
 
 Multiple asyncio loops
 ++++++++++++++++++++++
@@ -482,7 +484,13 @@ method is mainly useful for servers and should be used as supplementing,
 but not replacing, a ``finally:`` handler or an ``async with aclosing():``
 block.
 
-.. autodoc: trio_asyncio.TrioEventLoop.autoclose
+.. automethod:: trio_asyncio.TrioEventLoop.autoclose
+
+.. automethod:: trio_asyncio.TrioEventLoop.add_reader
+.. automethod:: trio_asyncio.TrioEventLoop.remove_reader
+
+.. automethod:: trio_asyncio.TrioEventLoop.add_writer
+.. automethod:: trio_asyncio.TrioEventLoop.remove_writer
 
 Errors and cancellations
 ++++++++++++++++++++++++
@@ -525,6 +533,8 @@ Cancellations are also propagated whenever possible. This means
 There is one caveat: the executor must be either ``None`` or an instance of
 :class:`trio_asyncio.TrioExecutor`. The constructor of this class accepts one
 argument: the number of workers.
+
+.. autoclass:: trio_asyncio.TrioExecutor
 
 ------------------
  File descriptors

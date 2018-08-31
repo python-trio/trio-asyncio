@@ -105,8 +105,10 @@ def aio_as_trio(proc, *, loop=None):
     Encapsulate an asyncio-style coroutine, procedure, generator, or
     iterator, to be called seamlessly from Trio.
 
-    Note that while adapting coroutines, i.e.
+    Note that while adapting coroutines, i.e.::
+
         wrap(proc(*args))
+
     is supported (because asyncio uses them a lot) they're not a good
     idea because setting up the coroutine won't run within an asyncio
     context. If at all possible, use::
@@ -276,7 +278,7 @@ async def allow_asyncio(fn, *args):
 
     Unfortunately, there are issues with cancellation (specifically,
     :mod:`asyncio` function will see :class:`trio.Cancelled` instead of
-    :class:`asyncio.CancelledError`). Thus, this mode is not the default.
+    :exc:`concurrent.futures.CancelledError`). Thus, this mode is not the default.
 
     This function must be called from :mod:`trio` context.
     """

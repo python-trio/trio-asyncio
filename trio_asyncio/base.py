@@ -549,17 +549,15 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         ready for reading.
 
         This creates a new Trio task. You may want to use "await
-        :meth:`trio.hazmat.wait_readable`(fd) instead, or
+        :obj:`trio.hazmat.wait_readable`\ (fd)" instead, or
 
         :param fd: Either an integer (Unix file descriptor) or an object
-                   with a :meth:`fileno` methor providing one.
+                   with a ``fileno`` method providing one.
         :return: A handle. To remove the listener, either call
-                 ``handle.cancel()`` or :meth:`remove_reader`(fd).
+                 ``handle.cancel()`` or :meth:`.remove_reader`\ (fd).
         """
         self._ensure_fd_no_transport(fd)
         return self._add_reader(fd, callback, *args)
-
-    # remove_reader: unchanged from asyncio
 
     def _add_reader(self, fd, callback, *args):
         self._check_closed()
@@ -604,12 +602,12 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         ready for writing.
 
         This creates a new Trio task. You may want to use "await
-        :meth:`trio.hazmat.wait_writable`(fd) instead, or
+        :obj:`trio.hazmat.wait_writable`\ (fd) instead, or
 
         :param fd: Either an integer (Unix file descriptor) or an object
-                   with a :meth:`fileno` methor providing one.
+                   with a ``fileno`` method providing one.
         :return: A handle. To remove the listener, either call
-                 ``handle.cancel()`` or :meth:`remove_writer`(fd).
+                 ``handle.cancel()`` or :meth:`remove_writer`\ (fd).
         """
         self._ensure_fd_no_transport(fd)
         return self._add_writer(fd, callback, *args)
@@ -661,7 +659,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Calling this method twice has no effect.
 
         :param fd: Either an integer (Unix file descriptor) or an object
-                   with a :meth:`fileno` methor providing one.
+                   with a ``fileno`` method providing one.
         """
         if hasattr(fd, 'fileno'):
             fd = fd.fileno()
