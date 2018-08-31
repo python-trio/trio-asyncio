@@ -289,7 +289,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         return Trio_Asyncio_Wrapper(ctx, loop=self)
 
     def run_trio(self, proc, *args):
-        warnings.warn("Use 'await loop.trio_as_future(proc, *args)' instead'", DeprecationWarning)
+        warnings.warn("Use 'await trio_as_aio(proc)(*args)' instead'", DeprecationWarning)
         return self.trio_as_future(proc, *args)
 
     async def __run_trio(self, h):
