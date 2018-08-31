@@ -787,6 +787,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 await self._main_loop_one(no_wait=True)
             except trio.WouldBlock:
                 break
+            except StopAsyncIteration:
+                pass
 
         # Kill off unprocessed work
         self._cancel_fds()
