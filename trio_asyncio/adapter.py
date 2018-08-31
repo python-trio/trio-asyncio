@@ -90,12 +90,12 @@ class Asyncio_Trio_Wrapper:
         return self.loop.run_aio_coroutine(f)
 
     def __aiter__(self):
-        proc_iter = getattr(self.proc, "__anext__", None)
+        proc_iter = getattr(self.proc, "__aiter__", None)
         if proc_iter is None or self.args:
             raise RuntimeError(
                 "Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'"
             )
-        return run_aio_generator(self.loop, self.proc)
+        return run_aio_generator(self.loop, proc_iter())
 
 
 def aio_as_trio(proc, loop=None):
@@ -150,12 +150,12 @@ class Trio_Asyncio_Wrapper:
         return self.loop.trio_as_future(f, *tb)
 
     def __aiter__(self):
-        proc_iter = getattr(self.proc, "__anext__", None)
+        proc_iter = getattr(self.proc, "__aiter__", None)
         if proc_iter is None or self.args:
             raise RuntimeError(
                 "Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'"
             )
-        return run_trio_generator(self.loop, self.proc)
+        return run_trio_generator(self.loop, proc_iter())
 
 
 def trio_as_aio(proc, loop=None):
