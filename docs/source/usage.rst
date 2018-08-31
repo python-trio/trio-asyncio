@@ -259,7 +259,7 @@ Thus, you can call an :mod:`asyncio` function from :mod:`trio` thus::
         await asyncio.sleep(sec)
     async def trio_sleep(sec=2):
         await aio_as_trio(aio_sleep)(sec)
-    trio_asyncio.run(trio_sleep)(3)
+    trio_asyncio.run(trio_sleep, 3)
 
 or pre-wrapped::
 
