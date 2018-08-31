@@ -19,19 +19,22 @@ current_policy = ContextVar('trio_aio_policy', default=None)
 
 from functools import wraps, partial
 
-__all__ = ['trio2aio', 'aio2trio', 'aio_as_trio', 'trio_as_aio', 'allow_asyncio',
-           'current_loop', 'current_policy', 'asyncio_as_trio', 'trio_as_asyncio']
+__all__ = [
+    'trio2aio', 'aio2trio', 'aio_as_trio', 'trio_as_aio', 'allow_asyncio', 'current_loop',
+    'current_policy', 'asyncio_as_trio', 'trio_as_asyncio'
+]
 
 
 def trio2aio(proc):
-        """Call asyncio code from Trio.
+    """Call asyncio code from Trio.
 
         Deprecated: Use aio_as_trio() instead.
 
         """
-        warnings.warn("Use 'aio_as_trio(proc)' instead'", DeprecationWarning)
+    warnings.warn("Use 'aio_as_trio(proc)' instead'", DeprecationWarning)
 
-        return aio_as_trio(proc)
+    return aio_as_trio(proc)
+
 
 class Asyncio_Trio_Wrapper:
     """
@@ -72,7 +75,7 @@ class Asyncio_Trio_Wrapper:
         """Compatibility code for "await loop.run_asyncio(coro)"
         """
         f = self.proc
-        if not hasattr(f,"__await__"):
+        if not hasattr(f, "__await__"):
             f = f(*self.args)
         elif self.args:
             raise RuntimeError("You can't supply arguments to a coroutine")
@@ -94,9 +97,7 @@ class Asyncio_Trio_Wrapper:
     def __aiter__(self):
         proc_iter = getattr(self.proc, "__aiter__", None)
         if proc_iter is None or self.args:
-            raise RuntimeError(
-                "Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'"
-            )
+            raise RuntimeError("Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'")
         return run_aio_generator(self.loop, proc_iter())
 
 
@@ -119,6 +120,7 @@ def aio_as_trio(proc, *, loop=None):
     """
     return Asyncio_Trio_Wrapper(proc, loop=loop)
 
+
 asyncio_as_trio = aio_as_trio
 
 
@@ -127,7 +129,7 @@ class Trio_Asyncio_Wrapper:
     This wrapper object encapsulates a Trio-style procedure,
     generator, or iterator, to be called seamlessly from asyncio.
     """
-    
+
     # This class doesn't wrap coroutines because Trio's call convention
     # is
     #     wrap(proc, *args)
@@ -175,9 +177,7 @@ class Trio_Asyncio_Wrapper:
     def __aiter__(self):
         proc_iter = getattr(self.proc, "__aiter__", None)
         if proc_iter is None:
-            raise RuntimeError(
-                "Call 'trio_as_aio(gen(*args))', not 'trio_as_aio(gen, *args)'"
-            )
+            raise RuntimeError("Call 'trio_as_aio(gen(*args))', not 'trio_as_aio(gen, *args)'")
         return run_trio_generator(self.loop, proc_iter())
 
 
@@ -200,18 +200,19 @@ def trio_as_aio(proc, *, loop=None):
     """
     return Trio_Asyncio_Wrapper(proc, loop=loop)
 
+
 trio_as_asyncio = trio_as_aio
 
 
 def aio2trio(proc):
-        """Call asyncio code from Trio.
+    """Call asyncio code from Trio.
 
         Deprecated: Use aio_as_trio() instead.
 
         """
-        warnings.warn("Use 'trio_as_aio(proc)' instead'", DeprecationWarning)
+    warnings.warn("Use 'trio_as_aio(proc)' instead'", DeprecationWarning)
 
-        return trio_as_aio(proc)
+    return trio_as_aio(proc)
 
 
 def aio2trio_task(proc):

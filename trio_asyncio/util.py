@@ -52,6 +52,7 @@ async def run_aio_future(future):
 
 STOP = object()
 
+
 @async_generator
 async def run_aio_generator(loop, async_generator):
     """Run an asyncio generator from Trio"""
@@ -118,6 +119,7 @@ async def run_aio_generator(loop, async_generator):
         else:
             raise
 
+
 @async_generator
 async def run_trio_generator(loop, async_generator):
     """Run a Trio generator from within asyncio"""
@@ -129,4 +131,3 @@ async def run_trio_generator(loop, async_generator):
             break
         else:
             await yield_(item)
-

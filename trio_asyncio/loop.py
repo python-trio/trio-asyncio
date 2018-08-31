@@ -174,6 +174,7 @@ except AttributeError:
     pass
 
 else:
+
     def _new_run_get():
         try:
             task = trio.hazmat.current_task()
@@ -185,7 +186,6 @@ else:
                 raise RuntimeError("No trio_asyncio loop is active.")
 
         return loop
-
 
     _aio_event._get_running_loop = _new_run_get
 

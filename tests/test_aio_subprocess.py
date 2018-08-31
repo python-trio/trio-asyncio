@@ -15,6 +15,7 @@ from trio_asyncio import aio_as_trio
 
 from . import utils as test_utils
 
+
 class MySubprocessProtocol(asyncio.SubprocessProtocol):
     def __init__(self, loop):
         self.state = 'INITIAL'
@@ -61,6 +62,7 @@ def check_terminated(returncode):
     else:
         assert -signal.SIGTERM == returncode
 
+
 def check_killed(returncode):
     if sys.platform == 'win32':
         assert isinstance(returncode, int)
@@ -68,9 +70,12 @@ def check_killed(returncode):
     else:
         assert -signal.SIGKILL == returncode
 
+
 @pytest.mark.trio
 async def test_subprocess_exec(loop):
     await run_subprocess_exec(loop)
+
+
 @aio_as_trio
 async def run_subprocess_exec(loop):
     prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
@@ -92,9 +97,12 @@ async def run_subprocess_exec(loop):
     check_killed(proto.returncode)
     assert b'Python The Winner' == proto.data[1]
 
+
 @pytest.mark.trio
 async def test_subprocess_interactive(loop):
     await run_subprocess_interactive(loop)
+
+
 @aio_as_trio
 async def run_subprocess_interactive(loop):
     prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
@@ -122,14 +130,15 @@ async def run_subprocess_interactive(loop):
     await proto.completed
     check_killed(proto.returncode)
 
+
 @pytest.mark.trio
 async def test_subprocess_shell(loop):
     await run_subprocess_shell(loop)
+
+
 @aio_as_trio
 async def run_subprocess_shell(loop):
-    connect = loop.subprocess_shell(
-        functools.partial(MySubprocessProtocol, loop), 'echo Python'
-    )
+    connect = loop.subprocess_shell(functools.partial(MySubprocessProtocol, loop), 'echo Python')
     transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
     await proto.connected
@@ -142,9 +151,12 @@ async def run_subprocess_shell(loop):
     assert proto.data[2] == b''
     transp.close()
 
+
 @pytest.mark.trio
 async def test_subprocess_exitcode(loop):
     await run_subprocess_exitcode(loop)
+
+
 @aio_as_trio
 async def run_subprocess_exitcode(loop):
     connect = loop.subprocess_shell(
@@ -160,9 +172,12 @@ async def run_subprocess_exitcode(loop):
     assert 7 == proto.returncode
     transp.close()
 
+
 @pytest.mark.trio
 async def test_subprocess_close_after_finish(loop):
     await run_subprocess_close_after_finish(loop)
+
+
 @aio_as_trio
 async def run_subprocess_close_after_finish(loop):
     connect = loop.subprocess_shell(
@@ -181,9 +196,12 @@ async def run_subprocess_close_after_finish(loop):
     assert 7 == proto.returncode
     assert transp.close() is None
 
+
 @pytest.mark.trio
 async def test_subprocess_kill(loop):
     await run_subprocess_kill(loop)
+
+
 @aio_as_trio
 async def run_subprocess_kill(loop):
     prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
@@ -200,9 +218,12 @@ async def run_subprocess_kill(loop):
     check_killed(proto.returncode)
     transp.close()
 
+
 @pytest.mark.trio
 async def test_subprocess_terminate(loop):
     await run_subprocess_terminate(loop)
+
+
 @aio_as_trio
 async def run_subprocess_terminate(loop):
     prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
@@ -219,10 +240,13 @@ async def run_subprocess_terminate(loop):
     check_terminated(proto.returncode)
     transp.close()
 
+
 @unittest.skipIf(sys.platform == 'win32', "Don't have SIGHUP")
 @pytest.mark.trio
 async def test_subprocess_send_signal(loop):
     await run_subprocess_send_signal(loop)
+
+
 @aio_as_trio
 async def run_subprocess_send_signal(loop):
     # bpo-31034: Make sure that we get the default signal handler (killing
@@ -246,9 +270,12 @@ async def run_subprocess_send_signal(loop):
     finally:
         signal.signal(signal.SIGHUP, old_handler)
 
+
 @pytest.mark.trio
 async def test_subprocess_stderr(loop):
     await run_subprocess_stderr(loop)
+
+
 @aio_as_trio
 async def run_subprocess_stderr(loop):
     prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo2.py')
@@ -270,9 +297,12 @@ async def run_subprocess_stderr(loop):
     assert proto.data[2].startswith(b'ERR:test'), proto.data[2]
     assert 0 == proto.returncode
 
+
 @pytest.mark.trio
 async def test_subprocess_stderr_redirect_to_stdout(loop):
     await run_subprocess_stderr_redirect_to_stdout(loop)
+
+
 @aio_as_trio
 async def run_subprocess_stderr_redirect_to_stdout(loop):
     prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo2.py')
@@ -299,9 +329,12 @@ async def run_subprocess_stderr_redirect_to_stdout(loop):
     transp.close()
     assert 0 == proto.returncode
 
+
 @pytest.mark.trio
 async def test_subprocess_close_client_stream(loop):
     await run_subprocess_close_client_stream(loop)
+
+
 @aio_as_trio
 async def run_subprocess_close_client_stream(loop):
     prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo3.py')
@@ -336,9 +369,12 @@ async def run_subprocess_close_client_stream(loop):
     await proto.completed
     check_killed(proto.returncode)
 
+
 @pytest.mark.trio
 async def test_subprocess_wait_no_same_group(loop):
     await run_subprocess_wait_no_same_group(loop)
+
+
 @aio_as_trio
 async def run_subprocess_wait_no_same_group(loop):
     # start the new process in a new session
@@ -355,6 +391,7 @@ async def run_subprocess_wait_no_same_group(loop):
     await proto.completed
     assert 7 == proto.returncode
 
+
 @pytest.mark.trio
 async def test_subprocess_exec_invalid_args(loop):
     @aio_as_trio
@@ -367,6 +404,7 @@ async def test_subprocess_exec_invalid_args(loop):
         await connect(bufsize=4096)
     with pytest.raises(ValueError):
         await connect(shell=True)
+
 
 @pytest.mark.trio
 async def test_subprocess_shell_invalid_args(loop):
@@ -384,5 +422,3 @@ async def test_subprocess_shell_invalid_args(loop):
         await connect(bufsize=4096)
     with pytest.raises(ValueError):
         await connect(shell=False)
-
-

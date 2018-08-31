@@ -441,7 +441,9 @@ class TestCalls(aiotest.TestCase):
         async def cancel_trio(seen):
             started = trio.Event()
             async with trio.open_nursery() as nursery:
-                nursery.start_soon(partial(self.call_t_a_depr, loop=loop), in_asyncio, started, seen)
+                nursery.start_soon(
+                    partial(self.call_t_a_depr, loop=loop), in_asyncio, started, seen
+                )
                 await started.wait()
                 nursery.cancel_scope.cancel()
             seen.flag |= 8
@@ -583,6 +585,8 @@ class TestCalls(aiotest.TestCase):
 
         sum = 0
         # with test_utils.deprecate(self): ## not yet
-        async for n in aio_as_trio(slow_nums(), loop=loop):
+        async for n in aio_as_trio(
+            slow_nums(), loop=loop
+        ):
             sum += n
         assert sum == 15

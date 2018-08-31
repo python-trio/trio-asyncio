@@ -17,7 +17,6 @@ from .util import run_aio_future, run_aio_generator
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
-
 try:
     from trio.hazmat import wait_for_child
 except ImportError:
@@ -278,9 +277,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """
 
         warnings.warn("Use 'await aio_as_trio(proc)(*args)' instead'", DeprecationWarning)
-        
-        return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
 
+        return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
 
     def wrap_trio_context(self, ctx):
         """Run a Trio context manager from asyncio.

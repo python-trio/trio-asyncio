@@ -583,7 +583,6 @@ def get_function_source(func):
     return source
 
 
-
 def deprecate(tc, vers=None):
     if vers is None or sys.version_info >= vers:
         return pytest.deprecated_call()
@@ -599,5 +598,3 @@ def deprecate(tc, vers=None):
             pass
 
     return _deprecate(tc)
-
-

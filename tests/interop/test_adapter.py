@@ -9,6 +9,7 @@ import sys
 from async_generator import asynccontextmanager
 from .. import utils as test_utils
 
+
 class SomeThing:
     flag = 0
 
@@ -96,6 +97,7 @@ class SomeThing:
         yield self
         await trio.sleep(0.01)
         self.flag |= 2
+
 
 class TestAdapt(aiotest.TestCase):
     @pytest.mark.trio
@@ -207,6 +209,7 @@ class TestAdapt(aiotest.TestCase):
     async def test_asyncio_trio_ctx(self, loop):
         await aio_as_trio(self.run_asyncio_trio_ctx)(loop)
 
+
 class TestAllow(aiotest.TestCase):
     async def run_asyncio_trio(self, loop):
         """Call asyncio from trio"""
@@ -287,4 +290,3 @@ class TestAllow(aiotest.TestCase):
     @pytest.mark.trio
     async def test_trio_asyncio_ctx(self, loop):
         await allow_asyncio(self.run_trio_asyncio_ctx, loop)
-

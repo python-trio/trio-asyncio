@@ -56,7 +56,7 @@ if not hasattr(asyncio, 'create_task'):
 async def loop():
     async with trio_asyncio.open_loop() as loop:
         try:
-            await yield_( loop)
+            await yield_(loop)
         finally:
             await loop.stop().wait()
 

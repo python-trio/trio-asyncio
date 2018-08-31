@@ -1836,8 +1836,7 @@ else:
 
     if False and hasattr(selectors, 'KqueueSelector'):
 
-        class KqueueEventLoopTests(UnixEventLoopTestsMixin, 
-                                   test_utils.TestCase):
+        class KqueueEventLoopTests(UnixEventLoopTestsMixin, test_utils.TestCase):
             def create_event_loop(self):
                 return asyncio.SelectorEventLoop(selectors.KqueueSelector())
 
@@ -1858,15 +1857,13 @@ else:
 
     if False and hasattr(selectors, 'EpollSelector'):
 
-        class EPollEventLoopTests(UnixEventLoopTestsMixin, 
-                                  test_utils.TestCase):
+        class EPollEventLoopTests(UnixEventLoopTestsMixin, test_utils.TestCase):
             def create_event_loop(self):
                 return asyncio.SelectorEventLoop(selectors.EpollSelector())
 
     if False and hasattr(selectors, 'PollSelector'):
 
-        class PollEventLoopTests(UnixEventLoopTestsMixin, 
-                                 test_utils.TestCase):
+        class PollEventLoopTests(UnixEventLoopTestsMixin, test_utils.TestCase):
             def create_event_loop(self):
                 return asyncio.SelectorEventLoop(selectors.PollSelector())
 
