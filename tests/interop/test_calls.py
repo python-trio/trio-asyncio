@@ -2,7 +2,7 @@ import pytest
 import asyncio
 import trio
 import sniffio
-from trio_asyncio import aio_as_trio
+from trio_asyncio import aio_as_trio, trio_as_aio
 from tests import aiotest
 from functools import partial
 import sys
@@ -69,7 +69,12 @@ class TestCalls(aiotest.TestCase):
 
     async def call_a_t(self, proc, *args, loop=None):
         """call from asyncio to an async trio function"""
-        return await loop.run_trio(proc, *args)
+        return await trio_as_aio(proc, loop=loop)(*args)
+
+    async def call_a_t_depr(self, proc, *args, loop=None):
+        """call from asyncio to an async trio function"""
+        with test_utils.deprecate(self):
+            return await loop.run_trio(proc, *args)
 
     async def call_a_ts(self, proc, *args, loop=None):
         """called from asyncio to a sync trio function"""
@@ -111,6 +116,20 @@ class TestCalls(aiotest.TestCase):
         assert seen.flag == 2
 
     @pytest.mark.trio
+    async def test_asyncio_trio(self, loop):
+        """Call asyncio from trio"""
+
+        async def dly_trio(seen):
+            await trio.sleep(0.01)
+            seen.flag |= 2
+            return 8
+
+        seen = Seen()
+        res = await aio_as_trio(partial(self.call_a_t_depr, loop=loop), loop=loop)(dly_trio, seen)
+        assert res == 8
+        assert seen.flag == 2
+
+    @pytest.mark.trio
     async def test_call_asyncio_ctx(self, loop):
         self.did_it = 0
         async with aio_as_trio(AioContext(self, loop), loop=loop) as ctx:
@@ -122,7 +141,7 @@ class TestCalls(aiotest.TestCase):
     async def test_call_trio_ctx(self, loop):
         async def _call_trio_ctx():
             self.did_it = 0
-            async with loop.wrap_trio_context(TrioContext(self)) as ctx:
+            async with trio_as_aio(TrioContext(self)) as ctx:
                 assert self.did_it == 2
                 self.did_it = 3
             assert self.did_it == 4
@@ -203,7 +222,17 @@ class TestCalls(aiotest.TestCase):
         assert err.value.args[0] == "I has another owie"
 
     @pytest.mark.trio
-    async def test_asyncio_trio_error_depr(self, loop):
+    async def test_asyncio_trio_error_depr1(self, loop):
+        async def err_trio():
+            await trio.sleep(0.01)
+            raise RuntimeError("I has another owie")
+
+        with pytest.raises(RuntimeError) as err:
+            await aio_as_trio(partial(self.call_a_t_depr, loop=loop), loop=loop)(err_trio)
+        assert err.value.args[0] == "I has another owie"
+
+    @pytest.mark.trio
+    async def test_asyncio_trio_error_depr2(self, loop):
         async def err_trio():
             await trio.sleep(0.01)
             raise RuntimeError("I has another owie")
@@ -211,6 +240,17 @@ class TestCalls(aiotest.TestCase):
         with pytest.raises(RuntimeError) as err:
             with test_utils.deprecate(self):
                 await loop.run_asyncio(partial(self.call_a_t, loop=loop), err_trio)
+        assert err.value.args[0] == "I has another owie"
+
+    @pytest.mark.trio
+    async def test_asyncio_trio_error_depr3(self, loop):
+        async def err_trio():
+            await trio.sleep(0.01)
+            raise RuntimeError("I has another owie")
+
+        with pytest.raises(RuntimeError) as err:
+            with test_utils.deprecate(self):
+                await loop.run_asyncio(partial(self.call_a_t_depr, loop=loop), err_trio)
         assert err.value.args[0] == "I has another owie"
 
     @pytest.mark.trio

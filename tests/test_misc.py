@@ -55,7 +55,7 @@ class TestMisc:
 
         async def call_nested():
             with pytest.raises(RuntimeError) as err:
-                await loop.run_trio(nest)
+                await trio_asyncio.trio_as_aio(nest, loop=loop)()
             assert err.value.args[0] == "Hello"
 
         await trio_asyncio.aio_as_trio(call_nested, loop=loop)()
@@ -89,7 +89,7 @@ class TestMisc:
             owch = 1
 
         async def call_nested():
-            await loop.run_trio(nest)
+            await trio_asyncio.trio_as_aio(nest, loop=loop)()
 
         await trio_asyncio.aio_as_trio(call_nested, loop=loop)()
         assert owch
@@ -104,7 +104,8 @@ class TestMisc:
             owch = 1
 
         async def call_nested():
-            await loop.run_trio(nest)
+            with test_utils.deprecate(self):
+                await loop.run_trio(nest)
 
         with test_utils.deprecate(self):
             await loop.run_asyncio(call_nested)
@@ -119,7 +120,7 @@ class TestMisc:
             owch = 1
 
         async def call_nested():
-            await trio_asyncio.run_trio(nest)
+            await trio_asyncio.trio_as_aio(nest)()
 
         await trio_asyncio.aio_as_trio(call_nested)()
         assert owch
@@ -179,7 +180,7 @@ class TestMisc:
 
         async def call_more_nested():
             with pytest.raises(RuntimeError) as err:
-                await loop.run_trio(call_nested)
+                await trio_asyncio.trio_as_aio(call_nested, loop=loop)()
             assert err.value.args[0] == "Hello"
 
         await trio_asyncio.aio_as_trio(call_more_nested, loop=loop)()
@@ -215,10 +216,10 @@ class TestMisc:
             owch = 1
 
         async def call_nested():
-            await trio_asyncio.aio_as_trio(nest)()
+            await trio_asyncio.aio_as_trio(nest, loop=loop)()
 
         async def call_more_nested():
-            await loop.run_trio(call_nested)
+            await trio_asyncio.trio_as_aio(call_nested, loop=loop)()
 
         await trio_asyncio.aio_as_trio(call_more_nested, loop=loop)()
         assert owch

@@ -11,7 +11,7 @@ from contextvars import ContextVar
 from async_generator import asynccontextmanager
 from async_generator import async_generator, yield_
 
-from .adapter import Asyncio_Trio_Wrapper
+from .adapter import Asyncio_Trio_Wrapper, Trio_Asyncio_Wrapper
 from .handles import Handle, TimerHandle
 from .util import run_aio_future, run_aio_generator
 
@@ -282,21 +282,36 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
 
 
-    @asynccontextmanager
-    @async_generator
-    async def wrap_trio_context(self, ctx):
+    def wrap_trio_context(self, ctx):
         """Run a Trio context manager from asyncio.
         """
-        res = await self.run_trio(ctx.__aenter__)
-        try:
-            await yield_(res)
-        except BaseException as exc:
-            if not await self.run_trio(ctx.__aexit__, type(exc), exc, exc.__traceback__):
-                raise
-        else:
-            await self.run_trio(ctx.__aexit__, None, None, None)
+        warnings.warn("Use 'await trio_as_aio(context)' instead'", DeprecationWarning)
+        return Trio_Asyncio_Wrapper(ctx, loop=self)
 
     def run_trio(self, proc, *args):
+        warnings.warn("Use 'await loop.trio_as_future(proc, *args)' instead'", DeprecationWarning)
+        return self.trio_as_future(proc, *args)
+
+    async def __run_trio(self, h):
+        """Helper for copying the result of a Trio task to an asyncio future"""
+        f, proc, *args = h._args
+        if f.cancelled():  # pragma: no cover
+            return
+        try:
+            with trio.open_cancel_scope() as scope:
+                h._scope = scope
+                res = await proc(*args)
+            if scope.cancelled_caught:
+                f.cancel()
+                return
+        except BaseException as exc:
+            if not f.cancelled():  # pragma: no branch
+                f.set_exception(exc)
+        else:
+            if not f.cancelled():  # pragma: no branch
+                f.set_result(res)
+
+    def trio_as_future(self, proc, *args):
         """Run an asynchronous Trio function from asyncio.
 
         Returns a Future with the result / exception.
@@ -337,25 +352,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         """
         return self._queue_handle(Handle(proc, args, self, is_sync=False))
-
-    async def __run_trio(self, h):
-        """Helper for copying the result of a Trio task to an asyncio future"""
-        f, proc, *args = h._args
-        if f.cancelled():  # pragma: no cover
-            return
-        try:
-            with trio.open_cancel_scope() as scope:
-                h._scope = scope
-                res = await proc(*args)
-            if scope.cancelled_caught:
-                f.cancel()
-                return
-        except BaseException as exc:
-            if not f.cancelled():  # pragma: no branch
-                f.set_exception(exc)
-        else:
-            if not f.cancelled():  # pragma: no branch
-                f.set_result(res)
 
     # Callback handling #
 
@@ -464,11 +460,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 returncode = await wait_for_child(transp.get_pid())
                 transp._process_exited(returncode)
 
-            self.run_trio(child_wait, transp)
-            # XXX error handling
+            self.run_trio_task(child_wait, transp)
             try:
                 await waiter
-            except Exception as exc:
+            except BaseException as exc:
                 # Workaround CPython bug #23353: using yield/yield-from in an
                 # except block of a generator doesn't clear properly
                 # sys.exc_info()
@@ -499,7 +494,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if executor is None:  # pragma: no branch
             executor = self._default_executor
         assert isinstance(executor, TrioExecutor)
-        return self.run_trio(executor.submit, func, *args)
+        return Trio_Asyncio_Wrapper(executor.submit, loop=self)(func, *args)
 
     async def synchronize(self):
         """Sync with the main loop by passing an event through it.

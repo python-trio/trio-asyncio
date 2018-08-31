@@ -5,6 +5,7 @@ import trio
 import asyncio
 import sys
 import outcome
+import sniffio
 from async_generator import async_generator, yield_
 
 __all__ = ['run_aio_future', 'run_aio_generator']
@@ -51,14 +52,15 @@ async def run_aio_future(future):
 
 STOP = object()
 
-
 @async_generator
 async def run_aio_generator(loop, async_generator):
+    """Run an asyncio generator from Trio"""
     task = trio.hazmat.current_task()
     raise_cancel = None
     current_read = None
 
     async def consume_next():
+        t = sniffio.current_async_library_cvar.set("asyncio")
         try:
             item = await async_generator.__anext__()
             result = outcome.Value(value=item)
@@ -69,6 +71,8 @@ async def run_aio_generator(loop, async_generator):
             return
         except Exception as e:
             result = outcome.Error(error=e)
+        finally:
+            sniffio.current_async_library_cvar.reset(t)
 
         trio.hazmat.reschedule(task, result)
 
@@ -113,3 +117,16 @@ async def run_aio_generator(loop, async_generator):
                 sys.exc_info()[1].__cause__ = exc
         else:
             raise
+
+@async_generator
+async def run_trio_generator(loop, async_generator):
+    """Run a Trio generator from within asyncio"""
+    while True:
+        # Schedule in asyncio that we read the next item from the iterator
+        try:
+            item = await loop.trio_as_future(async_generator.__anext__)
+        except StopAsyncIteration:
+            break
+        else:
+            await yield_(item)
+

@@ -9,7 +9,7 @@ import asyncio
 import trio_asyncio
 from contextvars import ContextVar
 
-from .util import run_aio_generator, run_aio_future
+from .util import run_aio_generator, run_aio_future, run_trio_generator
 
 current_loop = ContextVar('trio_aio_loop', default=None)
 current_policy = ContextVar('trio_aio_policy', default=None)
@@ -19,7 +19,7 @@ current_policy = ContextVar('trio_aio_policy', default=None)
 
 from functools import wraps, partial
 
-__all__ = ['trio2aio', 'aio2trio', 'aio_as_trio', 'allow_asyncio',
+__all__ = ['trio2aio', 'aio2trio', 'aio_as_trio', 'trio_as_aio', 'allow_asyncio',
            'current_loop', 'current_policy']
 
 
@@ -102,20 +102,80 @@ def aio_as_trio(proc, loop=None):
     return Asyncio_Trio_Wrapper(proc, loop=loop)
 
 
-def aio2trio(proc):
-    """Decorate a Trio function so that it's callable by asyncio (only)."""
+class Trio_Asyncio_Wrapper:
+    """
+    This wrapper object encapsulates a trio-style coroutine,
+    generator, or iterator, to be called seamlessly from Trio.
+    """
+    def __init__(self, proc, args=[], loop=None):
+        self.proc = proc
+        self.args = args
+        self._loop = loop
 
-    @wraps(proc)
-    async def call(*args, **kwargs):
-        proc_ = proc
+    @property
+    def loop(self):
+        """The loop argument needs to be lazily evaluated."""
+        loop = self._loop
+        if loop is None:
+            loop = current_loop.get()
+        return loop
+
+    def __get__(self, obj, cls):
+        """If this is used to decorate an instance,
+        we need to forward the original ``self`` to the wrapped method.
+        """
+        if obj is None:
+            return self.__call__
+        return partial(self.__call__, obj)
+
+    def __call__(self, *args, **kwargs):
+        if self.args:
+            raise RuntimeError("Call 'trio_as_aio(proc)(*args)', not 'aio_as_trio(proc, *args)'")
+
+        proc = self.proc
         if kwargs:
-            proc_ = partial(proc_, **kwargs)
-        return await trio_asyncio.run_trio(proc_, *args)
+            proc = partial(proc, **kwargs)
+        return self.loop.trio_as_future(proc, *args)
 
-    return call
+    def __aenter__(self):
+        proc_enter = getattr(self.proc, "__aenter__", None)
+        if proc_enter is None or self.args:
+            raise RuntimeError(
+                "Call 'aio_as_trio(ctxfactory(*args))', not 'aio_as_trio(ctxfactory, *args)'"
+            )
+        return self.loop.trio_as_future(proc_enter)
+
+    def __aexit__(self, *tb):
+        f = self.proc.__aexit__
+        return self.loop.trio_as_future(f, *tb)
+
+    def __aiter__(self):
+        proc_iter = getattr(self.proc, "__anext__", None)
+        if proc_iter is None or self.args:
+            raise RuntimeError(
+                "Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'"
+            )
+        return run_trio_generator(self.loop, self.proc)
+
+
+def trio_as_aio(proc, loop=None):
+    return Trio_Asyncio_Wrapper(proc, loop=loop)
+
+
+def aio2trio(proc):
+        """Call asyncio code from Trio.
+
+        Deprecated: Use aio_as_trio() instead.
+
+        """
+        warnings.warn("Use 'trio_as_aio(proc)' instead'", DeprecationWarning)
+
+        return trio_as_aio(proc)
 
 
 def aio2trio_task(proc):
+    warnings.warn("Use loop.run_trio_task() instead", DeprecationWarning)
+
     @wraps(proc)
     async def call(*args, **kwargs):
         proc_ = proc

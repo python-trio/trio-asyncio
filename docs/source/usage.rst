@@ -378,56 +378,87 @@ Thus, you really should not use it for "real" programs or libraries.
 Calling Trio from asyncio
 +++++++++++++++++++++++++
 
-For basic async calls, pass the function and any arguments to
-``loop.run_trio()``. This method returns a standard asyncio Future which
-you can await, add callbacks to, or whatever.
+Wrap the callable, awaitable, generator, or iterator in :func:`trio_as_aio`.
 
-::
+Thus, you can call a :mod:`trio` function from :mod:`asyncio` thus::
 
-    async def some_trio_code(foo):
-        await trio.sleep(1)
-        return foo*2
-    
-    future = loop.run_trio(some_trio_code, 21)
-    res = await future
-    assert res == 42
+    async def trio_sleep(sec=1):
+        await trio.sleep(sec)
+    async def aio_sleep(sec=2):
+        await aio_as_trio(trio_sleep)(sec)
+    trio_asyncio.run(aio_as_trio, aio_sleep, 3)
 
-You can also use the ``aio2trio`` decorator::
+or pre-wrapped::
 
-    @aio2trio
-    async def some_trio_code(self, foo):
-        await trio.sleep(1)
-        return foo+33
+    @trio_as_aio
+    async def trio_sleep(sec=1):
+        await trio.sleep(sec)
+    async def aio_sleep(sec=2):
+        await trio_sleep(sec)
+    trio_asyncio.run(aio_as_trio, aio_sleep, 3)
 
-    res = await some_trio_code(9)
-    assert res == 42
+In contrast to :func:`aio_as_trio`, using an awaitable is not supported
+because that's not an idiom :mod:`trio` uses.
 
-.. autodoc: trio_asyncio.adapter.aio2trio
+Calling a function wrapped with :func:`trio_as_aio` returns a regular
+:class:`asyncio.Future`. Thus, you can call it from a synchronous context
+(e.g. a callback hook). Of course, you're responsible for catching any
+errors – either arrange to ``await`` the future, or use
+``.add_done_callback()`` ::
 
-.. autodoc: trio_asyncio.adapter.aio2trio_task
+    async def trio_sleep(sec=1):
+        await trio.sleep(sec)
+        return 42
+    def cb(f):
+        assert f.result == 42
+    async def aio_sleep(sec=2):
+        f = trio_as_aio(trio_sleep)(1)
+        f.add_done_callback(cb)
+        r = await f
+        assert r == 42
+    trio_asyncio.run(aio_as_trio, aio_sleep, 3)
 
-``run_trio()`` is not itself an async function, so you can call it from a
-synchronous context (e.g. a callback hook). However, you're responsible for
-catching any errors – either await() the future, or use
-``.add_done_callback()``.
+You can wrap context handlers::
 
-If you want to start a task that shall be monitored by ``trio_asyncio``
-(i.e. an uncaught error will propagate to, and terminate, the loop), use
-``run_trio_task()`` instead.
+    class TrioCtx:
+        async def __aenter__(self):
+            await trio.sleep(1)
+            return self
+        async def __aexit__(self, *tb):
+            await trio.sleep(1)
+        async def delay(self, sec=1):
+            await trio.sleep(sec)
+    async def aio_ctx():
+        async with trio_as_aio(AsyncCtx()) as ctx:
+            print("within")
+            await trio_as_aio(ctx.delay)(2)
+    trio_asyncio.run(aio_as_trio, aio_ctx)
 
-.. autodoc: trio_asyncio.adapter.aio2trio_task
+You can also wrap async generators or iterators::
 
-If you need to call a Trio-style async context manager from asyncio, use
-``loop.wrap_trio_context()``::
+    async def trio_slow():
+        n = 0
+        while True:
+            await trio.sleep(n)
+            yield n
+            n += 1
+    async def printer():
+        async for n in trio_as_aio(aio_slow()):
+            print(n)
+    trio_asyncio.run(aio_as_trio, printer)
 
-    async with loop.wrap_trio_context(context()) as ctx:
-        await loop.run_trio(ctx.do_whatever)
+.. autodoc: trio_asyncio.trio_as_aio
 
-As you can see from this example, the context that's returned is a "native"
-Trio context, so you still need to use ``run_trio()`` if you call its
-methods.
 
-.. autodoc: trio_asyncio.wrap_trio_context
+Trio background tasks
+---------------------
+
+If you want to start a Trio task that shall be monitored by ``trio_asyncio``
+(i.e. an uncaught error will propagate to, and terminate, the asyncio event
+loop) instead of a :class:`asyncio.Future`, use
+:meth:`TrioEventLoop.run_trio_task`.
+
+.. autodoc: trio_asyncio.TrioEventLoop.run_trio_task
 
 Multiple asyncio loops
 ++++++++++++++++++++++
