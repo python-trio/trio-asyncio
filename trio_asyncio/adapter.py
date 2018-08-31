@@ -4,7 +4,6 @@
 import types
 import warnings
 
-from async_generator import isasyncgenfunction
 import asyncio
 import trio_asyncio
 from contextvars import ContextVar
@@ -246,7 +245,7 @@ def _allow_asyncio(fn, *args):
             return e.value
         try:
             if isinstance(yielded, asyncio.Future):
-                next_send = yield from trio_asyncio.run_aio_future(yielded)
+                next_send = yield from run_aio_future(yielded)
             else:
                 next_send = yield yielded
         except BaseException as exc:

@@ -7,7 +7,6 @@
 import pytest
 import asyncio
 import trio_asyncio
-import trio_asyncio.loop as loop_
 import inspect
 from async_generator import async_generator, yield_
 

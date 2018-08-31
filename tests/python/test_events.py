@@ -13,7 +13,6 @@ try:
     import ssl
 except ImportError:
     ssl = None
-import subprocess
 import sys
 import threading
 import errno
@@ -28,7 +27,6 @@ import asyncio
 from asyncio import coroutines
 from asyncio import proactor_events
 from asyncio import selector_events
-from asyncio import sslproto
 from .. import utils as test_utils
 try:
     from test import support

@@ -116,7 +116,7 @@ class TestCalls(aiotest.TestCase):
         assert seen.flag == 2
 
     @pytest.mark.trio
-    async def test_asyncio_trio(self, loop):
+    async def test_asyncio_trio_depr(self, loop):
         """Call asyncio from trio"""
 
         async def dly_trio(seen):
@@ -133,6 +133,7 @@ class TestCalls(aiotest.TestCase):
     async def test_call_asyncio_ctx(self, loop):
         self.did_it = 0
         async with aio_as_trio(AioContext(self, loop), loop=loop) as ctx:
+            assert ctx.parent is self
             assert self.did_it == 2
             self.did_it = 3
         assert self.did_it == 4
@@ -142,6 +143,7 @@ class TestCalls(aiotest.TestCase):
         async def _call_trio_ctx():
             self.did_it = 0
             async with trio_as_aio(TrioContext(self)) as ctx:
+                assert ctx.parent is self
                 assert self.did_it == 2
                 self.did_it = 3
             assert self.did_it == 4
@@ -153,6 +155,7 @@ class TestCalls(aiotest.TestCase):
         async def _call_trio_ctx():
             self.did_it = 0
             async with loop.wrap_trio_context(TrioContext(self)) as ctx:
+                assert ctx.parent is self
                 assert self.did_it == 2
                 self.did_it = 3
             assert self.did_it == 4

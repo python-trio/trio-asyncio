@@ -8,8 +8,6 @@ import sniffio
 import asyncio
 import warnings
 from contextvars import ContextVar
-from async_generator import asynccontextmanager
-from async_generator import async_generator, yield_
 
 from .adapter import Asyncio_Trio_Wrapper, Trio_Asyncio_Wrapper
 from .handles import Handle, TimerHandle

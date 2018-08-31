@@ -1,13 +1,11 @@
 """Tests for events.py."""
 import pytest
 
-import collections.abc
 import functools
 import os
 import signal
 import subprocess
 import sys
-import errno
 import unittest
 
 import asyncio

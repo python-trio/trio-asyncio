@@ -4,7 +4,6 @@ import socket
 import sys
 import unittest
 import warnings
-from unittest import mock
 
 if sys.platform != 'win32':
     raise unittest.SkipTest('Windows only')
