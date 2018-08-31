@@ -13,6 +13,8 @@ from trio_asyncio import aio_as_trio
 
 from . import utils as test_utils
 
+pytestmark = pytest.mark.skipif(sys.platform == 'win32',
+                                reason="Not supported on Windows")
 
 class MySubprocessProtocol(asyncio.SubprocessProtocol):
     def __init__(self, loop):
