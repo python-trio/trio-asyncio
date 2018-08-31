@@ -36,8 +36,9 @@ def trio2aio(proc):
 class Asyncio_Trio_Wrapper:
     """
     This wrapper object encapsulates an asyncio-style coroutine,
-    generator, or iterator, to be called seamlessly from Trio.
+    procedure, generator, or iterator, to be called seamlessly from Trio.
     """
+
     def __init__(self, proc, args=[], loop=None):
         self.proc = proc
         self.args = args
@@ -52,7 +53,7 @@ class Asyncio_Trio_Wrapper:
         return loop
 
     def __get__(self, obj, cls):
-        """If this is used to decorate an instance,
+        """If this is used to decorate an instance/class method,
         we need to forward the original ``self`` to the wrapped method.
         """
         if obj is None:
@@ -63,6 +64,7 @@ class Asyncio_Trio_Wrapper:
         if self.args:
             raise RuntimeError("Call 'aio_as_trio(proc)(*args)', not 'aio_as_trio(proc, *args)'")
 
+        # TODO: do this within the loop context
         f = self.proc(*args, **kwargs)
         return await self.loop.run_aio_coroutine(f)
 
@@ -98,7 +100,23 @@ class Asyncio_Trio_Wrapper:
         return run_aio_generator(self.loop, proc_iter())
 
 
-def aio_as_trio(proc, loop=None):
+def aio_as_trio(proc, *, loop=None):
+    """
+    Encapsulate an asyncio-style coroutine, procedure, generator, or
+    iterator, to be called seamlessly from Trio.
+
+    Note that while adapting coroutines, i.e.
+        wrap(proc(*args))
+    is supported (because asyncio uses them a lot) they're not a good
+    idea because setting up the coroutine won't run within an asyncio
+    context. If at all possible, use::
+
+        wrap(proc, *args)
+
+    instead, which translates to::
+
+        await aio_as_trio(proc)(*args)
+    """
     return Asyncio_Trio_Wrapper(proc, loop=loop)
 
 asyncio_as_trio = aio_as_trio
@@ -106,12 +124,18 @@ asyncio_as_trio = aio_as_trio
 
 class Trio_Asyncio_Wrapper:
     """
-    This wrapper object encapsulates a trio-style coroutine,
-    generator, or iterator, to be called seamlessly from Trio.
+    This wrapper object encapsulates a Trio-style procedure,
+    generator, or iterator, to be called seamlessly from asyncio.
     """
-    def __init__(self, proc, args=[], loop=None):
+    
+    # This class doesn't wrap coroutines because Trio's call convention
+    # is
+    #     wrap(proc, *args)
+    # and not
+    #     wrap(proc(*args))
+
+    def __init__(self, proc, loop=None):
         self.proc = proc
-        self.args = args
         self._loop = loop
 
     @property
@@ -123,7 +147,7 @@ class Trio_Asyncio_Wrapper:
         return loop
 
     def __get__(self, obj, cls):
-        """If this is used to decorate an instance,
+        """If this is used to decorate an instance/class method,
         we need to forward the original ``self`` to the wrapped method.
         """
         if obj is None:
@@ -131,9 +155,6 @@ class Trio_Asyncio_Wrapper:
         return partial(self.__call__, obj)
 
     def __call__(self, *args, **kwargs):
-        if self.args:
-            raise RuntimeError("Call 'trio_as_aio(proc)(*args)', not 'trio_as_aio(proc, *args)'")
-
         proc = self.proc
         if kwargs:
             proc = partial(proc, **kwargs)
@@ -141,26 +162,42 @@ class Trio_Asyncio_Wrapper:
 
     def __aenter__(self):
         proc_enter = getattr(self.proc, "__aenter__", None)
-        if proc_enter is None or self.args:
+        if proc_enter is None:
             raise RuntimeError(
                 "Call 'trio_as_aio(ctxfactory(*args))', not 'trio_as_aio(ctxfactory, *args)'"
             )
         return self.loop.trio_as_future(proc_enter)
 
     def __aexit__(self, *tb):
-        f = self.proc.__aexit__
-        return self.loop.trio_as_future(f, *tb)
+        proc_exit = self.proc.__aexit__
+        return self.loop.trio_as_future(proc_exit, *tb)
 
     def __aiter__(self):
         proc_iter = getattr(self.proc, "__aiter__", None)
-        if proc_iter is None or self.args:
+        if proc_iter is None:
             raise RuntimeError(
                 "Call 'trio_as_aio(gen(*args))', not 'trio_as_aio(gen, *args)'"
             )
         return run_trio_generator(self.loop, proc_iter())
 
 
-def trio_as_aio(proc, loop=None):
+def trio_as_aio(proc, *, loop=None):
+    """
+    Encapsulate a Trio-style procedure, generator, or iterator, to be
+    called seamlessly from asyncio.
+
+    Note that adapting coroutines, i.e.::
+
+        wrap(proc(*args))
+
+    is not supported: Trio's calling convention is to always use::
+
+        wrap(proc, *args)
+
+    which translates to::
+
+        await trio_as_aio(proc)(*args)
+    """
     return Trio_Asyncio_Wrapper(proc, loop=loop)
 
 trio_as_asyncio = trio_as_aio
