@@ -20,7 +20,7 @@ current_policy = ContextVar('trio_aio_policy', default=None)
 from functools import wraps, partial
 
 __all__ = ['trio2aio', 'aio2trio', 'aio_as_trio', 'trio_as_aio', 'allow_asyncio',
-           'current_loop', 'current_policy']
+           'current_loop', 'current_policy', 'asyncio_as_trio', 'trio_as_asyncio']
 
 
 def trio2aio(proc):
@@ -101,6 +101,8 @@ class Asyncio_Trio_Wrapper:
 def aio_as_trio(proc, loop=None):
     return Asyncio_Trio_Wrapper(proc, loop=loop)
 
+asyncio_as_trio = aio_as_trio
+
 
 class Trio_Asyncio_Wrapper:
     """
@@ -160,6 +162,8 @@ class Trio_Asyncio_Wrapper:
 
 def trio_as_aio(proc, loop=None):
     return Trio_Asyncio_Wrapper(proc, loop=loop)
+
+trio_as_asyncio = trio_as_aio
 
 
 def aio2trio(proc):
