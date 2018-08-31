@@ -130,7 +130,7 @@ class Trio_Asyncio_Wrapper:
 
     def __call__(self, *args, **kwargs):
         if self.args:
-            raise RuntimeError("Call 'trio_as_aio(proc)(*args)', not 'aio_as_trio(proc, *args)'")
+            raise RuntimeError("Call 'trio_as_aio(proc)(*args)', not 'trio_as_aio(proc, *args)'")
 
         proc = self.proc
         if kwargs:
@@ -141,7 +141,7 @@ class Trio_Asyncio_Wrapper:
         proc_enter = getattr(self.proc, "__aenter__", None)
         if proc_enter is None or self.args:
             raise RuntimeError(
-                "Call 'aio_as_trio(ctxfactory(*args))', not 'aio_as_trio(ctxfactory, *args)'"
+                "Call 'trio_as_aio(ctxfactory(*args))', not 'trio_as_aio(ctxfactory, *args)'"
             )
         return self.loop.trio_as_future(proc_enter)
 
@@ -153,7 +153,7 @@ class Trio_Asyncio_Wrapper:
         proc_iter = getattr(self.proc, "__aiter__", None)
         if proc_iter is None or self.args:
             raise RuntimeError(
-                "Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'"
+                "Call 'trio_as_aio(gen(*args))', not 'trio_as_aio(gen, *args)'"
             )
         return run_trio_generator(self.loop, proc_iter())
 
