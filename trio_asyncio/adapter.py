@@ -56,7 +56,7 @@ class Asyncio_Trio_Wrapper:
         we need to forward the original ``self`` to the wrapped method.
         """
         if obj is None:
-            return self.__call__
+            return partial(self.__call__, cls)
         return partial(self.__call__, obj)
 
     async def __call__(self, *args, **kwargs):
@@ -127,7 +127,7 @@ class Trio_Asyncio_Wrapper:
         we need to forward the original ``self`` to the wrapped method.
         """
         if obj is None:
-            return self.__call__
+            return partial(self.__call__, cls)
         return partial(self.__call__, obj)
 
     def __call__(self, *args, **kwargs):
