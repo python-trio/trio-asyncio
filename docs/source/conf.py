@@ -34,6 +34,9 @@ nitpick_ignore = [
     ("py:func", "trio_asyncio.run_future"),
     ("py:func", "trio_asyncio.run_coroutine"),
     ("py:func", "trio_asyncio.run_asyncio"),
+    ("py:func", "trio_asyncio.aio_as_trio"),
+    ("py:func", "trio_asyncio.trio_as_aio"),
+    ("py:func", "trio_asyncio.allow_asyncio"),
     ("py:func", "sniffio.current_async_library"),
     ("py:class", "trio_asyncio.TrioEventLoop"),
     ("py:class", "trio_asyncio.TrioExecutor"),
@@ -41,6 +44,7 @@ nitpick_ignore = [
     ("py:meth", "trio_asyncio.TrioEventLoop.autoclose"),
     ("py:meth", "trio_asyncio.TrioEventLoop.add_reader"),
     ("py:meth", "trio_asyncio.TrioEventLoop.add_writer"),
+    ("py:meth", "trio_asyncio.TrioEventLoop.run_trio_task"),
     ("py:meth", "trio_asyncio.sync.SyncTrioEventLoop.run_until_complete"),
     ("py:mod", "trio_asyncio"), ## ???
 ]
