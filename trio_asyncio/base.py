@@ -7,6 +7,7 @@ import signal
 import sniffio
 import asyncio
 import warnings
+import concurrent.futures
 from contextvars import ContextVar
 
 from .adapter import Asyncio_Trio_Wrapper, Trio_Asyncio_Wrapper
@@ -78,7 +79,7 @@ class _TrioSelector(_BaseSelectorImpl):
         raise NotImplementedError
 
 
-class TrioExecutor:
+class TrioExecutor(concurrent.futures.ThreadPoolExecutor):
     """An executor that runs its job in a Trio worker thread."""
 
     def __init__(self, limiter=None, thread_name_prefix=None, max_workers=None):
