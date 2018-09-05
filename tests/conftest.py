@@ -7,7 +7,6 @@
 import pytest
 import asyncio
 import trio_asyncio
-import trio_asyncio.loop as loop_
 import inspect
 from async_generator import async_generator, yield_
 
@@ -56,7 +55,7 @@ if not hasattr(asyncio, 'create_task'):
 async def loop():
     async with trio_asyncio.open_loop() as loop:
         try:
-            await yield_( loop)
+            await yield_(loop)
         finally:
             await loop.stop().wait()
 

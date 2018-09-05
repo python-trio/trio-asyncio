@@ -7,15 +7,14 @@ import signal
 import sniffio
 import asyncio
 import warnings
+import concurrent.futures
 from contextvars import ContextVar
-from async_generator import asynccontextmanager
-from async_generator import async_generator, yield_
 
+from .adapter import Asyncio_Trio_Wrapper, Trio_Asyncio_Wrapper
 from .handles import Handle, TimerHandle
+from .util import run_aio_future, run_aio_generator
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
-
-from .util import run_future, run_generator
 
 try:
     from trio.hazmat import wait_for_child
@@ -80,7 +79,7 @@ class _TrioSelector(_BaseSelectorImpl):
         raise NotImplementedError
 
 
-class TrioExecutor:
+class TrioExecutor(concurrent.futures.ThreadPoolExecutor):
     """An executor that runs its job in a Trio worker thread."""
 
     def __init__(self, limiter=None, thread_name_prefix=None, max_workers=None):
@@ -201,10 +200,19 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         return self._task._runner.clock.current_time()
 
     # A future doesn't require a trio_asyncio loop
-    run_future = staticmethod(run_future)
+    run_aio_future = staticmethod(run_aio_future)
+
+    def run_future(self, *args, **kwargs):
+        warnings.warn("Use 'await loop.run_aio_future(fut)' instead'", DeprecationWarning)
+        return self.run_aio_future(*args, **kwargs)
 
     # A coroutine (usually) does.
-    async def run_coroutine(self, coro):
+    def run_coroutine(self, coro):
+        warnings.warn("Use 'await loop.run_aio_coroutine(coro)' instead'", DeprecationWarning)
+
+        return self.run_aio_coroutine(coro)
+
+    async def run_aio_coroutine(self, coro):
         """Wait for an asyncio future/coroutine.
 
         Cancelling the current Trio scope will cancel the future/coroutine.
@@ -218,7 +226,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         t = sniffio.current_async_library_cvar.set("asyncio")
         coro = asyncio.ensure_future(coro, loop=self)
         try:
-            return await run_future(coro)
+            return await run_aio_future(coro)
         finally:
             sniffio.current_async_library_cvar.reset(t)
 
@@ -231,11 +239,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         simply call
 
-            await loop.run_asyncio(gen(*args))
+            await aio_as_trio(gen(*args), loop=loop)
         """
-        warnings.warn("Use 'run_asyncio(gen(*args))' instead'", DeprecationWarning)
+        warnings.warn("Use 'async with aio_as_trio(gen(*args))' instead'", DeprecationWarning)
 
-        return run_generator(self, gen(*args))
+        return run_aio_generator(self, gen(*args))
 
     def run_iterator(self, aiter):
         """Call an asyncio iterator from Trio.
@@ -246,25 +254,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         simply call
 
-            await loop.run_asyncio(iter)
+            await aio_as_trio(iter, loop=loop)
         """
-        warnings.warn("Use 'run_asyncio(iter)' instead'", DeprecationWarning)
+        warnings.warn("Use 'async for X in aio_as_trio(iter)' instead'", DeprecationWarning)
 
-        return run_generator(self, aiter)
-
-    @asynccontextmanager
-    @async_generator
-    async def wrap_trio_context(self, ctx):
-        """Run a Trio context manager from asyncio.
-        """
-        res = await self.run_trio(ctx.__aenter__)
-        try:
-            await yield_(res)
-        except BaseException as exc:
-            if not await self.run_trio(ctx.__aexit__, type(exc), exc, exc.__traceback__):
-                raise
-        else:
-            await self.run_trio(ctx.__aexit__, None, None, None)
+        return run_aio_generator(self, aiter)
 
     def run_asyncio(self, proc, *args):
         """Run an asyncio function or method from Trio.
@@ -274,39 +268,47 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         This is (essentially) a Trio coroutine.
 
-        You can also use this for calling an asyncio-style
-        async iterator or async context manager.
+        Depreated; use
+
+            aio_as_trio(proc)(*args)
+
+        instead.
         """
 
-        class t2aWrapper:
-            def __await__(slf):
-                f = proc(*args)
-                return self.run_coroutine(f).__await__()
+        warnings.warn("Use 'await aio_as_trio(proc)(*args)' instead'", DeprecationWarning)
 
-            def __aenter__(slf):
-                proc_enter = getattr(proc, "__aenter__", None)
-                if proc_enter is None or args:
-                    raise RuntimeError(
-                        "Call 'run_asyncio(ctxfactory(*args))', not 'run_asyncio(ctxfactory, *args)'"
-                    )
-                f = proc_enter()
-                return self.run_coroutine(f)
+        return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
 
-            def __aexit__(slf, *tb):
-                f = proc.__aexit__(*tb)
-                return self.run_coroutine(f)
-
-            def __aiter__(slf):
-                proc_iter = getattr(proc, "__anext__", None)
-                if proc_iter is None or args:
-                    raise RuntimeError(
-                        "Call 'run_asyncio(gen(*args))', not 'run_asyncio(gen, *args)'"
-                    )
-                return run_generator(self, proc)
-
-        return t2aWrapper()
+    def wrap_trio_context(self, ctx):
+        """Run a Trio context manager from asyncio.
+        """
+        warnings.warn("Use 'await trio_as_aio(context)' instead'", DeprecationWarning)
+        return Trio_Asyncio_Wrapper(ctx, loop=self)
 
     def run_trio(self, proc, *args):
+        warnings.warn("Use 'await trio_as_aio(proc)(*args)' instead'", DeprecationWarning)
+        return self.trio_as_future(proc, *args)
+
+    async def __run_trio(self, h):
+        """Helper for copying the result of a Trio task to an asyncio future"""
+        f, proc, *args = h._args
+        if f.cancelled():  # pragma: no cover
+            return
+        try:
+            with trio.open_cancel_scope() as scope:
+                h._scope = scope
+                res = await proc(*args)
+            if scope.cancelled_caught:
+                f.cancel()
+                return
+        except BaseException as exc:
+            if not f.cancelled():  # pragma: no branch
+                f.set_exception(exc)
+        else:
+            if not f.cancelled():  # pragma: no branch
+                f.set_result(res)
+
+    def trio_as_future(self, proc, *args):
         """Run an asynchronous Trio function from asyncio.
 
         Returns a Future with the result / exception.
@@ -347,25 +349,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         """
         return self._queue_handle(Handle(proc, args, self, is_sync=False))
-
-    async def __run_trio(self, h):
-        """Helper for copying the result of a Trio task to an asyncio future"""
-        f, proc, *args = h._args
-        if f.cancelled():  # pragma: no cover
-            return
-        try:
-            with trio.open_cancel_scope() as scope:
-                h._scope = scope
-                res = await proc(*args)
-            if scope.cancelled_caught:
-                f.cancel()
-                return
-        except BaseException as exc:
-            if not f.cancelled():  # pragma: no branch
-                f.set_exception(exc)
-        else:
-            if not f.cancelled():  # pragma: no branch
-                f.set_result(res)
 
     # Callback handling #
 
@@ -474,11 +457,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 returncode = await wait_for_child(transp.get_pid())
                 transp._process_exited(returncode)
 
-            self.run_trio(child_wait, transp)
-            # XXX error handling
+            self.run_trio_task(child_wait, transp)
             try:
                 await waiter
-            except Exception as exc:
+            except BaseException as exc:
                 # Workaround CPython bug #23353: using yield/yield-from in an
                 # except block of a generator doesn't clear properly
                 # sys.exc_info()
@@ -509,7 +491,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if executor is None:  # pragma: no branch
             executor = self._default_executor
         assert isinstance(executor, TrioExecutor)
-        return self.run_trio(executor.submit, func, *args)
+        return Trio_Asyncio_Wrapper(executor.submit, loop=self)(func, *args)
 
     async def synchronize(self):
         """Sync with the main loop by passing an event through it.
@@ -567,17 +549,15 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         ready for reading.
 
         This creates a new Trio task. You may want to use "await
-        :meth:`trio.hazmat.wait_readable`(fd) instead, or
+        :obj:`trio.hazmat.wait_readable`\ (fd)" instead, or
 
         :param fd: Either an integer (Unix file descriptor) or an object
-                   with a :meth:`fileno` methor providing one.
+                   with a ``fileno`` method providing one.
         :return: A handle. To remove the listener, either call
-                 ``handle.cancel()`` or :meth:`remove_reader`(fd).
+                 ``handle.cancel()`` or :meth:`.remove_reader`\ (fd).
         """
         self._ensure_fd_no_transport(fd)
         return self._add_reader(fd, callback, *args)
-
-    # remove_reader: unchanged from asyncio
 
     def _add_reader(self, fd, callback, *args):
         self._check_closed()
@@ -622,12 +602,12 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         ready for writing.
 
         This creates a new Trio task. You may want to use "await
-        :meth:`trio.hazmat.wait_writable`(fd) instead, or
+        :obj:`trio.hazmat.wait_writable`\ (fd) instead, or
 
         :param fd: Either an integer (Unix file descriptor) or an object
-                   with a :meth:`fileno` methor providing one.
+                   with a ``fileno`` method providing one.
         :return: A handle. To remove the listener, either call
-                 ``handle.cancel()`` or :meth:`remove_writer`(fd).
+                 ``handle.cancel()`` or :meth:`remove_writer`\ (fd).
         """
         self._ensure_fd_no_transport(fd)
         return self._add_writer(fd, callback, *args)
@@ -679,7 +659,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Calling this method twice has no effect.
 
         :param fd: Either an integer (Unix file descriptor) or an object
-                   with a :meth:`fileno` methor providing one.
+                   with a ``fileno`` method providing one.
         """
         if hasattr(fd, 'fileno'):
             fd = fd.fileno()
@@ -800,6 +780,14 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         self.stop()
         await self.wait_stopped()
+
+        while True:
+            try:
+                await self._main_loop_one(no_wait=True)
+            except trio.WouldBlock:
+                break
+            except StopAsyncIteration:
+                pass
 
         # Kill off unprocessed work
         self._cancel_fds()

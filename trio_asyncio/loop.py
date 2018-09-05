@@ -6,9 +6,9 @@ import trio
 import asyncio
 import warnings
 import threading
-from contextvars import ContextVar
 
-from .util import run_future
+from .adapter import current_loop, current_policy
+from .util import run_aio_future
 from .async_ import TrioEventLoop, open_loop
 
 try:
@@ -24,16 +24,15 @@ __all__ = [
     'run_trio_task',
     'run_trio',
     'run_future',
-    'run_coroutine',
+    'run_aio_future',
+    'run_coroutine',  # deprecated
+    'run_aio_coroutine',
     'run_asyncio',
     'wrap_generator',
     'run_iterator',
     'TrioChildWatcher',
     'TrioPolicy',
 ]
-
-current_loop = ContextVar('trio_aio_loop', default=None)
-current_policy = ContextVar('trio_aio_policy', default=None)
 
 _faked_policy = threading.local()
 
@@ -168,23 +167,27 @@ asyncio.set_event_loop_policy = _new_policy_set
 
 #####
 
-_orig_run_get = _aio_event._get_running_loop
+try:
+    _orig_run_get = _aio_event._get_running_loop
 
+except AttributeError:
+    pass
 
-def _new_run_get():
-    try:
-        task = trio.hazmat.current_task()
-    except RuntimeError:
-        loop = _orig_run_get()
-    else:
-        loop = task.context.get(current_loop, None)
-        if loop is None:
-            raise RuntimeError("No trio_asyncio loop is active.")
+else:
 
-    return loop
+    def _new_run_get():
+        try:
+            task = trio.hazmat.current_task()
+        except RuntimeError:
+            loop = _orig_run_get()
+        else:
+            loop = task.context.get(current_loop, None)
+            if loop is None:
+                raise RuntimeError("No trio_asyncio loop is active.")
 
+        return loop
 
-_aio_event._get_running_loop = _new_run_get
+    _aio_event._get_running_loop = _new_run_get
 
 #####
 
@@ -279,27 +282,27 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' e
 def wrap_generator(proc, *args):
     """Run an asyncio generator from Trio.
     """
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
     return loop.wrap_generator(proc, *args)
 
 
 def run_iterator(aiter):
     """Run an asyncio iterator from Trio.
     """
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
     return loop.run_iterator(aiter)
 
 
 def wrap_trio_context(ctx):
     """Run a Trio context manager from asyncio.
     """
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
     return loop.wrap_trio_context(ctx)
 
 
@@ -312,13 +315,13 @@ async def run_asyncio(proc, *args):
     This is a Trio coroutine.
     """
 
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
     return await loop.run_asyncio(proc, *args)
 
 
-async def run_coroutine(fut):
+async def run_aio_coroutine(fut):
     """Wait for an asyncio future/coroutine.
 
     Cancelling the current Trio scope will cancel the future/coroutine.
@@ -329,10 +332,24 @@ async def run_coroutine(fut):
     This is a Trio coroutine.
     """
 
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
-    return await loop.run_coroutine(fut)
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
+    return await loop.run_aio_coroutine(fut)
+
+
+async def run_coroutine(fut):
+    """ deprecated"""
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
+    return await loop.run_aio_coroutine(fut)
+
+
+async def run_future(fut):
+    """ deprecated"""
+    warnings.warn("Use 'await run_aio_future(fut)' instead'", DeprecationWarning)
+    return await run_aio_future(fut)
 
 
 def run_trio(proc, *args):
@@ -345,9 +362,9 @@ def run_trio(proc, *args):
 
     You need to handle errors yourself.
     """
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):  # pragma: no cover
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
     return loop.run_trio(proc, *args)
 
 
@@ -359,9 +376,9 @@ def run_trio_task(proc, *args):
 
     An uncaught error will propagate to, and terminate, the trio-asyncio loop.
     """
-    loop = asyncio.get_event_loop()
-    if not isinstance(loop, TrioEventLoop):
-        raise RuntimeError("Need to run in a trio_asyncio.open_loop() context")
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
     loop.run_trio_task(proc, *args)
 
 

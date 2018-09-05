@@ -1,0 +1,15 @@
+Deprecations
+------------
+
+:func:`run_asyncio` is deprecated: replace with a :func:`aio_as_trio` wrapper.
+
+:func:`trio2aio` is deprecated: replace with :func:`aio_as_trio`.
+
+:func:`run_future` and :meth:`TrioEventLoop.run_future` are deprecated: replace with :func:`run_aio_future`.
+
+:func:`run_coroutine` and :meth:`TrioEventLoop.run_coroutine` are deprecated: replace with :func:`run_aio_coroutine`.
+
+:meth:`TrioEventLoop.wrap_generator` is deprecated: replace with a :func:`aio_as_trio` wrapper.
+
+:meth:`TrioEventLoop.run_iterator` is deprecated: replace with :func:`aio_as_trio`.
+

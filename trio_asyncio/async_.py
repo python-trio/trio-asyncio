@@ -11,8 +11,7 @@ __all__ = ['TrioEventLoop', 'open_loop']
 class TrioEventLoop(BaseTrioEventLoop):
     """A Trio-compatible asyncio event loop.
 
-    This loop runs in an async Trio context. If you really do need a
-    stand-alone implementation, use :class:`SyncTrioEventLoop`.
+    This loop runs in an async Trio context.
     """
 
     def _queue_handle(self, handle):
@@ -123,8 +122,10 @@ async def open_loop(queue_len=None):
             try:
                 await loop.stop().wait()
             finally:
-                await loop._main_loop_exit()
-                loop.close()
-                nursery.cancel_scope.cancel()
-                current_loop.reset(old_loop)
-                current_policy.reset(old_policy)
+                try:
+                    await loop._main_loop_exit()
+                finally:
+                    loop.close()
+                    nursery.cancel_scope.cancel()
+                    current_loop.reset(old_loop)
+                    current_policy.reset(old_policy)
