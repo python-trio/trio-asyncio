@@ -34,6 +34,8 @@ def trio2aio(proc):
 
     return aio_as_trio(proc)
 
+async def _call_defer(proc, *args, **kwargs):
+    return await proc(*args, **kwargs)
 
 class Asyncio_Trio_Wrapper:
     """
@@ -66,8 +68,9 @@ class Asyncio_Trio_Wrapper:
         if self.args:
             raise RuntimeError("Call 'aio_as_trio(proc)(*args)', not 'aio_as_trio(proc, *args)'")
 
-        # TODO: do this within the loop context
-        f = self.proc(*args, **kwargs)
+        # We route this through _calL_defer because some wrappers require
+        # running in asyncio context
+        f = _call_defer(self.proc, *args, **kwargs)
         return await self.loop.run_aio_coroutine(f)
 
     def __await__(self):
