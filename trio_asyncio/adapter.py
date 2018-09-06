@@ -34,8 +34,10 @@ def trio2aio(proc):
 
     return aio_as_trio(proc)
 
+
 async def _call_defer(proc, *args, **kwargs):
     return await proc(*args, **kwargs)
+
 
 class Asyncio_Trio_Wrapper:
     """
