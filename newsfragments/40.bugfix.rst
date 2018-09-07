@@ -1,0 +1,1 @@
+Defer creating an asyncio coroutine until asyncio mode is actually entered.
