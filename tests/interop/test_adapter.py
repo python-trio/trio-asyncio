@@ -104,8 +104,7 @@ class TestAdapt(aiotest.TestCase):
     async def test_asyncio_trio_depr(self, loop):
         """Call asyncio from trio"""
 
-        with test_utils.deprecate(self):
-            sth = SomeThing(loop)
+        sth = SomeThing(loop)
         res = await aio_as_trio(sth.dly_trio_depr, loop=loop)()
         assert res == 8
         assert sth.flag == 2
@@ -114,8 +113,7 @@ class TestAdapt(aiotest.TestCase):
     async def test_asyncio_trio_adapted(self, loop):
         """Call asyncio from trio"""
 
-        with test_utils.deprecate(self):
-            sth = SomeThing(loop)
+        sth = SomeThing(loop)
         res = await aio_as_trio(sth.dly_trio_adapted, loop=loop)()
         assert res == 8
         assert sth.flag == 2
@@ -124,8 +122,7 @@ class TestAdapt(aiotest.TestCase):
     async def test_asyncio_trio_depr2(self, loop):
         """Call asyncio from trio"""
 
-        with test_utils.deprecate(self):
-            sth = SomeThing(loop)
+        sth = SomeThing(loop)
         with test_utils.deprecate(self):
             res = await loop.run_asyncio(sth.dly_trio_adapted)
         assert res == 8
