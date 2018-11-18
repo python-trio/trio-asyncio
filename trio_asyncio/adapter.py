@@ -3,6 +3,7 @@
 
 import types
 import warnings
+import functools
 
 import asyncio
 import trio_asyncio
@@ -124,7 +125,11 @@ def aio_as_trio(proc, *, loop=None):
 
         await aio_as_trio(proc)(*args)
     """
-    return Asyncio_Trio_Wrapper(proc, loop=loop)
+    @functools.wraps(proc)
+    def wrapper(*args, **kwargs):
+        return Asyncio_Trio_Wrapper(proc(*args, **kwargs), loop=loop)
+
+    return wrapper
 
 
 asyncio_as_trio = aio_as_trio
