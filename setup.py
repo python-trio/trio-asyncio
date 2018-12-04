@@ -76,7 +76,6 @@ setup(
     include_package_data=True,
     python_requires=">=3.5.2",  # temporary, for RTD
     keywords=["async", "io", "trio", "asyncio", "trio-asyncio"],
-    setup_requires=['pytest-runner'],
     tests_require=['pytest', 'outcome'],
     classifiers=[
         "Development Status :: 4 - Beta",
