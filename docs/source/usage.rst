@@ -522,13 +522,13 @@ Cancellations are also propagated whenever possible. This means
  Deferred Calls
 ----------------
 
-:meth:`asyncio.AbstractEventLoop.call_soon` and friends work as usual.
+:meth:`python:asyncio.loop.call_soon` and friends work as usual.
 
 ----------------
  Worker Threads
 ----------------
 
-:meth:`asyncio.AbstractEventLoop.run_in_executor` works as usual.
+:meth:`python:asyncio.loop.run_in_executor` works as usual.
 
 There is one caveat: the executor must be either ``None`` or an instance of
 :class:`trio_asyncio.TrioExecutor`. The constructor of this class accepts one
@@ -540,8 +540,8 @@ argument: the number of workers.
  File descriptors
 ------------------
 
-:meth:`asyncio.AbstractEventLoop.add_reader` and
-:meth:`asyncio.AbstractEventLoop.add_writer` work as usual, if you really
+:meth:`python:asyncio.loop.add_reader` and
+:meth:`python:asyncio.loop.add_writer` work as usual, if you really
 need them. Behind the scenes, these calls create a Trio task which runs the
 callback.
 
@@ -551,7 +551,7 @@ You might consider converting code using these calls to native Trio tasks.
  Signals
 ---------
 
-:meth:`asyncio.AbstractEventLoop.add_signal_handler` works as usual.
+:meth:`python:asyncio.loop.add_signal_handler` works as usual.
 
 ------------
 Subprocesses

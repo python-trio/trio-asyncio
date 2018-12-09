@@ -68,7 +68,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
         def put(self, handle):
             self._some_deferred -= 1
-            self._q.put_nowait(handle)
+            self._q_send.send_nowait(handle)
 
         # If we don't have a token, the main loop is not yet running
         # thus we can't have a race condition.
@@ -81,7 +81,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             self._some_deferred += 1
             self._token.run_sync_soon(put, self, handle)
         else:
-            self._q.put_nowait(handle)
+            self._q_send.send_nowait(handle)
         return handle
 
     def run_forever(self):

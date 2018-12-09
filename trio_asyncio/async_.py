@@ -16,7 +16,7 @@ class TrioEventLoop(BaseTrioEventLoop):
 
     def _queue_handle(self, handle):
         self._check_closed()
-        self._q.put_nowait(handle)
+        self._q_send.send_nowait(handle)
         return handle
 
     def default_exception_handler(self, context):

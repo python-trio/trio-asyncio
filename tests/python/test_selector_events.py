@@ -30,7 +30,7 @@ from asyncio.selector_events import _SelectorDatagramTransport
 MOCK_ANY = mock.ANY
 
 
-class TestBaseSelectorEventLoop(BaseSelectorEventLoop):
+class BaseSelectorEventLoopForTest(BaseSelectorEventLoop):
     def _make_self_pipe(self):
         self._ssock = mock.Mock()
         self._csock = mock.Mock()
@@ -58,7 +58,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         super().setUp()
         self.selector = mock.Mock()
         self.selector.select.return_value = []
-        self.loop = TestBaseSelectorEventLoop(self.selector)
+        self.loop = BaseSelectorEventLoopForTest(self.selector)
         self.set_event_loop(self.loop)
 
     def test_make_socket_transport(self):

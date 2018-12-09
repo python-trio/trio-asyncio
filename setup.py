@@ -53,7 +53,7 @@ Matthias Urlichs <matthias@urlichs.de>
 """
 
 install_requires = [
-    "trio >= 0.5.0",
+    "trio >= 0.9.0",
     "async_generator >= 1.6",
     "outcome",
 ]
