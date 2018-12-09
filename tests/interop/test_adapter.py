@@ -6,8 +6,18 @@ import trio
 import sniffio
 from tests import aiotest
 import sys
+import warnings
 from async_generator import asynccontextmanager
 from .. import utils as test_utils
+
+
+def de_deprecate_converter(func):
+    def wrapper(proc):
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecationWarning)
+            return func(proc)
+
+    return wrapper
 
 
 class SomeThing:
@@ -31,7 +41,7 @@ class SomeThing:
         self.flag |= 2
         return 8
 
-    @aio2trio
+    @de_deprecate_converter(aio2trio)
     async def dly_trio_depr(self):
         if sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "trio"
@@ -39,7 +49,7 @@ class SomeThing:
         self.flag |= 2
         return 8
 
-    @trio2aio
+    @de_deprecate_converter(trio2aio)
     async def dly_asyncio_depr(self):
         if sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "asyncio"

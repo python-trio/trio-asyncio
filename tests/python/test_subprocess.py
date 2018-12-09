@@ -26,7 +26,7 @@ PROGRAM_CAT = [
 ]
 
 
-class TestSubprocessTransport(base_subprocess.BaseSubprocessTransport):
+class SubprocessTransportForTest(base_subprocess.BaseSubprocessTransport):
     def _start(self, *args, **kwargs):
         self._proc = mock.Mock()
         self._proc.stdin = None
@@ -44,7 +44,7 @@ class SubprocessTransportTests(test_utils.TestCase):
         protocol = mock.Mock()
         protocol.connection_made._is_coroutine = False
         protocol.process_exited._is_coroutine = False
-        transport = TestSubprocessTransport(
+        transport = SubprocessTransportForTest(
             self.loop, protocol, ['test'], False, None, None, None, 0, waiter=waiter
         )
         return (transport, protocol)
