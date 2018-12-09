@@ -150,7 +150,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             queue_len = 10000
 
         # Processing queue
-        self._q = trio.Queue(queue_len)
+        self._q_send, self._q_recv = trio.open_memory_channel(queue_len)
 
         # which files to close?
         self._close_files = set()
@@ -406,7 +406,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._check_callback(callback, 'call_soon_threadsafe')
         self._check_closed()
         h = Handle(callback, args, self, context=context, is_sync=True)
-        self._token.run_sync_soon(self._q.put_nowait, h)
+        self._token.run_sync_soon(self._q_send.send_nowait, h)
 
     # drop all timers
 
@@ -512,7 +512,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def _handle_sig(self, sig, _):
         """Helper to safely enqueue a signal handler."""
         h = self._signal_handlers[sig]
-        self._token.run_sync_soon(self._q.put_nowait, h)
+        self._token.run_sync_soon(self._q_send.send_nowait, h)
 
     def add_signal_handler(self, sig, callback, *args):
         """asyncio's method to add a signal handler.
@@ -741,10 +741,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         if obj is None:
             if no_wait:
-                obj = self._q.get_nowait()
+                obj = self._q_recv.receive_nowait()
             else:
                 with trio.move_on_after(timeout):
-                    obj = await self._q.get()
+                    obj = await self._q_recv.receive()
                 if obj is None:
                     # Timeout reached. Presumably now a timer is ready,
                     # so restart from the beginning.
