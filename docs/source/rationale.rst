@@ -41,10 +41,10 @@ domains rigidly separate.
 
 The core of the "normal" asyncio main loop is the repeated execution of
 synchronous code that's submitted to
-:meth:`asyncio.AbstractEventLoop.call_soon` or
-:meth:`asyncio.AbstractEventLoop.call_later`, or as the callbacks for
-:meth:`asyncio.AbstractEventLoop.add_reader` /
-:meth:`asyncio.AbstractEventLoop.add_writer`.
+:meth:`python:asyncio.loop.call_soon` or
+:meth:`python:asyncio.loop.call_later`, or as the callbacks for
+:meth:`python:asyncio.loop.add_reader` /
+:meth:`python:asyncio.loop.add_writer`.
 
 Everything else within the ``asyncio`` core, esp. Futures, Coroutines, and
 ``await``'ing them, is just syntactic sugar. There is no concept of a
