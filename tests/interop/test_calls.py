@@ -329,7 +329,7 @@ class TestCalls(aiotest.TestCase):
             return f  # contains error
 
         async def check_cancel(proc, seen):
-            with trio.open_cancel_scope() as scope:
+            with trio.CancelScope() as scope:
                 with pytest.raises(asyncio.CancelledError):
                     await self.call_t_a(proc, seen, loop=loop)
             assert not scope.cancel_called
@@ -359,7 +359,7 @@ class TestCalls(aiotest.TestCase):
             return f  # contains error
 
         async def check_cancel(proc, seen):
-            with trio.open_cancel_scope() as scope:
+            with trio.CancelScope() as scope:
                 with pytest.raises(asyncio.CancelledError):
                     await self.call_t_a_depr(proc, seen, loop=loop)
             assert not scope.cancel_called

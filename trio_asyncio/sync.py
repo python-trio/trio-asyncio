@@ -205,7 +205,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                     res.__cause__ = result.error.__cause__
                     result = outcome.Error(res)
                 self.__blocking_result_queue.put(result)
-            with trio.open_cancel_scope(shield=True):
+            with trio.CancelScope(shield=True):
                 await self._main_loop_exit()
             self.__blocking_result_queue.put(None)
             nursery.cancel_scope.cancel()
