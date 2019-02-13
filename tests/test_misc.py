@@ -311,7 +311,7 @@ async def test_keyboard_interrupt_teardown():
         await trio_asyncio.aio_as_trio(work_in_asyncio)()
         try:
             # KeyboardInterrupt won't cancel this coroutine thanks to the shield
-            with trio.open_cancel_scope(shield=True):
+            with trio.CancelScope(shield=True):
                 task_status.started()
                 await asyncio_loop_closed.wait()
         finally:
@@ -323,7 +323,7 @@ async def test_keyboard_interrupt_teardown():
         await asyncio.sleep(0)
 
     async def run_asyncio_loop(nursery, *, task_status=trio.TASK_STATUS_IGNORED):
-        with trio.open_cancel_scope() as cancel_scope:
+        with trio.CancelScope() as cancel_scope:
             try:
                 async with trio_asyncio.open_loop():
                     # Starting a coroutine from here make it inherit the access

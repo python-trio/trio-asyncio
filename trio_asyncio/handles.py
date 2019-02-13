@@ -110,7 +110,7 @@ class _TrioHandle:
                 return
             task_status.started()
             try:
-                with trio.open_cancel_scope() as scope:
+                with trio.CancelScope() as scope:
                     self._scope = scope
                     if self._is_sync is None:
                         await self._context.run(_set_sniff, self._callback, self)
@@ -129,7 +129,7 @@ class _TrioHandle:
                 return
             task_status.started()
             try:
-                with trio.open_cancel_scope() as scope:
+                with trio.CancelScope() as scope:
                     self._scope = scope
                     if self._is_sync is None:
                         await self._callback(self)

@@ -1,3 +1,11 @@
+trio-asyncio (0.10.0-1) unstable; urgency=medium
+
+  * New release
+  * Fix deprecation warnings
+  * Fix cross-references in doc
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Sun, 09 Dec 2018 10:20:44 +0100
+
 trio-asyncio (0.8.4-1) unstable; urgency=medium
 
   * Fix python_requires

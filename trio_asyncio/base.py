@@ -295,7 +295,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if f.cancelled():  # pragma: no cover
             return
         try:
-            with trio.open_cancel_scope() as scope:
+            with trio.CancelScope() as scope:
                 h._scope = scope
                 res = await proc(*args)
             if scope.cancelled_caught:
@@ -582,7 +582,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     async def _reader_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
         task_status.started()
-        with trio.open_cancel_scope() as scope:
+        with trio.CancelScope() as scope:
             handle._scope = scope
             try:
                 while not handle._cancelled:  # pragma: no branch
@@ -635,7 +635,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             return writer
 
     async def _writer_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
-        with trio.open_cancel_scope() as scope:
+        with trio.CancelScope() as scope:
             handle._scope = scope
             task_status.started()
             try:
