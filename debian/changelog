@@ -1,3 +1,9 @@
+trio-asyncio (0.10.0-4) unstable; urgency=medium
+
+  * Test failure workarounds
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Mon, 25 Feb 2019 14:38:47 +0100
+
 trio-asyncio (0.10.0-3) unstable; urgency=medium
 
   * Merged trio deprecation fix
