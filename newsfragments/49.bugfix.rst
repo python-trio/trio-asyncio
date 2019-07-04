@@ -1,1 +1,0 @@
-Replace deprecated ``trio.Queue`` with new channels, requiring Trio 0.9 or later.

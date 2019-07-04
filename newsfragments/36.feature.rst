@@ -1,9 +1,0 @@
-Major reorganization
---------------------
-
-The main entry point for calling asyncio from trio is now the
-:func:`trio_asyncio.aio_as_trio` adapter.
-
-Instead of calling :func:`asyncio.get_event_loop`, directly access the
-contextvar ``trio_aio_loop`` (aka :var:`trio_asyncio.adapter.current_loop`).
-
