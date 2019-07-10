@@ -172,6 +172,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._stopped = trio.Event()
         self._stopped.set()
 
+        self._stop_wait = None
+
     def __repr__(self):
         try:
             return "<%s running=%s at 0x%x>" % (
