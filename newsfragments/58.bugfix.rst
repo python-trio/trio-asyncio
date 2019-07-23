@@ -1,0 +1,2 @@
+Calling ``loop.stop`` manually no longer causes a deadlock when
+exiting the context of ``trio_asyncio.open_loop``
