@@ -60,7 +60,9 @@ class TrioEventLoop(BaseTrioEventLoop):
 
         """
         if waiter is None:
-            waiter = trio.Event()
+            if self._stop_wait is not None:
+                return self._stop_wait
+            waiter = self._stop_wait = trio.Event()
         else:
             waiter.clear()
 
