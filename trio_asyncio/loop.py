@@ -390,4 +390,4 @@ def run(proc, *args, queue_len=None):
         async with open_loop(queue_len=queue_len):
             return await proc(*args)
 
-    trio.run(_run_task, proc, args)
+    return trio.run(_run_task, proc, args)
