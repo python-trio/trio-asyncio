@@ -1,11 +1,7 @@
 import trio
 
-from async_generator import async_generator, yield_, asynccontextmanager
-
-from .base import BaseTrioEventLoop
-from .handles import Handle
-
-__all__ = ['TrioEventLoop', 'open_loop']
+from ._base import BaseTrioEventLoop
+from ._handles import Handle
 
 
 class TrioEventLoop(BaseTrioEventLoop):
@@ -81,53 +77,3 @@ class TrioEventLoop(BaseTrioEventLoop):
         if not self._stopped.is_set():
             raise RuntimeError("You need to stop the loop before closing it")
         super()._close()
-
-
-@asynccontextmanager
-@async_generator
-async def open_loop(queue_len=None):
-    """Main entry point: run an asyncio loop on top of Trio.
-
-    This is a context manager.
-
-    Example usage::
-
-            async def async_main(*args):
-                async with trio_asyncio.open_loop() as loop:
-                    pass
-                    # async part of your main program here
-
-    """
-
-    # TODO: make sure that there is no asyncio loop already running
-
-    def _main_loop_exit(self):
-        super()._main_loop_exit()
-        self._thread = None
-
-    from .loop import current_loop, current_policy, TrioPolicy
-
-    async with trio.open_nursery() as nursery:
-        policy = current_policy.get()
-        if not isinstance(policy, TrioPolicy):
-            policy = TrioPolicy()
-        old_policy = current_policy.set(policy)
-
-        loop = TrioEventLoop(queue_len=queue_len)
-        old_loop = current_loop.set(loop)
-        try:
-            loop._closed = False
-            await loop._main_loop_init(nursery)
-            await nursery.start(loop._main_loop)
-            await yield_(loop)
-        finally:
-            try:
-                await loop.stop().wait()
-            finally:
-                try:
-                    await loop._main_loop_exit()
-                finally:
-                    loop.close()
-                    nursery.cancel_scope.cancel()
-                    current_loop.reset(old_loop)
-                    current_policy.reset(old_policy)

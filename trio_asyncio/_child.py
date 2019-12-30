@@ -13,8 +13,6 @@ _mswindows = (sys.platform == "win32")
 if _mswindows:
     import _winapi
 
-__all__ = ['wait_for_child']
-
 # TODO: use whatever works for Windows and MacOS/BSD
 
 _children = weakref.WeakValueDictionary()

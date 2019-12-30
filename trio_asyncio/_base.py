@@ -8,27 +8,22 @@ import sniffio
 import asyncio
 import warnings
 import concurrent.futures
-from contextvars import ContextVar
 
-from .adapter import Asyncio_Trio_Wrapper, Trio_Asyncio_Wrapper
-from .handles import Handle, TimerHandle
-from .util import run_aio_future, run_aio_generator
+from ._handles import Handle, TimerHandle
+from ._util import run_aio_future, run_aio_generator
+from ._deprecate import deprecated, deprecated_alias
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
 try:
     from trio.hazmat import wait_for_child
 except ImportError:
-    from .child import wait_for_child
+    from ._child import wait_for_child
 
 import logging
 logger = logging.getLogger(__name__)
 
-__all__ = ['BaseTrioEventLoop', 'TrioExecutor']
-
 _mswindows = (sys.platform == "win32")
-
-_shim_running = ContextVar("shim_running", default=False)
 
 try:
     _wait_readable = trio.hazmat.wait_readable
@@ -187,8 +182,9 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if not isinstance(executor, TrioExecutor):
             if 'pytest' not in sys.modules:
                 warnings.warn(
-                    "trio_asyncio needs a TrioExecutor instance, not %s" % repr(executor),
-                    DeprecationWarning,
+                    "executor %r is not supported by trio-asyncio and will "
+                    "not be used" % (repr(executor),),
+                    RuntimeWarning,
                     stacklevel=2
                 )
             return
@@ -204,16 +200,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     # A future doesn't require a trio_asyncio loop
     run_aio_future = staticmethod(run_aio_future)
 
-    def run_future(self, *args, **kwargs):
-        warnings.warn("Use 'await loop.run_aio_future(fut)' instead'", DeprecationWarning)
-        return self.run_aio_future(*args, **kwargs)
-
     # A coroutine (usually) does.
-    def run_coroutine(self, coro):
-        warnings.warn("Use 'await loop.run_aio_coroutine(coro)' instead'", DeprecationWarning)
-
-        return self.run_aio_coroutine(coro)
-
     async def run_aio_coroutine(self, coro):
         """Wait for an asyncio future/coroutine.
 
@@ -226,70 +213,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """
         self._check_closed()
         t = sniffio.current_async_library_cvar.set("asyncio")
-        coro = asyncio.ensure_future(coro, loop=self)
+        fut = asyncio.ensure_future(coro, loop=self)
         try:
-            return await run_aio_future(coro)
+            return await run_aio_future(fut)
         finally:
             sniffio.current_async_library_cvar.reset(t)
-
-    def wrap_generator(self, gen, *args):
-        """Call an asyncio generator.
-
-        Deprecated: instead of
-
-            await loop.wrap_generator(gen, *args)
-
-        simply call
-
-            await aio_as_trio(gen(*args), loop=loop)
-        """
-        warnings.warn("Use 'async with aio_as_trio(gen(*args))' instead'", DeprecationWarning)
-
-        return run_aio_generator(self, gen(*args))
-
-    def run_iterator(self, aiter):
-        """Call an asyncio iterator from Trio.
-
-        Deprecated: instead of
-
-            await loop.run_iterator(iter)
-
-        simply call
-
-            await aio_as_trio(iter, loop=loop)
-        """
-        warnings.warn("Use 'async for X in aio_as_trio(iter)' instead'", DeprecationWarning)
-
-        return run_aio_generator(self, aiter)
-
-    def run_asyncio(self, proc, *args):
-        """Run an asyncio function or method from Trio.
-
-        :return: whatever the procedure returns.
-        :raises: whatever the procedure raises.
-
-        This is (essentially) a Trio coroutine.
-
-        Depreated; use
-
-            aio_as_trio(proc)(*args)
-
-        instead.
-        """
-
-        warnings.warn("Use 'await aio_as_trio(proc)(*args)' instead'", DeprecationWarning)
-
-        return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
-
-    def wrap_trio_context(self, ctx):
-        """Run a Trio context manager from asyncio.
-        """
-        warnings.warn("Use 'await trio_as_aio(context)' instead'", DeprecationWarning)
-        return Trio_Asyncio_Wrapper(ctx, loop=self)
-
-    def run_trio(self, proc, *args):
-        warnings.warn("Use 'await trio_as_aio(proc)(*args)' instead'", DeprecationWarning)
-        return self.trio_as_future(proc, *args)
 
     async def __run_trio(self, h):
         """Helper for copying the result of a Trio task to an asyncio future"""
@@ -493,7 +421,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if executor is None:  # pragma: no branch
             executor = self._default_executor
         assert isinstance(executor, TrioExecutor)
-        return Trio_Asyncio_Wrapper(executor.submit, loop=self)(func, *args)
+        return self.trio_as_future(executor.submit, func, *args)
 
     async def synchronize(self):
         """Sync with the main loop by passing an event through it.
@@ -856,3 +784,43 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def __exit__(self, *tb):
         raise RuntimeError("You need to use a sync loop, or 'async with open_loop()'.")
+
+    # Deprecated aliases #
+
+    run_future = staticmethod(
+        deprecated_alias(
+            "trio_asyncio.BaseTrioEventLoop.run_future",
+            run_aio_future,
+            "0.10.0",
+            issue=38,
+        )
+    )
+
+    run_coroutine = deprecated_alias(
+        "trio_asyncio.BaseTrioEventLoop.run_coroutine",
+        run_aio_coroutine,
+        "0.10.0",
+        issue=38,
+    )
+
+    @deprecated("0.10.0", issue=38, instead="aio_as_trio(gen(*args))")
+    def wrap_generator(self, gen, *args):
+        return run_aio_generator(self, gen(*args))
+
+    @deprecated("0.10.0", issue=38, instead="aio_as_trio(aiter)")
+    def run_iterator(self, aiter):
+        return run_aio_generator(self, aiter)
+
+    @deprecated("0.10.0", issue=38, instead="aio_as_trio(proc)(*args)")
+    def run_asyncio(self, proc, *args):
+        from ._adapter import Asyncio_Trio_Wrapper
+        return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
+
+    @deprecated("0.10.0", issue=38, instead="trio_as_aio(ctx)")
+    def wrap_trio_context(self, ctx):
+        from ._adapter import Trio_Asyncio_Wrapper
+        return Trio_Asyncio_Wrapper(ctx, loop=self)
+
+    @deprecated("0.10.0", issue=38, instead="trio_as_aio(proc)(*args)")
+    def run_trio(self, proc, *args):
+        return self.trio_as_future(proc, *args)

@@ -8,31 +8,14 @@ import asyncio
 import trio_asyncio
 from contextvars import ContextVar
 
-from .util import run_aio_generator, run_aio_future, run_trio_generator
-
-current_loop = ContextVar('trio_aio_loop', default=None)
-current_policy = ContextVar('trio_aio_policy', default=None)
+from ._deprecate import deprecated_alias
+from ._util import run_aio_generator, run_aio_future, run_trio_generator
+from ._loop import current_loop, current_policy
 
 # import logging
 # logger = logging.getLogger(__name__)
 
 from functools import wraps, partial
-
-__all__ = [
-    'trio2aio', 'aio2trio', 'aio_as_trio', 'trio_as_aio', 'allow_asyncio', 'current_loop',
-    'current_policy', 'asyncio_as_trio', 'trio_as_asyncio'
-]
-
-
-def trio2aio(proc):
-    """Call asyncio code from Trio.
-
-        Deprecated: Use aio_as_trio() instead.
-
-        """
-    warnings.warn("Use 'aio_as_trio(proc)' instead'", DeprecationWarning)
-
-    return aio_as_trio(proc)
 
 
 async def _call_defer(proc, *args, **kwargs):
@@ -210,30 +193,6 @@ def trio_as_aio(proc, *, loop=None):
 trio_as_asyncio = trio_as_aio
 
 
-def aio2trio(proc):
-    """Call asyncio code from Trio.
-
-        Deprecated: Use aio_as_trio() instead.
-
-        """
-    warnings.warn("Use 'trio_as_aio(proc)' instead'", DeprecationWarning)
-
-    return trio_as_aio(proc)
-
-
-def aio2trio_task(proc):
-    warnings.warn("Use loop.run_trio_task() instead", DeprecationWarning)
-
-    @wraps(proc)
-    async def call(*args, **kwargs):
-        proc_ = proc
-        if kwargs:
-            proc_ = partial(proc_, **kwargs)
-        trio_asyncio.run_trio_task(proc_, *args)
-
-    return call
-
-
 @types.coroutine
 def _allow_asyncio(fn, *args):
     shim = trio_asyncio.base._shim_running
@@ -261,6 +220,8 @@ def _allow_asyncio(fn, *args):
             p, a = coro.send, next_send
 
 
+_shim_running = ContextVar("shim_running", default=False)
+
 async def allow_asyncio(fn, *args):
     """
     This wrapper allows you to indiscrimnately mix :mod:`trio` and
@@ -287,7 +248,7 @@ async def allow_asyncio(fn, *args):
 
     This function must be called from :mod:`trio` context.
     """
-    shim = trio_asyncio.base._shim_running
+    shim = _shim_running
     if shim.get():  # nested call: skip
         return await fn(*args)
     token = shim.set(True)
@@ -295,3 +256,7 @@ async def allow_asyncio(fn, *args):
         return await _allow_asyncio(fn, *args)
     finally:
         shim.reset(token)
+
+
+trio2aio = deprecated_alias("trio_asyncio.trio2aio", aio_as_trio, "0.10.0", issue=38)
+aio2trio = deprecated_alias("trio_asyncio.aio2trio", trio_as_aio, "0.10.0", issue=38)
