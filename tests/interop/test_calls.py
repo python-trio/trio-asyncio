@@ -571,7 +571,7 @@ class TestCalls(aiotest.TestCase):
     async def test_trio_asyncio_iterator(self, loop):
         async def slow_nums():
             for n in range(1, 6):
-                asyncio.sleep(0.01, loop=loop)
+                await asyncio.sleep(0.01, loop=loop)
                 yield n
 
         sum = 0
@@ -583,7 +583,7 @@ class TestCalls(aiotest.TestCase):
     async def test_trio_asyncio_iterator_depr(self, loop):
         async def slow_nums():
             for n in range(1, 6):
-                asyncio.sleep(0.01, loop=loop)
+                await asyncio.sleep(0.01, loop=loop)
                 yield n
 
         sum = 0
