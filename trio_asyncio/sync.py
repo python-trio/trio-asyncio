@@ -1,15 +1,26 @@
 import trio
-import queue
 import asyncio
-import threading
+import greenlet
 import outcome
+import threading
+from contextlib import contextmanager
 
 from .base import BaseTrioEventLoop
 from .handles import Handle
 
 
-async def _sync(proc, *args):
-    return proc(*args)
+def _is_main_thread_and_main_greenlet():
+    import signal
+    import greenlet
+
+    try:
+        signal.signal(signal.SIGINT, signal.getsignal(signal.SIGINT))
+    except ValueError:
+        return False
+    else:
+        return greenlet.getcurrent().parent is None
+
+trio._util.is_main_thread.__code__ = _is_main_thread_and_main_greenlet.__code__
 
 
 __all__ = ['SyncTrioEventLoop']
@@ -18,120 +29,92 @@ __all__ = ['SyncTrioEventLoop']
 class SyncTrioEventLoop(BaseTrioEventLoop):
     """
     This is the "compatibility mode" implementation of the Trio/asyncio
-    event loop. It runs synchronously, by delegating the Trio event loop to
-    a separate thread.
+    event loop. It allows the event loop to be started and stopped multiple
+    times, as many older asyncio tests require, by suspending a call to
+    :func:`trio.run` using the :mod:`greenlet` library.
 
     For best results, you should use the asynchronous
     :class:`trio_asyncio.TrioEventLoop` – if possible.
     """
 
-    _thread = None
+    _control_greenlet = None
+    _loop_greenlet = None
+    _loop_trio_globals = (None, None)
+    _stop_pending = False
 
-    def __init__(self, **kw):
-        super().__init__(**kw)
-
-        # for sync operation
-        self.__blocking_job_queue = queue.Queue()
-        self.__blocking_result_queue = queue.Queue()
-
-        # Synchronization
-        self._some_deferred = 0
-        # self._stop_count = 0
-
-        self._start_loop()
-
-    def stop(self):
-        """Halt the main loop.
-
-        Any callbacks queued before this point are processed before
-        stopping.
-
-        """
-
-        def do_stop():
-            raise StopAsyncIteration
-
-
-#        async def stop_me():
-#            def kick_():
-#                raise StopAsyncIteration
-#            self._queue_handle(Handle(kick_, (), self, context=None, is_sync=True))
-#            await self._main_loop()
-#        if threading.current_thread() != self._thread:
-#            self.__run_in_thread(stop_me)
-#        else:
-
-        self._queue_handle(Handle(do_stop, (), self, context=None, is_sync=True))
-
+    def __init__(self):
+        super().__init__()
+        self._ensure_loop_ready()
+    
     def _queue_handle(self, handle):
         self._check_closed()
-
-        def put(self, handle):
-            self._some_deferred -= 1
-            self._q_send.send_nowait(handle)
-
-        # If we don't have a token, the main loop is not yet running
-        # thus we can't have a race condition.
-        #
-        # On the other hand, if a request has been submitted (but not yet
-        # processed) through self._token, any other requestss also must be
-        # sent that way, otherwise they'd overtake each other.
-        if self._token is not None and (self._some_deferred or \
-                                        threading.current_thread() != self._thread):
-            self._some_deferred += 1
-            self._token.run_sync_soon(put, self, handle)
-        else:
-            self._q_send.send_nowait(handle)
+        self._q_send.send_nowait(handle)
         return handle
 
+    def _run_loop(self):
+        from .loop import current_loop
+
+        async def async_switch(send):
+            receive = None
+
+            def switch_outside_context(_):
+                nonlocal receive
+                receive = outcome.capture(self._control_greenlet.switch, send)
+                return trio.hazmat.Abort.SUCCEEDED
+
+            with trio.CancelScope() as scope:
+                scope.cancel()
+                await trio.hazmat.wait_task_rescheduled(switch_outside_context)
+
+            return receive.unwrap()
+
+        async def trio_main():
+            async with trio.open_nursery() as nursery:
+                old_loop = current_loop.set(self)
+                try:
+                    await self._main_loop_init(nursery)
+                    while await async_switch("next"):
+                        await self._main_loop()
+                finally:
+                    try:
+                        with trio.CancelScope(shield=True):
+                            await self._main_loop_exit()
+                    finally:
+                        nursery.cancel_scope.cancel()
+                        current_loop.reset(old_loop)
+
+        try:
+            trio.run(trio_main)
+            return "done"
+        finally:
+            self._control_greenlet = None
+            self._loop_greenlet = None
+
+    def _ensure_loop_ready(self):
+        if self._loop_greenlet is None:
+            self._control_greenlet = greenlet.getcurrent()
+            self._loop_greenlet = greenlet.greenlet(self._run_loop)
+            with self._using_loop_trio_globals():
+                response = self._loop_greenlet.switch()
+            assert response == "next"
+        elif self._control_greenlet is not greenlet.getcurrent():
+            raise RuntimeError(
+                "The same sync loop can't be controlled from multiple greenlets. "
+                "Either you're trying to call run_forever() or run_until_complete() "
+                "while another loop is running, or you're combining trio-asyncio with "
+                "some other use of greenlets. Neither is supported."
+            )
+
     def run_forever(self):
-        if self._thread == threading.current_thread():
-            raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
-        self.__run_in_thread(self._main_loop)
+        self._ensure_loop_ready()
+        with self._using_loop_trio_globals():
+            response = self._loop_greenlet.switch(True)
+        assert response == "next"
 
-    def is_running(self):
-        if self._closed:
-            return False
-        return self._thread is not None
-
-    def _add_reader(self, fd, callback, *args):
-        if self._thread is None or self._thread == threading.current_thread():
-            super()._add_reader(fd, callback, *args)
-        else:
-            self.__run_in_thread(_sync, super()._add_reader, fd, callback, *args)
-
-    def _add_writer(self, fd, callback, *args):
-        if self._thread is None or self._thread == threading.current_thread():
-            super()._add_writer(fd, callback, *args)
-        else:
-            self.__run_in_thread(_sync, super()._add_writer, fd, callback, *args)
-
-    def run_until_complete(self, future):
-        """Run until the Future is done.
-
-        If the argument is a coroutine, it is wrapped in a Task.
-
-        WARNING: It would be disastrous to call run_until_complete()
-        with the same coroutine twice -- it would wrap it in two
-        different Tasks and that can't be good.
-
-        Return the Future's result, or raise its exception.
-        """
-
-        if self._thread == threading.current_thread():
-            raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
-        return self.__run_in_thread(self._run_coroutine, future)
-
-    async def _run_coroutine(self, future):
-        """Helper for run_until_complete().
-
-        We need to make sure that a RuntimeError is raised
-        if the loop is stopped before the future completes.
-
-        This code runs in the Trio thread.
-        """
+    def run_until_complete(self, coro_or_future):
+        self._ensure_loop_ready()
+        future = asyncio.ensure_future(coro_or_future, loop=self)
         result = None
-        future = asyncio.ensure_future(future, loop=self)
 
         def is_done(_):
             nonlocal result
@@ -140,94 +123,62 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             self.stop()
 
         future.add_done_callback(is_done)
-        try:
-            await self._main_loop()
-            try:
-                while result is None:
-                    try:
-                        await self._main_loop_one(no_wait=True)
-                    except StopAsyncIteration:
-                        pass
-            except trio.WouldBlock:
-                pass
-        finally:
-            future.remove_done_callback(is_done)
+        with self._using_loop_trio_globals():
+            response = self._loop_greenlet.switch(True)
+        assert response == "next"
 
         if result is None:
-            raise RuntimeError('Event loop stopped before Future completed.')
+            raise RuntimeError("Event loop stopped before Future completed.")
         return result.unwrap()
 
-    def __run_in_thread(self, async_fn, *args):
-        self._check_closed()
-        if self._thread is None:
-            raise RuntimeError("You need to wrap your main code in a 'with loop:' statement.")
-        if not self._thread.is_alive():
-            raise RuntimeError("The Trio thread is not running")
-        self.__blocking_job_queue.put((async_fn, args))
-        res = self.__blocking_result_queue.get()
-        if res is None:
-            raise RuntimeError("Loop has died / terminated")
-        return res.unwrap()
+    def stop(self):
+        if greenlet.getcurrent() is not self._loop_greenlet:
+            raise RuntimeError("Can only stop a sync loop from inside the loop")
 
-    def _start_loop(self):
-        self._check_closed()
+        def stop_me():
+            self._stop_pending = False
+            raise StopAsyncIteration
 
-        if self._thread is None:
-            self._thread = threading.Thread(
-                name="trio-asyncio-" + threading.current_thread().name,
-                target=trio.run,
-                daemon=True,
-                args=(self.__trio_thread_main,)
-            )
-            self._thread.start()
-            x = self.__blocking_result_queue.get()
-            if x is not True:
-                raise RuntimeError("Loop could not be started", x)
-
-    async def __trio_thread_main(self):
-        # The non-context-manager equivalent of open_loop()
-        async with trio.open_nursery() as nursery:
-            asyncio.set_event_loop(self)
-            await self._main_loop_init(nursery)
-            self.__blocking_result_queue.put(True)
-
-            while not self._closed:
-                # This *blocks*
-                req = self.__blocking_job_queue.get()
-                if req is None:
-                    self.stop()
-                    break
-                async_fn, args = req
-
-                result = await outcome.acapture(async_fn, *args)
-                if type(result) == outcome.Error and type(result.error) == trio.Cancelled:
-                    res = RuntimeError("Main loop cancelled")
-                    res.__cause__ = result.error.__cause__
-                    result = outcome.Error(res)
-                self.__blocking_result_queue.put(result)
-            with trio.CancelScope(shield=True):
-                await self._main_loop_exit()
-            self.__blocking_result_queue.put(None)
-            nursery.cancel_scope.cancel()
-
-    def __enter__(self):
-        # I'd like to enforce this, but … no way
-        # if self._thread is not None:
-        #    raise RuntimeError("This loop is already running.")
-        # self._start_loop()
-        return self
-
-    def __exit__(self, *tb):
-        self.stop()
-        self.close()
-        assert self._thread is None
+        if not self._stopped.is_set() and not self._stop_pending:
+            self._stop_pending = True
+            self._queue_handle(Handle(stop_me, (), self, context=None, is_sync=True))
 
     def _close(self):
-        """Hook to terminate the thread"""
-        if self._thread is not None:
-            if self._thread == threading.current_thread():
-                raise RuntimeError("You can't close a sync loop from the inside")
-            self.__blocking_job_queue.put(None)
-            self._thread.join()
-            self._thread = None
-        super()._close()
+        self._ensure_loop_ready()
+        with self._using_loop_trio_globals():
+            response = self._loop_greenlet.switch(False)
+        assert response == "done"
+
+    def _add_writer(self, fd, callback, *args):
+        with self._using_loop_trio_globals():
+            super()._add_writer(fd, callback, *args)
+
+    def _add_reader(self, fd, callback, *args):
+        with self._using_loop_trio_globals():
+            super()._add_reader(fd, callback, *args)
+
+    def _get_trio_globals(self):
+        context = trio._core._run.GLOBAL_RUN_CONTEXT
+        return (getattr(context, "runner", None), getattr(context, "task", None))
+
+    def _set_trio_globals(self, values):
+        runner, task = values
+        context = trio._core._run.GLOBAL_RUN_CONTEXT
+        if runner is not None:
+            context.runner = runner
+        elif hasattr(context, "runner"):
+            del context.runner
+        if task is not None:
+            context.task = task
+        elif hasattr(context, "task"):
+            del context.task
+
+    @contextmanager
+    def _using_loop_trio_globals(self):
+        saved_globals = self._get_trio_globals()
+        self._set_trio_globals(self._loop_trio_globals)
+        try:
+            yield
+        finally:
+            self._loop_trio_globals = self._get_trio_globals()
+            self._set_trio_globals(saved_globals)
