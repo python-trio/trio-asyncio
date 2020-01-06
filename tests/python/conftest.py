@@ -99,3 +99,14 @@ else:
             "test_tasks.py::RunCoroutineThreadsafeTests::"
             "test_run_coroutine_threadsafe_task_factory_exception"
         )
+
+        # To investigate
+        if sys.version_info >= (3, 8):
+            xfail(
+                "test_tasks.py::RunCoroutineThreadsafeTests::"
+                "test_run_coroutine_threadsafe_task_cancelled"
+            )
+            xfail(
+                "test_tasks.py::RunCoroutineThreadsafeTests::"
+                "test_run_coroutine_threadsafe_with_timeout"
+            )
