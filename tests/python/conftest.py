@@ -73,5 +73,17 @@ else:
         def skip(rel_id):
             mark(pytest.mark.skip, rel_id)
 
-        base_sel_tests = "test_base_events.py::BaseEventLoopWithSelectorTests::"
-        xfail(base_sel_tests + "test_log_slow_callbacks")
+        xfail(
+            "test_base_events.py::BaseEventLoopWithSelectorTests::"
+            "test_log_slow_callbacks"
+        )
+
+        # This hangs, probably due to the thread shenanigans (it works
+        # fine with a greenlet-based sync loop)
+        skip("test_base_events.py::RunningLoopTests::test_running_loop_within_a_loop")
+
+        # trio-asyncio doesn't use a task factory
+        xfail(
+            "test_tasks.py::RunCoroutineThreadsafeTests::"
+            "test_run_coroutine_threadsafe_task_factory_exception"
+        )

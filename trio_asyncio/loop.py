@@ -249,11 +249,24 @@ else:
         # Not Trio context
         return _orig_run_get()
 
+    # Must override the non-underscore-prefixed get_running_loop() too,
+    # else will use the C-accelerated one which doesn't call the patched
+    # _get_running_loop()
+    def _new_run_get_or_throw():
+        result = _new_run_get()
+        if result is None:
+            raise RuntimeError("no running event loop")
+        return result
+
     _aio_event._get_running_loop = _new_run_get
+    _aio_event.get_running_loop = _new_run_get_or_throw
 
 #####
 
 def _new_loop_get():
+    current_loop = _new_run_get()
+    if current_loop is not None:
+        return current_loop
     return _trio_policy.get_event_loop()
 
 def _new_loop_set(new_loop):
