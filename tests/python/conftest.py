@@ -126,7 +126,7 @@ else:
             kinds = ("Select",)
             for candidate in ("Kqueue", "Epoll", "Poll"):
                 if hasattr(selectors, candidate + "Selector"):
-                    kinds += (candidate,)
+                    kinds += (candidate.replace("Epoll", "EPoll"),)
             for kind in kinds:
                 tests = (
                     "test_create_ssl_connection", "test_create_ssl_unix_connection"
