@@ -56,6 +56,7 @@ install_requires = [
     "trio >= 0.12.0",
     "async_generator >= 1.6",
     "outcome",
+    "greenlet",
 ]
 if sys.version_info < (3, 7):
     install_requires.append("contextvars >= 2.1")
