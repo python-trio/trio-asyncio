@@ -26,6 +26,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
     """
 
     _thread = None
+    _thread_running = False
+    _stop_pending = False
 
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -36,8 +38,6 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
         # Synchronization
         self._some_deferred = 0
-        self._thread_running = False
-        self._stop_pending = False
 
         self._start_loop()
 
