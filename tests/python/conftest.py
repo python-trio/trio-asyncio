@@ -77,7 +77,15 @@ else:
         aio_test_root = aio_test_nodeid(asyncio_test_dir / "foo")[:-3]
 
         def mark(marker, rel_id):
-            by_id[aio_test_root + rel_id].add_marker(marker)
+            try:
+                by_id[aio_test_root + rel_id].add_marker(marker)
+            except KeyError:
+                warnings.warn(
+                    "Tried to add marker {} to {}, but that test doesn't exist."
+                    .format(marker, rel_id),
+                    RuntimeWarning,
+                    stacklevel=3,
+                )
 
         def xfail(rel_id):
             mark(pytest.mark.xfail, rel_id)
