@@ -119,8 +119,9 @@ else:
                 "test_run_coroutine_threadsafe_with_timeout"
             )
 
-        # These fail with ConnectionResetError on Travis on Pythons <= 3.7.x
-        # for some unknown x. (3.7 fails, 3.7-dev passes)
+        # These fail with ConnectionResetError on Pythons <= 3.7.x
+        # for some unknown x. (3.7.1 fails, 3.7.5 and 3.7.6 pass;
+        # older 3.6.x also affected, and older-or-all 3.5.x)
         if sys.platform != "win32" and sys.version_info < (3, 8):
             import selectors
 
