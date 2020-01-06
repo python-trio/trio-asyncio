@@ -93,22 +93,22 @@ else:
         def skip(rel_id):
             mark(pytest.mark.skip, rel_id)
 
-        xfail(
-            "test_base_events.py::BaseEventLoopWithSelectorTests::"
-            "test_log_slow_callbacks"
-        )
-
         # This hangs, probably due to the thread shenanigans (it works
         # fine with a greenlet-based sync loop)
         skip("test_base_events.py::RunningLoopTests::test_running_loop_within_a_loop")
 
-        # trio-asyncio doesn't use a task factory
-        xfail(
-            "test_tasks.py::RunCoroutineThreadsafeTests::"
-            "test_run_coroutine_threadsafe_task_factory_exception"
-        )
+        # Remainder of these have unclear issues
+        if sys.version_info < (3, 8):
+            xfail(
+                "test_base_events.py::BaseEventLoopWithSelectorTests::"
+                "test_log_slow_callbacks"
+            )
 
-        # To investigate
+        if sys.version_info >= (3, 7):
+            xfail(
+                "test_tasks.py::RunCoroutineThreadsafeTests::"
+                "test_run_coroutine_threadsafe_task_factory_exception"
+            )
         if sys.version_info >= (3, 8):
             xfail(
                 "test_tasks.py::RunCoroutineThreadsafeTests::"
@@ -119,8 +119,9 @@ else:
                 "test_run_coroutine_threadsafe_with_timeout"
             )
 
-        # These fail on Travis for unclear reasons
-        if sys.platform != "win32":
+        # These fail with ConnectionResetError on Travis on Pythons <= 3.7.x
+        # for some unknown x. (3.7 fails, 3.7-dev passes)
+        if sys.platform != "win32" and sys.version_info < (3, 8):
             import selectors
 
             kinds = ("Select",)
@@ -136,10 +137,13 @@ else:
                         "test_legacy_create_ssl_connection",
                         "test_legacy_create_ssl_unix_connection",
                     )
+                    stream_suite = "StreamReaderTests"
+                else:
+                    stream_suite = "StreamTests"
                 for test in tests:
-                    skip("test_events.py::{}EventLoopTests::{}".format(kind, test))
+                    xfail("test_events.py::{}EventLoopTests::{}".format(kind, test))
                 for which in ("open_connection", "open_unix_connection"):
-                    skip(
-                        "test_streams.py::StreamReaderTests::test_{}_no_loop_ssl"
-                        .format(which)
+                    xfail(
+                        "test_streams.py::{}::test_{}_no_loop_ssl"
+                        .format(stream_suite, which)
                     )
