@@ -16,6 +16,18 @@ except ImportError:
         RuntimeWarning,
     )
 else:
+    # threading_cleanup() causes a 5-second or so delay (100
+    # gc.collect()'s) and warning on any test that holds a reference
+    # to the event loop in the testsuite class, because
+    # SyncTrioEventLoop spawns a thread that only exits when the
+    # loop is closed. Nerf it.
+    from test.support import threading_cleanup
+
+    def threading_no_cleanup(*original_values):
+        pass
+
+    threading_cleanup.__code__ = threading_no_cleanup.__code__
+
     asyncio_test_dir = py.path.local(test_asyncio.__path__[0])
 
     def aio_test_nodeid(fspath):
