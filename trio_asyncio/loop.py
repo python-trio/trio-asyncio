@@ -106,8 +106,10 @@ __all__ = [
 #     tests). Thus, if you don't install a custom policy, tests that use
 #     asyncio will exercise trio-asyncio.
 
+
 class _FakedPolicy(threading.local):
     policy = None
+
 
 _faked_policy = _FakedPolicy()
 
@@ -201,6 +203,7 @@ from asyncio import events as _aio_event
 
 #####
 
+
 def _new_policy_get():
     if _in_trio_context():
         return _trio_policy
@@ -263,14 +266,17 @@ else:
 
 #####
 
+
 def _new_loop_get():
     current_loop = _new_run_get()
     if current_loop is not None:
         return current_loop
     return _trio_policy.get_event_loop()
 
+
 def _new_loop_set(new_loop):
     _trio_policy.set_event_loop(new_loop)
+
 
 def _new_loop_new():
     return _trio_policy.new_event_loop()
