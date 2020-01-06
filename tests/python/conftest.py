@@ -10,10 +10,10 @@ try:
     from test import test_asyncio
 except ImportError:
     warnings.warn(
-        RuntimeWarning,
         "Can't run the Python asyncio tests because they're not installed. "
         "On a Debian/Ubuntu system, you might need to install the "
-        "libpython{}.{}-testsuite package.".format(*sys.version_info[:2])
+        "libpython{}.{}-testsuite package.".format(*sys.version_info[:2]),
+        RuntimeWarning,
     )
 else:
     asyncio_test_dir = py.path.local(test_asyncio.__path__[0])
