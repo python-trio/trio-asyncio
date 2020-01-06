@@ -96,7 +96,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
     def is_running(self):
         if self._closed:
             return False
-        return self._thread is not None
+        return self._thread_running
 
     def _add_reader(self, fd, callback, *args):
         if self._thread is None or self._thread == threading.current_thread():

@@ -113,6 +113,8 @@ else:
 
         # These fail on Travis for unclear reasons
         if sys.platform != "win32":
+            import selectors
+
             kinds = ("Select",)
             for candidate in ("Kqueue", "Epoll", "Poll"):
                 if hasattr(selectors, candidate + "Selector"):
