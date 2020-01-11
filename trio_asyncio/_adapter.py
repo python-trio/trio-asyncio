@@ -12,9 +12,6 @@ from ._deprecate import deprecated_alias
 from ._util import run_aio_generator, run_aio_future, run_trio_generator
 from ._loop import current_loop, current_policy
 
-# import logging
-# logger = logging.getLogger(__name__)
-
 from functools import wraps, partial
 
 

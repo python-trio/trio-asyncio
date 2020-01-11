@@ -90,7 +90,7 @@ class TrioExecutor(concurrent.futures.ThreadPoolExecutor):
         if lim is not None:
             await lim.acquire()
         try:
-            return await trio.run_sync_in_worker_thread(func, *args, limiter=self._limiter)
+            return await trio.to_thread.run_sync(func, *args, limiter=self._limiter)
         finally:
             if lim is not None:
                 lim.release()
@@ -645,7 +645,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Do not call this method directly.
         """
 
-        self._stopped.clear()
+        self._stopped = trio.Event()
         task_status.started()
         sniffio.current_async_library_cvar.set("asyncio")
 

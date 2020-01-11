@@ -26,8 +26,8 @@
 **Trio-Asyncio** is a re-implementation of the ``asyncio`` mainloop on top of
 Trio.
 
-Trio-Asyncio requires Python 3.6 or 3.7. It should work on Python 3.5.3, but
-that's not tested, as the test suite requires 3.6.
+Trio-Asyncio requires at least Python 3.5.3. It is tested on recent versions of
+3.5, 3.6, 3.7, 3.8, and nightly.
 
 +++++++++++
  Rationale
@@ -35,9 +35,9 @@ that's not tested, as the test suite requires 3.6.
 
 Trio has native concepts of tasks and task cancellation. Asyncio is based
 on callbacks and chaining Futures, albeit with nicer syntax, which make
-handling of failures and timeouts fundamentally less reliable, esp. in
+handling of failures and timeouts fundamentally less reliable, especially in
 larger programs. Thus, you *really* want to base your async project on Trio.
- 
+
 On the other hand, there are quite a few asyncio-enhanced libraries. You
 *really* don't want to re-invent any wheels in your project.
 

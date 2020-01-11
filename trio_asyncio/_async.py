@@ -60,7 +60,8 @@ class TrioEventLoop(BaseTrioEventLoop):
                 return self._stop_wait
             waiter = self._stop_wait = trio.Event()
         else:
-            waiter.clear()
+            if waiter.is_set():
+                waiter.clear()
 
         def stop_me():
             waiter.set()
