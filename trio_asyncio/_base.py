@@ -12,6 +12,7 @@ import concurrent.futures
 from ._handles import Handle, TimerHandle
 from ._util import run_aio_future, run_aio_generator
 from ._deprecate import deprecated, deprecated_alias
+from . import _util
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
@@ -790,7 +791,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     run_future = staticmethod(
         deprecated_alias(
             "trio_asyncio.BaseTrioEventLoop.run_future",
-            run_aio_future,
+            _util.run_aio_future,
             "0.10.0",
             issue=38,
         )

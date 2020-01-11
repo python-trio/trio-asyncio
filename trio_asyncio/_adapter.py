@@ -190,9 +190,11 @@ def trio_as_aio(proc, *, loop=None):
 trio_as_asyncio = trio_as_aio
 
 
+_shim_running = ContextVar("shim_running", default=False)
+
 @types.coroutine
 def _allow_asyncio(fn, *args):
-    shim = trio_asyncio.base._shim_running
+    shim = _shim_running
     shim.set(True)
 
     coro = fn(*args)
@@ -216,8 +218,6 @@ def _allow_asyncio(fn, *args):
         else:
             p, a = coro.send, next_send
 
-
-_shim_running = ContextVar("shim_running", default=False)
 
 async def allow_asyncio(fn, *args):
     """

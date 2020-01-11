@@ -386,10 +386,12 @@ async def run_subprocess_wait_no_same_group(loop):
         stderr=None,
         start_new_session=True
     )
-    _, proto = await connect
+    transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
     await proto.completed
     assert 7 == proto.returncode
+    with test_utils.disable_logger():
+        transp.close()
 
 
 @pytest.mark.trio

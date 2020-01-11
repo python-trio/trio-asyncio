@@ -128,7 +128,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
                 instead=None,
             )
 
-        from .sync import SyncTrioEventLoop
+        from ._sync import SyncTrioEventLoop
         return SyncTrioEventLoop()
 
     def get_event_loop(self):

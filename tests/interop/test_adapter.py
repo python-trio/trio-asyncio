@@ -10,12 +10,13 @@ import sys
 import warnings
 from async_generator import asynccontextmanager
 from .. import utils as test_utils
+from trio_asyncio import TrioAsyncioDeprecationWarning
 
 
 def de_deprecate_converter(func):
     def wrapper(proc):
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecationWarning)
+            warnings.simplefilter('ignore', TrioAsyncioDeprecationWarning)
             return func(proc)
 
     return wrapper
