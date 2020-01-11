@@ -1,4 +1,5 @@
 import pytest
+from async_generator import async_generator, yield_
 from trio_asyncio import aio_as_trio, trio_as_aio, allow_asyncio
 from trio_asyncio import aio2trio, trio2aio
 import asyncio
@@ -72,39 +73,43 @@ class SomeThing:
         self.flag |= 1
         return 4
 
+    @async_generator
     async def iter_asyncio(self, do_test=True):
         if do_test and sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "asyncio"
         await asyncio.sleep(0.01, loop=self.loop)
-        yield 1
+        await yield_(1)
         await asyncio.sleep(0.01, loop=self.loop)
-        yield 2
+        await yield_(2)
         await asyncio.sleep(0.01, loop=self.loop)
         self.flag |= 1
 
+    @async_generator
     async def iter_trio(self):
         if sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "trio"
         await trio.sleep(0.01)
-        yield 1
+        await yield_(1)
         await trio.sleep(0.01)
-        yield 2
+        await yield_(2)
         await trio.sleep(0.01)
         self.flag |= 1
 
     @asynccontextmanager
+    @async_generator
     async def ctx_asyncio(self):
         await asyncio.sleep(0.01, loop=self.loop)
         self.flag |= 1
-        yield self
+        await yield_(self)
         await asyncio.sleep(0.01, loop=self.loop)
         self.flag |= 2
 
     @asynccontextmanager
+    @async_generator
     async def ctx_trio(self):
         await trio.sleep(0.01)
         self.flag |= 1
-        yield self
+        await yield_(self)
         await trio.sleep(0.01)
         self.flag |= 2
 

@@ -11,7 +11,6 @@ from contextvars import ContextVar
 from .util import run_aio_generator, run_aio_future, run_trio_generator
 
 current_loop = ContextVar('trio_aio_loop', default=None)
-current_policy = ContextVar('trio_aio_policy', default=None)
 
 # import logging
 # logger = logging.getLogger(__name__)
@@ -20,7 +19,7 @@ from functools import wraps, partial
 
 __all__ = [
     'trio2aio', 'aio2trio', 'aio_as_trio', 'trio_as_aio', 'allow_asyncio', 'current_loop',
-    'current_policy', 'asyncio_as_trio', 'trio_as_asyncio'
+    'asyncio_as_trio', 'trio_as_asyncio'
 ]
 
 

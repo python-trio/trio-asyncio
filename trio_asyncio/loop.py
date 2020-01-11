@@ -6,8 +6,9 @@ import trio
 import asyncio
 import warnings
 import threading
+from contextvars import ContextVar
 
-from .adapter import current_loop, current_policy
+from .adapter import current_loop
 from .util import run_aio_future
 from .async_ import TrioEventLoop, open_loop
 
@@ -34,41 +35,116 @@ __all__ = [
     'TrioPolicy',
 ]
 
-_faked_policy = threading.local()
+# A substantial portion of the trio-asyncio test suite involves running the
+# stock asyncio test suite with trio-asyncio imported. This is intended to
+# test two things:
+# - that trio-asyncio is a "good citizen": won't screw up other users of
+#   asyncio if Trio isn't running
+# - that trio-asyncio provides an event loop that conforms to asyncio semantics,
+#   even if Trio is running
+#
+# It's hard to test both of these at once: in order to get good test
+# coverage, we want normal asyncio calls to instantiate our loop, but
+# the asyncio tests are full of tricky event loop manipulations, some
+# of which expect to provide their own mock loop. We've compromised on
+# the following.
+#
+# - The "actual" event loop policy (the one that would be returned by
+#   an unpatched asyncio.get_event_loop_policy()) is set at import
+#   time to a singleton instance of TrioPolicy, and never changed
+#   later. This is required for correct operation in CPython 3.7+,
+#   because the C _asyncio module caches the original
+#   asyncio.get_event_loop_policy() and calls it from its accelerated
+#   C get_event_loop() function. We want asyncio.get_event_loop() to be
+#   able to return a trio-asyncio event loop.
+#
+# - To cope with tests that set a custom policy, we monkeypatch
+#   asyncio.get_event_loop_policy() and set_event_loop_policy()
+#   so that they model an event loop policy that is thread-local when
+#   called outside of Trio context. Said policy is stored in at
+#   _faked_policy.policy. (Inside Trio context, we let get_event_loop_policy()
+#   return the singleton global TrioPolicy, and set_event_loop_policy()
+#   raises an exception.)
+#
+#   - If you've previously called set_event_loop_policy() with a
+#     non-None argument in the current thread, then
+#     get_event_loop_policy() will return the thing that you passed to
+#     set_event_loop_policy().
+#
+#   - If you haven't called set_event_loop_policy() in this thread
+#     yet, or the most recent call in this context had a None
+#     argument, then get_event_loop_policy() will return the asyncio
+#     event loop policy that was installed when trio_asyncio was
+#     imported.
+#
+# - Even though the user can set a per-thread policy and we'll echo it back,
+#   the "actual" global policy is still the TrioPolicy and we don't expose
+#   any way to change it. asyncio.get_event_loop() will use this TrioPolicy
+#   on 3.7+ no matter what we do, so we monkeypatch new_event_loop() and
+#   set_event_loop() to go through the TrioPolicy too (for consistency's sake)
+#   and let TrioPolicy forward to the appropriate actual policy specified by
+#   the user.
+#
+#   - Inside a Trio context, TrioPolicy refuses to create a new event loop
+#     (you should use 'async with trio_asyncio.open_loop():' instead).
+#     Its get/set event loop methods access a contextvar (current_loop),
+#     which is normally set to the nearest enclosing open_loop() loop,
+#     but can be modified if you want to put some Trio tasks in a
+#     trio-asyncio event loop that doesn't correspond to their place in the
+#     Trio task tree.
+#
+#   - Outside a Trio context when an event loop policy has been set,
+#     TrioPolicy delegates all three methods (new/get/set event loop)
+#     to that policy. Thus, if you install a custom policy, it will get
+#     used (trio-asyncio gets out of the way).
+#
+#   - Outside a Trio context when no event loop policy has been set,
+#     the get/set event loop methods manage a thread-local event loop
+#     just like they do in default asyncio. However, new_event_loop() will
+#     create a synchronous trio-asyncio event loop (the kind that can
+#     be repeatedly started and stopped, which is helpful for many asyncio
+#     tests). Thus, if you don't install a custom policy, tests that use
+#     asyncio will exercise trio-asyncio.
 
-# We can monkey-patch asyncio's get_event_loop_policy but if asyncio is
-# imported before Trio, the asyncio acceleration C code in 3.7+ caches
-# get_event_loop_policy.
-# Thus we always set our policy. After that, our monkeypatched
-# setter stores the policy in a thread-local variable to which our policy
-# will forward all requests when Trio is not running.
+
+class _FakedPolicy(threading.local):
+    policy = None
+
+
+_faked_policy = _FakedPolicy()
+
+
+def _in_trio_context():
+    try:
+        trio.hazmat.current_task()
+    except RuntimeError:
+        return False
+    else:
+        return True
 
 
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
-    _loop_factory = TrioEventLoop
+    @staticmethod
+    def _loop_factory():
+        raise RuntimeError("Event loop creations shouldn't get here")
 
     def new_event_loop(self):
-        try:
-            trio.hazmat.current_task()
-        except RuntimeError:
-            if 'pytest' not in sys.modules:
-                warnings.warn(
-                    "trio_asyncio should be used from within a Trio event loop.",
-                    DeprecationWarning,
-                    stacklevel=2
-                )
-            real_policy = getattr(_faked_policy, 'policy', None)
-            if real_policy is not None:
-                return real_policy.new_event_loop()
-
-            from .sync import SyncTrioEventLoop
-            loop = SyncTrioEventLoop()
-            return loop
-        else:
+        if _in_trio_context():
             raise RuntimeError(
                 "You're within a Trio environment.\n"
                 "Use 'async with open_loop()' instead."
             )
+        if _faked_policy.policy is not None:
+            return _faked_policy.policy.new_event_loop()
+        if 'pytest' not in sys.modules:
+            warnings.warn(
+                "trio_asyncio should be used from within a Trio event loop.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        from .sync import SyncTrioEventLoop
+        return SyncTrioEventLoop()
 
     def get_event_loop(self):
         """Get the current event loop.
@@ -83,16 +159,27 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         ``.current_event_loop`` property.
         """
         try:
-            trio.hazmat.current_task()
-        except RuntimeError:  # no Trio task is active
-            # this creates a new loop in the main task
-            real_policy = getattr(_faked_policy, 'policy', None)
-            if real_policy is not None:
-                return real_policy.get_event_loop()
-
-            return super().get_event_loop()
+            task = trio.hazmat.current_task()
+        except RuntimeError:
+            pass
         else:
-            return current_loop.get()
+            # Trio context. Note: NOT current_loop.get()! If this is called from
+            # asyncio code, current_task() is the trio-asyncio loop runner task,
+            # which has the correct loop set in its contextvar; but (on Python
+            # 3.7+) our current context is quite possibly something different, and
+            # might have the wrong contextvar value (e.g. in the case of a
+            # loop1.call_later() in loop2's context).
+            return task.context.get(current_loop)
+
+        # Not Trio context
+        if _faked_policy.policy is not None:
+            return _faked_policy.policy.get_event_loop()
+
+        # This will return the thread-specific event loop set using
+        # set_event_loop(), or if none has been set, will call back into
+        # our new_event_loop() to make a SyncTrioEventLoop and set it as
+        # this thread's event loop.
+        return super().get_event_loop()
 
     @property
     def current_event_loop(self):
@@ -104,65 +191,43 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
 
     def set_event_loop(self, loop):
         """Set the current event loop."""
-        try:
-            trio.hazmat.current_task()
-        except RuntimeError:  # no Trio task is active
-            # this creates a new loop in the main task
-            real_policy = getattr(_faked_policy, 'policy', None)
-            if real_policy is not None:
-                return real_policy.set_event_loop(loop)
-            return super().set_event_loop(loop)
-        else:
+        if _in_trio_context():
             current_loop.set(loop)
+        elif _faked_policy.policy is not None:
+            _faked_policy.policy.set_event_loop(loop)
+        else:
+            super().set_event_loop(loop)
 
 
 from asyncio import events as _aio_event
 
 #####
 
-_orig_policy_get = _aio_event.get_event_loop_policy
-
 
 def _new_policy_get():
-    try:
-        task = trio.hazmat.current_task()
-    except RuntimeError:
-        policy = getattr(_faked_policy, "policy", None)
-        if policy is None:
-            policy = _original_policy
+    if _in_trio_context():
+        return _trio_policy
+    elif _faked_policy.policy is not None:
+        return _faked_policy.policy
     else:
-        policy = task.context.get(current_policy, None)
-        if policy is None:
-            policy = _new_policy
-    return policy
-
-
-_aio_event.get_event_loop_policy = _new_policy_get
-asyncio.get_event_loop_policy = _new_policy_get
-
-#####
-
-_orig_policy_set = _aio_event.set_event_loop_policy
+        return _original_policy
 
 
 def _new_policy_set(new_policy):
     if isinstance(new_policy, TrioPolicy):
         raise RuntimeError("You can't set the Trio loop policy manually")
-    assert isinstance(new_policy, asyncio.AbstractEventLoopPolicy)
-    _faked_policy.policy = new_policy
-
-    try:
-        task = trio.hazmat.current_task()
-    except RuntimeError:
-        policy = None
+    if _in_trio_context():
+        raise RuntimeError("You can't change the event loop policy in Trio context")
     else:
-        policy = task.context.get(current_policy, None)
-    if policy is None:
-        policy = _orig_policy_get()
-    return policy
+        assert new_policy is None or isinstance(new_policy, asyncio.AbstractEventLoopPolicy)
+        _faked_policy.policy = new_policy
 
 
+_orig_policy_get = _aio_event.get_event_loop_policy
+_orig_policy_set = _aio_event.set_event_loop_policy
+_aio_event.get_event_loop_policy = _new_policy_get
 _aio_event.set_event_loop_policy = _new_policy_set
+asyncio.get_event_loop_policy = _new_policy_get
 asyncio.set_event_loop_policy = _new_policy_set
 
 #####
@@ -179,30 +244,55 @@ else:
         try:
             task = trio.hazmat.current_task()
         except RuntimeError:
-            loop = _orig_run_get()
+            pass
         else:
-            loop = task.context.get(current_loop, None)
-            if loop is None:
-                raise RuntimeError("No trio_asyncio loop is active.")
+            # Trio context. Note: NOT current_loop.get()!
+            # See comment in _TrioPolicy.get_event_loop().
+            return task.context.get(current_loop)
+        # Not Trio context
+        return _orig_run_get()
 
-        return loop
+    # Must override the non-underscore-prefixed get_running_loop() too,
+    # else will use the C-accelerated one which doesn't call the patched
+    # _get_running_loop()
+    def _new_run_get_or_throw():
+        result = _new_run_get()
+        if result is None:
+            raise RuntimeError("no running event loop")
+        return result
 
     _aio_event._get_running_loop = _new_run_get
+    _aio_event.get_running_loop = _new_run_get_or_throw
 
 #####
 
-_orig_loop_get = _aio_event.get_event_loop
-
 
 def _new_loop_get():
-    loop = _new_run_get()
-    if loop is None:
-        loop = _orig_loop_get()
-    return loop
+    current_loop = _new_run_get()
+    if current_loop is not None:
+        return current_loop
+    return _trio_policy.get_event_loop()
 
 
+def _new_loop_set(new_loop):
+    _trio_policy.set_event_loop(new_loop)
+
+
+def _new_loop_new():
+    return _trio_policy.new_event_loop()
+
+
+_orig_loop_get = _aio_event.get_event_loop
+_orig_loop_set = _aio_event.set_event_loop
+_orig_loop_new = _aio_event.new_event_loop
 _aio_event.get_event_loop = _new_loop_get
+_aio_event.set_event_loop = _new_loop_set
+_aio_event.new_event_loop = _new_loop_new
 asyncio.get_event_loop = _new_loop_get
+asyncio.set_event_loop = _new_loop_set
+asyncio.new_event_loop = _new_loop_new
+
+#####
 
 
 class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
@@ -234,8 +324,11 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
 
 
 _original_policy = _orig_policy_get()
-_new_policy = TrioPolicy()
-_orig_policy_set(_new_policy)
+_trio_policy = TrioPolicy()
+_orig_policy_set(_trio_policy)
+
+# Backwards compatibility -- unused
+current_policy = ContextVar('trio_aio_policy', default=_trio_policy)
 
 
 class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' else object):

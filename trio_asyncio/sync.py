@@ -26,6 +26,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
     """
 
     _thread = None
+    _thread_running = False
+    _stop_pending = False
 
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -36,7 +38,6 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
         # Synchronization
         self._some_deferred = 0
-        # self._stop_count = 0
 
         self._start_loop()
 
@@ -49,6 +50,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         """
 
         def do_stop():
+            self._stop_pending = False
             raise StopAsyncIteration
 
 
@@ -61,7 +63,9 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 #            self.__run_in_thread(stop_me)
 #        else:
 
-        self._queue_handle(Handle(do_stop, (), self, context=None, is_sync=True))
+        if self._thread_running and not self._stop_pending:
+            self._stop_pending = True
+            self._queue_handle(Handle(do_stop, (), self, context=None, is_sync=True))
 
     def _queue_handle(self, handle):
         self._check_closed()
@@ -92,7 +96,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
     def is_running(self):
         if self._closed:
             return False
-        return self._thread is not None
+        return self._thread_running
 
     def _add_reader(self, fd, callback, *args):
         if self._thread is None or self._thread == threading.current_thread():
@@ -195,11 +199,12 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                 # This *blocks*
                 req = self.__blocking_job_queue.get()
                 if req is None:
-                    self.stop()
                     break
                 async_fn, args = req
 
+                self._thread_running = True
                 result = await outcome.acapture(async_fn, *args)
+                self._thread_running = False
                 if type(result) == outcome.Error and type(result.error) == trio.Cancelled:
                     res = RuntimeError("Main loop cancelled")
                     res.__cause__ = result.error.__cause__

@@ -64,7 +64,8 @@ class TrioEventLoop(BaseTrioEventLoop):
                 return self._stop_wait
             waiter = self._stop_wait = trio.Event()
         else:
-            waiter.clear()
+            if waiter.is_set():
+                waiter.clear()
 
         def stop_me():
             waiter.set()
@@ -105,14 +106,9 @@ async def open_loop(queue_len=None):
         super()._main_loop_exit()
         self._thread = None
 
-    from .loop import current_loop, current_policy, TrioPolicy
+    from .loop import current_loop
 
     async with trio.open_nursery() as nursery:
-        policy = current_policy.get()
-        if not isinstance(policy, TrioPolicy):
-            policy = TrioPolicy()
-        old_policy = current_policy.set(policy)
-
         loop = TrioEventLoop(queue_len=queue_len)
         old_loop = current_loop.set(loop)
         try:
@@ -130,4 +126,3 @@ async def open_loop(queue_len=None):
                     loop.close()
                     nursery.cancel_scope.cancel()
                     current_loop.reset(old_loop)
-                    current_policy.reset(old_policy)
