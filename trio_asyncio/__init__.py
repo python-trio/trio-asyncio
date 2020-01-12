@@ -61,9 +61,7 @@ __deprecated_attributes__ = {
         issue=64,
         instead="an import from the top-level trio_asyncio package",
     )
-    for name in (
-        "adapter", "async_", "base", "child", "handles", "loop", "sync", "util"
-    )
+    for name in ("adapter", "async_", "base", "child", "handles", "loop", "sync", "util")
 }
 
 # Provide aliases in the old place for names that moved between modules.

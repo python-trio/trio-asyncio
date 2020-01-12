@@ -414,6 +414,7 @@ def run(proc, *args, queue_len=None):
 
 # Non-deprecated aliases for event loop methods
 
+
 def _running_loop():
     loop = current_loop.get()
     if loop is None:
@@ -464,6 +465,7 @@ def run_trio_task(proc, *args):
 # deprecated loop method, the warning points here instead of to user
 # code. Therefore, we "chase the pointer" and inline the body of the
 # deprecated loop method into each of these functions.
+
 
 @deprecated("0.10.0", issue=38, instead="aio_as_trio(proc(*args))")
 def wrap_generator(proc, *args):
