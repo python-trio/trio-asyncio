@@ -22,10 +22,7 @@ from ._loop import (
     # trio.run() + trio_asyncio.open_loop():
     run,
     # loop selection:
-    TrioChildWatcher,
-    TrioPolicy,
     current_loop,
-    current_policy,
     # forwarders to event loop methods:
     run_trio_task,
     run_trio,
@@ -63,6 +60,14 @@ __deprecated_attributes__ = {
     )
     for name in ("adapter", "async_", "base", "child", "handles", "loop", "sync", "util")
 }
+__deprecated_attributes__.update(
+    {
+        name: _deprecate.DeprecatedAttribute(
+            getattr(_loop, name), "0.11.0", issue=64, instead=None
+        )
+        for name in ("TrioPolicy", "TrioChildWatcher", "current_policy")
+    }
+)
 
 # Provide aliases in the old place for names that moved between modules.
 # Remove these when the non-underscore-prefixed module names are removed.

@@ -5,9 +5,8 @@ from ._handles import Handle
 
 
 class TrioEventLoop(BaseTrioEventLoop):
-    """A Trio-compatible asyncio event loop.
-
-    This loop runs in an async Trio context.
+    """An asyncio event loop that runs on top of Trio, opened from
+    within Trio code using :func:`open_loop`.
     """
 
     def _queue_handle(self, handle):
@@ -23,11 +22,11 @@ class TrioEventLoop(BaseTrioEventLoop):
         Rationale:
 
         In traditional asyncio, there frequently is no context which the
-        exception is supposed to affect.
+        exception is supposed to effect.
 
-        Trio-asyncio, however, collects the loop and all its tasks in a
-        nursery. Thus the context which must be aborted, and thus in which
-        the error needs to be raised, is known / can easily be controlled
+        trio-asyncio, however, collects the loop and all its tasks in a
+        Trio nursery. Thus the context which must be aborted, and thus in which
+        the error needs to be raised, is known and can easily be controlled
         by the programmer.
 
         For maximum compatibility, this default handler is only used in

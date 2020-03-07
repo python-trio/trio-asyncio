@@ -60,7 +60,7 @@ class Asyncio_Trio_Wrapper:
         """
         f = self.proc
         if not hasattr(f, "__await__"):
-            f = f(*self.args)
+            f = _call_defer(f, *self.args)
         elif self.args:
             raise RuntimeError("You can't supply arguments to a coroutine")
         return self.loop.run_aio_coroutine(f).__await__()
@@ -86,23 +86,27 @@ class Asyncio_Trio_Wrapper:
 
 
 def aio_as_trio(proc, *, loop=None):
-    """
-    Encapsulate an asyncio-style coroutine, procedure, generator, or
-    iterator, to be called seamlessly from Trio.
+    """Return a Trio-flavored wrapper for an asyncio-flavored awaitable,
+    async function, async context manager, or async iterator.
+
+    Alias: ``asyncio_as_trio()``
+
+    This is the primary interface for calling asyncio code from Trio code.
+    You can also use it as a decorator on an asyncio-flavored async function;
+    the decorated function will be callable from Trio-flavored code without
+    additional boilerplate.
 
     Note that while adapting coroutines, i.e.::
 
-        wrap(proc(*args))
+        await aio_as_trio(proc(*args))
 
     is supported (because asyncio uses them a lot) they're not a good
     idea because setting up the coroutine won't run within an asyncio
-    context. If at all possible, use::
-
-        wrap(proc, *args)
-
-    instead, which translates to::
+    context. If possible, use::
 
         await aio_as_trio(proc)(*args)
+
+    instead.
     """
     return Asyncio_Trio_Wrapper(proc, loop=loop)
 
@@ -168,21 +172,53 @@ class Trio_Asyncio_Wrapper:
 
 
 def trio_as_aio(proc, *, loop=None):
-    """
-    Encapsulate a Trio-style procedure, generator, or iterator, to be
-    called seamlessly from asyncio.
+    """Return an asyncio-flavored wrapper for a Trio-flavored async
+    function, async context manager, or async iterator.
+
+    Alias: ``trio_as_asyncio()``
+
+    This is the primary interface for calling Trio code from asyncio code.
+    You can also use it as a decorator on a Trio-flavored async function;
+    the decorated function will be callable from asyncio-flavored code without
+    additional boilerplate.
 
     Note that adapting coroutines, i.e.::
 
-        wrap(proc(*args))
+        await trio_as_aio(proc(*args))
 
-    is not supported: Trio's calling convention is to always use::
-
-        wrap(proc, *args)
-
-    which translates to::
+    is not supported, because Trio does not expose the existence of coroutine
+    objects in its API. Instead, use::
 
         await trio_as_aio(proc)(*args)
+
+    Or if you already have ``proc(*args)`` as a single object ``coro`` for
+    some reason::
+
+        await trio_as_aio(lambda: coro)()
+
+    .. warning:: Be careful when using this to wrap an async context manager.
+       There is currently no mechanism for running the entry and exit in
+       the same Trio task, so if the async context manager wraps a nursery,
+       havoc is likely to result. That is, instead of::
+
+           async def some_aio_func():
+               async with trio_asyncio.trio_as_aio(trio.open_nursery()) as nursery:
+                   # code that uses nursery -- this will blow up
+
+       do something like::
+
+           async def some_aio_func():
+               @trio_asyncio.aio_as_trio
+               async def aio_body(nursery):
+                   # code that uses nursery -- this will work
+
+               @trio_asyncio.trio_as_aio
+               async def trio_body():
+                   async with trio.open_nursery() as nursery:
+                       await aio_body(nursery)
+
+               await trio_body()
+
     """
     return Trio_Asyncio_Wrapper(proc, loop=loop)
 
@@ -220,7 +256,13 @@ def _allow_asyncio(fn, *args):
 
 
 async def allow_asyncio(fn, *args):
-    """
+    """Execute ``await fn(*args)`` in a context that allows ``fn`` to call
+    both Trio-flavored and asyncio-flavored functions without marking
+    which ones are which.
+
+    This is a Trio-flavored async function. There is no asyncio-flavored
+    equivalent.
+
     This wrapper allows you to indiscrimnately mix :mod:`trio` and
     :mod:`asyncio` functions, generators, or iterators::
 
@@ -242,8 +284,6 @@ async def allow_asyncio(fn, *args):
     Unfortunately, there are issues with cancellation (specifically,
     :mod:`asyncio` function will see :class:`trio.Cancelled` instead of
     :exc:`concurrent.futures.CancelledError`). Thus, this mode is not the default.
-
-    This function must be called from :mod:`trio` context.
     """
     shim = _shim_running
     if shim.get():  # nested call: skip

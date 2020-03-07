@@ -319,6 +319,14 @@ current_loop = ContextVar('trio_aio_loop', default=None)
 
 
 class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' else object):
+    """Watches for child processes to exit using Trio APIs.
+
+    All TrioChildWatchers behave identically, so there's no reason to construct
+    your own. This is more or less an implementation detail, exposed publicly
+    because you can get your hands on it anyway (using
+    ``asyncio.get_event_loop_policy
+    """
+
     # AbstractChildWatcher not available under Windows
     def __init__(self):
         super().__init__()
@@ -362,16 +370,21 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' e
 @asynccontextmanager
 @async_generator
 async def open_loop(queue_len=None):
-    """Main entry point: run an asyncio loop on top of Trio.
+    """Returns a Trio-flavored async context manager which provides
+    an asyncio event loop running on top of Trio.
 
-    This is a context manager.
+    Entering the context manager is not enough on its own to immediately
+    run asyncio code; it just provides the context that makes running that
+    code possible. You additionally need to wrap any asyncio functions
+    that you want to run in :func:`aio_as_trio`.
 
     Example usage::
 
             async def async_main(*args):
                 async with trio_asyncio.open_loop() as loop:
-                    pass
                     # async part of your main program here
+                    await trio.sleep(1)
+                    await trio_asyncio.aio_as_trio(asyncio.sleep)(2)
 
     """
 
@@ -402,7 +415,11 @@ async def open_loop(queue_len=None):
 
 
 def run(proc, *args, queue_len=None):
-    """Like :func:`trio.run`, but adds a context that supports asyncio.
+    """Run a Trio-flavored async function in a context that has an
+    asyncio event loop also available.
+
+    This is exactly equivalent to using :func:`trio.run` plus wrapping
+    the body of *proc* in ``async with trio_asyncio.open_loop():``.
     """
 
     async def _run_task(proc, args):
@@ -422,39 +439,34 @@ def _running_loop():
     return loop
 
 
-async def run_aio_coroutine(fut):
-    """Wait for an asyncio future/coroutine.
+async def run_aio_coroutine(coro):
+    """Alias for a call to :meth:`~BaseTrioEventLoop.run_aio_coroutine`
+    on the event loop returned by :func:`asyncio.get_event_loop`.
 
-    Cancelling the current Trio scope will cancel the future/coroutine.
-
-    Cancelling the future/coroutine will cause an
-    ``asyncio.CancelledError``.
-
-    This is a Trio coroutine.
+    This is a Trio-flavored async function which takes an asyncio-flavored
+    coroutine object.
     """
-    return await _running_loop().run_aio_coroutine(fut)
+    return await _running_loop().run_aio_coroutine(coro)
 
 
 def run_trio(proc, *args):
-    """Call an asynchronous Trio function from asyncio.
+    """Alias for a call to :meth:`~BaseTrioEventLoop.trio_as_future`
+    on the event loop returned by :func:`asyncio.get_event_loop`.
 
-    Returns a Future with the result / exception.
-
-    Cancelling the future will cancel the Trio task running your
-    function, or prevent it from starting if that is still possible.
-
-    You need to handle errors yourself.
+    This is a synchronous function which takes a Trio-flavored async function
+    and returns an asyncio Future.
     """
-    return _running_loop().run_trio(proc, *args)
+    return _running_loop().trio_as_future(proc, *args)
 
 
 def run_trio_task(proc, *args):
-    """Call an asynchronous Trio function from sync context.
+    """Alias for a call to :meth:`~BaseTrioEventLoop.run_trio_task`
+    on the event loop returned by :func:`asyncio.get_event_loop`.
 
-    This method queues the task and returns immediately.
-    It does not return a value.
-
-    An uncaught error will propagate to, and terminate, the trio-asyncio loop.
+    This is a synchronous function which takes a Trio-flavored async
+    function and returns nothing (the handle returned by
+    `BaseTrioEventLoop.run_trio_task` is discarded). An uncaught error
+    will propagate to, and terminate, the trio-asyncio loop.
     """
     _running_loop().run_trio_task(proc, *args)
 

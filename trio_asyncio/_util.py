@@ -10,11 +10,19 @@ from async_generator import async_generator, yield_
 
 
 async def run_aio_future(future):
-    """Wait for an asyncio future/coroutine from Trio code.
+    """Wait for an asyncio-flavored future to become done, then return
+    or raise its result.
 
-    Cancelling the current Trio scope will cancel the future/coroutine.
+    Cancelling the current Trio scope will cancel the future.  If this
+    results in the future resolving to an `asyncio.CancelledError`
+    exception, the call to :func:`run_aio_future` will raise
+    `trio.Cancelled`.  But if the future resolves to
+    `~asyncio.CancelledError` when the current Trio scope was *not*
+    cancelled, the `~asyncio.CancelledError` will be passed along
+    unchanged.
 
-    Cancelling the future/coroutine will cause an ``asyncio.CancelledError``.
+    This is a Trio-flavored async function.
+
     """
     task = trio.hazmat.current_task()
     raise_cancel = None
@@ -53,7 +61,11 @@ STOP = object()
 
 @async_generator
 async def run_aio_generator(loop, async_generator):
-    """Run an asyncio generator from Trio"""
+    """Return a Trio-flavored async iterator which wraps the given
+    asyncio-flavored async iterator (usually an async generator, but
+    doesn't have to be). The asyncio tasks that perform each iteration
+    of *async_generator* will run in *loop*.
+    """
     task = trio.hazmat.current_task()
     raise_cancel = None
     current_read = None
