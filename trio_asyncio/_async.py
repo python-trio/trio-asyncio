@@ -22,15 +22,15 @@ class TrioEventLoop(BaseTrioEventLoop):
         Rationale:
 
         In traditional asyncio, there frequently is no context which the
-        exception is supposed to effect.
+        exception is supposed to affect.
 
-        trio-asyncio, however, collects the loop and all its tasks in a
-        Trio nursery. Thus the context which must be aborted, and thus in which
-        the error needs to be raised, is known and can easily be controlled
-        by the programmer.
+        trio-asyncio, however, collects the loop and all its tasks in
+        a Trio nursery. This means the context in which the error should
+        be raised is known and can easily be controlled by the programmer.
 
         For maximum compatibility, this default handler is only used in
         asynchronous loops.
+
         """
         # TODO: add context.get('handle') to the exception
 

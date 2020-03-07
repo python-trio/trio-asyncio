@@ -23,10 +23,10 @@
  trio-asyncio
 ==============
 
-**Trio-Asyncio** is a re-implementation of the ``asyncio`` mainloop on top of
+**trio-asyncio** is a re-implementation of the ``asyncio`` mainloop on top of
 Trio.
 
-Trio-Asyncio requires at least Python 3.5.3. It is tested on recent versions of
+trio-asyncio requires at least Python 3.5.3. It is tested on recent versions of
 3.5, 3.6, 3.7, 3.8, and nightly.
 
 +++++++++++
@@ -42,7 +42,7 @@ On the other hand, there are quite a few asyncio-enhanced libraries. You
 *really* don't want to re-invent any wheels in your project.
 
 Thus, being able to use asyncio libraries from Trio is useful.
-Trio-Asyncio enables you to do that, and more.
+trio-asyncio enables you to do that, and more.
 
 --------------------------------------
  Transparent vs. explicit translation
@@ -65,34 +65,27 @@ Trio-Asyncio's documentation is too large for a README.
 
 For further information, `see the manual on readthedocs <http://trio-asyncio.readthedocs.io/en/latest/>`_.
 
-++++++++++++++++++++++
- Hacking trio-asyncio
-++++++++++++++++++++++
+++++++++++++++
+ Contributing
+++++++++++++++
 
------------
- Licensing
------------
+Like Trio, trio-asyncio is licensed under both the MIT and Apache licenses.
+Submitting a patch or pull request implies your acceptance of these licenses.
 
-Like trio, trio-asyncio is licensed under both the MIT and Apache licenses.
-Submitting patches or pull requests imply your acceptance of these licenses.
+Testing is done with ``pytest``. Test coverage is pretty thorough; please
+keep it that way when adding new code.
 
----------
- Patches
----------
+See the `Trio contributor guide
+<https://trio.readthedocs.io/en/stable/contributing.html>`__ for much
+more detail on how to get involved.
 
-are accepted gladly.
-
----------
- Testing
----------
-
-As in trio, testing is done with ``pytest``.
-
-Test coverage is close to 100%. Please keep it that way.
+Contributors are requested to follow our `code of conduct
+<https://trio.readthedocs.io/en/stable/code-of-conduct.html>`__ in all
+project spaces.
 
 ++++++++
  Author
 ++++++++
 
-Matthias Urlichs <matthias@urlichs.de>
-
+trio-asyncio was originally written by Matthias Urlichs <matthias@urlichs.de>.
+It is now maintained by the `Trio project <https://github.com/python-trio>`_.
