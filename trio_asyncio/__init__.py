@@ -62,9 +62,8 @@ __deprecated_attributes__ = {
 }
 __deprecated_attributes__.update(
     {
-        name: _deprecate.DeprecatedAttribute(
-            getattr(_loop, name), "0.11.0", issue=64, instead=None
-        )
+        name:
+        _deprecate.DeprecatedAttribute(getattr(_loop, name), "0.11.0", issue=64, instead=None)
         for name in ("TrioPolicy", "TrioChildWatcher", "current_policy")
     }
 )
