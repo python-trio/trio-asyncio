@@ -148,7 +148,7 @@ though Trio supports them on earlier Pythons using a backport package.
  Event loop implementations
 ----------------------------
 
-An asyncio event loop may generally be interrupted and restarted at any
+A stock asyncio event loop may be interrupted and restarted at any
 time, simply by making repeated calls to :meth:`run_until_complete()
 <asyncio.loop.run_until_complete>`.
 Trio, however, requires one long-running main loop. trio-asyncio bridges

@@ -209,7 +209,7 @@ context variables.)
 However, this feature should generally not be necessary, because you
 should know whether each function in your program is asyncio-flavored
 or Trio-flavored. (The two have different semantics, especially
-surroudning cancellation.) It's provided mainly so that your
+surrounding cancellation.) It's provided mainly so that your
 trio-asyncio program can safely depend on libraries that use `sniffio`
 to support both flavors. It can also be helpful if you want to assert
 that you're in the mode you think you're in, using ::

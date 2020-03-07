@@ -222,7 +222,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         then return or raise its result.
 
         Cancelling the current Trio scope will cancel the coroutine,
-        which it will experience as a single thrown `asyncio.CancelledError`
+        which will throw a single `asyncio.CancelledError` into the coroutine
         (just like the usual asyncio behavior). If the coroutine then
         exits with a `~asyncio.CancelledError` exception, the call to
         :meth:`run_aio_coroutine` will raise `trio.Cancelled`.

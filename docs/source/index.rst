@@ -8,7 +8,7 @@
 trio-asyncio: A re-implementation of the asyncio mainloop on top of Trio
 ========================================================================
 
-trio-asyncio is *the* library of choice for a Python program that
+trio-asyncio is the library of choice for a Python program that
 contains both `Trio <https://trio.readthedocs.io/en/stable/>`__ and
 `asyncio` code.
 
