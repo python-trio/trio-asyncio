@@ -8,32 +8,16 @@ import warnings
 import threading
 from contextvars import ContextVar
 
-from .adapter import current_loop
-from .util import run_aio_future
-from .async_ import TrioEventLoop, open_loop
+from async_generator import async_generator, yield_, asynccontextmanager
+
+from ._util import run_aio_future, run_aio_generator
+from ._async import TrioEventLoop
+from ._deprecate import deprecated, warn_deprecated
 
 try:
     from trio.hazmat import wait_for_child
 except ImportError:
-    from .child import wait_for_child
-
-import logging
-logger = logging.getLogger(__name__)
-
-__all__ = [
-    'run',
-    'run_trio_task',
-    'run_trio',
-    'run_future',
-    'run_aio_future',
-    'run_coroutine',  # deprecated
-    'run_aio_coroutine',
-    'run_asyncio',
-    'wrap_generator',
-    'run_iterator',
-    'TrioChildWatcher',
-    'TrioPolicy',
-]
+    from ._child import wait_for_child
 
 # A substantial portion of the trio-asyncio test suite involves running the
 # stock asyncio test suite with trio-asyncio imported. This is intended to
@@ -137,13 +121,14 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         if _faked_policy.policy is not None:
             return _faked_policy.policy.new_event_loop()
         if 'pytest' not in sys.modules:
-            warnings.warn(
-                "trio_asyncio should be used from within a Trio event loop.",
-                DeprecationWarning,
-                stacklevel=2
+            warn_deprecated(
+                "Using trio-asyncio outside of a Trio event loop",
+                "0.10.0",
+                issue=None,
+                instead=None,
             )
 
-        from .sync import SyncTrioEventLoop
+        from ._sync import SyncTrioEventLoop
         return SyncTrioEventLoop()
 
     def get_event_loop(self):
@@ -330,8 +315,18 @@ _orig_policy_set(_trio_policy)
 # Backwards compatibility -- unused
 current_policy = ContextVar('trio_aio_policy', default=_trio_policy)
 
+current_loop = ContextVar('trio_aio_loop', default=None)
+
 
 class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' else object):
+    """Watches for child processes to exit using Trio APIs.
+
+    All TrioChildWatchers behave identically, so there's no reason to construct
+    your own. This is more or less an implementation detail, exposed publicly
+    because you can get your hands on it anyway (using
+    ``asyncio.get_event_loop_policy
+    """
+
     # AbstractChildWatcher not available under Windows
     def __init__(self):
         super().__init__()
@@ -372,111 +367,59 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' e
         self.close()
 
 
-def wrap_generator(proc, *args):
-    """Run an asyncio generator from Trio.
-    """
-    loop = current_loop.get()
-    if loop is None:
-        raise RuntimeError("You are not within a trio_asyncio loop")
-    return loop.wrap_generator(proc, *args)
+@asynccontextmanager
+@async_generator
+async def open_loop(queue_len=None):
+    """Returns a Trio-flavored async context manager which provides
+    an asyncio event loop running on top of Trio.
 
+    Entering the context manager is not enough on its own to immediately
+    run asyncio code; it just provides the context that makes running that
+    code possible. You additionally need to wrap any asyncio functions
+    that you want to run in :func:`aio_as_trio`.
 
-def run_iterator(aiter):
-    """Run an asyncio iterator from Trio.
-    """
-    loop = current_loop.get()
-    if loop is None:
-        raise RuntimeError("You are not within a trio_asyncio loop")
-    return loop.run_iterator(aiter)
+    Example usage::
 
+            async def async_main(*args):
+                async with trio_asyncio.open_loop() as loop:
+                    # async part of your main program here
+                    await trio.sleep(1)
+                    await trio_asyncio.aio_as_trio(asyncio.sleep)(2)
 
-def wrap_trio_context(ctx):
-    """Run a Trio context manager from asyncio.
-    """
-    loop = current_loop.get()
-    if loop is None:
-        raise RuntimeError("You are not within a trio_asyncio loop")
-    return loop.wrap_trio_context(ctx)
-
-
-async def run_asyncio(proc, *args):
-    """Run an asyncio function or method from Trio.
-
-    :return: whatever the procedure returns.
-    :raises: whatever the procedure raises.
-
-    This is a Trio coroutine.
     """
 
-    loop = current_loop.get()
-    if loop is None:
-        raise RuntimeError("You are not within a trio_asyncio loop")
-    return await loop.run_asyncio(proc, *args)
+    # TODO: make sure that there is no asyncio loop already running
 
+    def _main_loop_exit(self):
+        super()._main_loop_exit()
+        self._thread = None
 
-async def run_aio_coroutine(fut):
-    """Wait for an asyncio future/coroutine.
-
-    Cancelling the current Trio scope will cancel the future/coroutine.
-
-    Cancelling the future/coroutine will cause an
-    ``asyncio.CancelledError``.
-
-    This is a Trio coroutine.
-    """
-
-    loop = current_loop.get()
-    if loop is None:
-        raise RuntimeError("You are not within a trio_asyncio loop")
-    return await loop.run_aio_coroutine(fut)
-
-
-async def run_coroutine(fut):
-    """ deprecated"""
-    loop = current_loop.get()
-    if loop is None:
-        raise RuntimeError("You are not within a trio_asyncio loop")
-    return await loop.run_aio_coroutine(fut)
-
-
-async def run_future(fut):
-    """ deprecated"""
-    warnings.warn("Use 'await run_aio_future(fut)' instead'", DeprecationWarning)
-    return await run_aio_future(fut)
-
-
-def run_trio(proc, *args):
-    """Call an asynchronous Trio function from asyncio.
-
-    Returns a Future with the result / exception.
-
-    Cancelling the future will cancel the Trio task running your
-    function, or prevent it from starting if that is still possible.
-
-    You need to handle errors yourself.
-    """
-    loop = current_loop.get()
-    if loop is None:
-        raise RuntimeError("You are not within a trio_asyncio loop")
-    return loop.run_trio(proc, *args)
-
-
-def run_trio_task(proc, *args):
-    """Call an asynchronous Trio function from sync context.
-
-    This method queues the task and returns immediately.
-    It does not return a value.
-
-    An uncaught error will propagate to, and terminate, the trio-asyncio loop.
-    """
-    loop = current_loop.get()
-    if loop is None:
-        raise RuntimeError("You are not within a trio_asyncio loop")
-    loop.run_trio_task(proc, *args)
+    async with trio.open_nursery() as nursery:
+        loop = TrioEventLoop(queue_len=queue_len)
+        old_loop = current_loop.set(loop)
+        try:
+            loop._closed = False
+            await loop._main_loop_init(nursery)
+            await nursery.start(loop._main_loop)
+            await yield_(loop)
+        finally:
+            try:
+                await loop.stop().wait()
+            finally:
+                try:
+                    await loop._main_loop_exit()
+                finally:
+                    loop.close()
+                    nursery.cancel_scope.cancel()
+                    current_loop.reset(old_loop)
 
 
 def run(proc, *args, queue_len=None):
-    """Like :func:`trio.run`, but adds a context that supports asyncio.
+    """Run a Trio-flavored async function in a context that has an
+    asyncio event loop also available.
+
+    This is exactly equivalent to using :func:`trio.run` plus wrapping
+    the body of *proc* in ``async with trio_asyncio.open_loop():``.
     """
 
     async def _run_task(proc, args):
@@ -484,3 +427,85 @@ def run(proc, *args, queue_len=None):
             return await proc(*args)
 
     return trio.run(_run_task, proc, args)
+
+
+# Non-deprecated aliases for event loop methods
+
+
+def _running_loop():
+    loop = current_loop.get()
+    if loop is None:
+        raise RuntimeError("You are not within a trio_asyncio loop")
+    return loop
+
+
+async def run_aio_coroutine(coro):
+    """Alias for a call to :meth:`~BaseTrioEventLoop.run_aio_coroutine`
+    on the event loop returned by :func:`asyncio.get_event_loop`.
+
+    This is a Trio-flavored async function which takes an asyncio-flavored
+    coroutine object.
+    """
+    return await _running_loop().run_aio_coroutine(coro)
+
+
+def run_trio(proc, *args):
+    """Alias for a call to :meth:`~BaseTrioEventLoop.trio_as_future`
+    on the event loop returned by :func:`asyncio.get_event_loop`.
+
+    This is a synchronous function which takes a Trio-flavored async function
+    and returns an asyncio Future.
+    """
+    return _running_loop().trio_as_future(proc, *args)
+
+
+def run_trio_task(proc, *args):
+    """Alias for a call to :meth:`~BaseTrioEventLoop.run_trio_task`
+    on the event loop returned by :func:`asyncio.get_event_loop`.
+
+    This is a synchronous function which takes a Trio-flavored async
+    function and returns nothing (the handle returned by
+    `BaseTrioEventLoop.run_trio_task` is discarded). An uncaught error
+    will propagate to, and terminate, the trio-asyncio loop.
+    """
+    _running_loop().run_trio_task(proc, *args)
+
+
+# These are aliases for methods in BaseTrioEventLoop which are
+# themselves deprecated. If we deprecate these and call the deprecated
+# loop method, the user gets two warnings. If we just call the
+# deprecated loop method, the warning points here instead of to user
+# code. Therefore, we "chase the pointer" and inline the body of the
+# deprecated loop method into each of these functions.
+
+
+@deprecated("0.10.0", issue=38, instead="aio_as_trio(proc(*args))")
+def wrap_generator(proc, *args):
+    return run_aio_generator(_running_loop(), proc(*args))
+
+
+@deprecated("0.10.0", issue=38, instead="aio_as_trio(aiter)")
+def run_iterator(aiter):
+    return run_aio_generator(_running_loop(), aiter)
+
+
+@deprecated("0.10.0", issue=38, instead="trio_as_aio(ctx)")
+def wrap_trio_context(ctx):
+    from ._adapter import Trio_Asyncio_Wrapper
+    return Trio_Asyncio_Wrapper(ctx, loop=_running_loop())
+
+
+@deprecated("0.10.0", issue=38, instead="aio_as_trio(proc)(*args)")
+def run_asyncio(proc, *args):
+    from ._adapter import Asyncio_Trio_Wrapper
+    return Asyncio_Trio_Wrapper(proc, args=args, loop=_running_loop())
+
+
+@deprecated("0.10.0", issue=38, instead="run_aio_coroutine")
+async def run_coroutine(fut):
+    return await _running_loop().run_aio_coroutine(fut)
+
+
+@deprecated("0.10.0", issue=38, instead="run_aio_future")
+async def run_future(fut):
+    return await run_aio_future(fut)

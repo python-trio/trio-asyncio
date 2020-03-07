@@ -33,6 +33,7 @@ nitpick_ignore = [
 ]
 
 autodoc_inherit_docstrings = False
+default_role = "obj"
 
 # -- General configuration ------------------------------------------------
 

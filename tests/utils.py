@@ -6,7 +6,12 @@ import contextlib
 import logging
 from asyncio.log import logger
 
-def deprecate(tc, vers=None):
+from trio_asyncio import TrioAsyncioDeprecationWarning
+
+def deprecate(tc):
+    return pytest.warns(TrioAsyncioDeprecationWarning)
+
+def deprecate_stdlib(tc, vers=None):
     if vers is None or sys.version_info >= vers:
         return pytest.deprecated_call()
 

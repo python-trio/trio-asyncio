@@ -8,34 +8,50 @@
 trio-asyncio: A re-implementation of the asyncio mainloop on top of Trio
 ========================================================================
 
-Trio-Asyncio is *the* library of choice for a Python program that 
-contains both `trio`_ and `asyncio`_ code.
+trio-asyncio is *the* library of choice for a Python program that
+contains both `Trio <https://trio.readthedocs.io/en/stable/>`__ and
+`asyncio` code.
 
-.. _asyncio: https://docs.python.org/3/library/asyncio.html
+Trio has native concepts of tasks and task cancellation. Asyncio is based
+on callbacks and chaining Futures, albeit with nicer syntax, which make
+handling of failures and timeouts fundamentally less reliable, especially in
+larger programs. Thus, you really want to use Trio in your project.
+
+On the other hand, there are quite a few robust libraries that have been
+implemented using asyncio, while Trio's ecosystem is relatively younger. You
+really don't want to re-invent any wheels in your project.
+
+Thus, being able to use asyncio libraries from Trio is useful.
+trio-asyncio enables you to do that, and more.
 
 With trio-asyncio, you can:
 
-* incrementally convert your code to Trio. Start with a Trio mainloop, call
-  your existing asyncio code, then successively convert procedures to Trio
-  calling conventions.
+* Incrementally convert an asyncio application to Trio. Start with a
+  Trio mainloop, call your existing asyncio code, then successively
+  convert procedures to Trio calling conventions.
 
-* use any asyncio-capable library.
+* Use any asyncio-capable library in a Trio application.
 
-* use trio-asyncio as a building block for convincing other async-ish
+* Use trio-asyncio as a building block for convincing other async-ish
   libraries (Twisted, Promise, …) to be compatible with Trio.
 
-Trio-Asyncio passes the test suite of some complex programs like
-``home-assistant``.
+trio-asyncio is tested against the complete asyncio test suite as
+shipped with each supported version of Python, although a small number of tests
+fail due to our limited support for starting and stopping the same event
+loop multiple times. It has also passed the test suite of some complex
+asyncio libraries such as ``home-assistant``.
 
-In the past, the complete Python 3.6 test suite for asyncio and the tests
-for some well-known libraries like aiohttp also Just Work(ed). This is no
-longer the case because these tests rely heavily on stopping and restarting
-the ``asyncio`` event loop. ``trio_asyncio`` no longer supports this.
+.. note:: trio-asyncio is most useful for *applications*: it works best
+	  when you control the code that starts the event loop (such as
+	  the call to :func:`asyncio.run`). If you're writing a *library* and
+	  want to adopt a Trio-ish worldview without sacrificing asyncio
+	  compatibility, you might find `anyio <https://anyio.readthedocs.io/en/latest/>`__
+          helpful.
 
 Helpful facts:
 
 * Supported environments: Linux, MacOS, or Windows running some kind of Python
-  3.5.3-or-better (either CPython or PyPy3 is fine). \*BSD and illumus likely
+  3.5.3-or-better (either CPython or PyPy3 is fine). \*BSD and illumOS likely
   work too, but are untested.
 
 * Install: ``python3 -m pip install -U trio-asyncio`` (or on Windows, maybe
@@ -45,7 +61,7 @@ Helpful facts:
 
 * Bug tracker and source code: https://github.com/python-trio/trio-asyncio
 
-Inherited from `Trio <https://github.com/python-trio/trio>`_:
+Inherited from `Trio <https://github.com/python-trio/trio>`__:
 
 * Real-time chat: https://gitter.im/python-trio/general
 
@@ -57,10 +73,14 @@ Inherited from `Trio <https://github.com/python-trio/trio>`_:
   conduct <https://trio.readthedocs.io/en/latest/code-of-conduct.html>`_
   in all project spaces.
 
+=====================
+ trio-asyncio manual
+=====================
+
 .. toctree::
    :maxdepth: 2
 
-   rationale.rst
+   principles.rst
    usage.rst
    history.rst
 

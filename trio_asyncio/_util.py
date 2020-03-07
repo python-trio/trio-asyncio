@@ -8,15 +8,21 @@ import outcome
 import sniffio
 from async_generator import async_generator, yield_
 
-__all__ = ['run_aio_future', 'run_aio_generator']
-
 
 async def run_aio_future(future):
-    """Wait for an asyncio future/coroutine from Trio code.
+    """Wait for an asyncio-flavored future to become done, then return
+    or raise its result.
 
-    Cancelling the current Trio scope will cancel the future/coroutine.
+    Cancelling the current Trio scope will cancel the future.  If this
+    results in the future resolving to an `asyncio.CancelledError`
+    exception, the call to :func:`run_aio_future` will raise
+    `trio.Cancelled`.  But if the future resolves to
+    `~asyncio.CancelledError` when the current Trio scope was *not*
+    cancelled, the `~asyncio.CancelledError` will be passed along
+    unchanged.
 
-    Cancelling the future/coroutine will cause an ``asyncio.CancelledError``.
+    This is a Trio-flavored async function.
+
     """
     task = trio.hazmat.current_task()
     raise_cancel = None
@@ -55,7 +61,11 @@ STOP = object()
 
 @async_generator
 async def run_aio_generator(loop, async_generator):
-    """Run an asyncio generator from Trio"""
+    """Return a Trio-flavored async iterator which wraps the given
+    asyncio-flavored async iterator (usually an async generator, but
+    doesn't have to be). The asyncio tasks that perform each iteration
+    of *async_generator* will run in *loop*.
+    """
     task = trio.hazmat.current_task()
     raise_cancel = None
     current_read = None
@@ -131,3 +141,32 @@ async def run_trio_generator(loop, async_generator):
             break
         else:
             await yield_(item)
+
+
+# Copied from Trio:
+def fixup_module_metadata(module_name, namespace):
+    seen_ids = set()
+
+    def fix_one(qualname, name, obj):
+        # avoid infinite recursion (relevant when using
+        # typing.Generic, for example)
+        if id(obj) in seen_ids:
+            return
+        seen_ids.add(id(obj))
+
+        mod = getattr(obj, "__module__", None)
+        if mod is not None and mod.startswith("trio_asyncio."):
+            obj.__module__ = module_name
+            # Modules, unlike everything else in Python, put fully-qualitied
+            # names into their __name__ attribute. We check for "." to avoid
+            # rewriting these.
+            if hasattr(obj, "__name__") and "." not in obj.__name__:
+                obj.__name__ = name
+                obj.__qualname__ = qualname
+            if isinstance(obj, type):
+                for attr_name, attr_value in obj.__dict__.items():
+                    fix_one(objname + "." + attr_name, attr_name, attr_value)
+
+    for objname, obj in namespace.items():
+        if not objname.startswith("_"):  # ignore private attributes
+            fix_one(objname, objname, obj)

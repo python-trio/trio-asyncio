@@ -4,15 +4,12 @@ import asyncio
 import threading
 import outcome
 
-from .base import BaseTrioEventLoop
-from .handles import Handle
+from ._base import BaseTrioEventLoop
+from ._handles import Handle
 
 
 async def _sync(proc, *args):
     return proc(*args)
-
-
-__all__ = ['SyncTrioEventLoop']
 
 
 class SyncTrioEventLoop(BaseTrioEventLoop):
