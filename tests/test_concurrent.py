@@ -2,6 +2,7 @@ import trio
 import trio_asyncio
 import asyncio
 import pytest
+from trio_asyncio._loop import TrioPolicy
 
 # Tests for concurrent or nested loops
 
@@ -46,7 +47,7 @@ async def test_nested():
 
 
 async def _test_same_task():
-    assert isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
+    assert isinstance(asyncio.get_event_loop_policy(), TrioPolicy)
 
     def get_loop(i, loop, policy):
         assert loop == asyncio.get_event_loop()
@@ -55,7 +56,7 @@ async def _test_same_task():
     async with trio.open_nursery():
         async with trio_asyncio.open_loop() as loop1:
             policy = asyncio.get_event_loop_policy()
-            assert isinstance(policy, trio_asyncio.TrioPolicy)
+            assert isinstance(policy, TrioPolicy)
             async with trio_asyncio.open_loop() as loop2:
                 p2 = asyncio.get_event_loop_policy()
                 assert policy is p2, (policy, p2)
@@ -63,10 +64,10 @@ async def _test_same_task():
                 loop2.call_later(0.1, get_loop, 1, loop2, policy)
                 await trio.sleep(0.2)
 
-    assert isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
+    assert isinstance(asyncio.get_event_loop_policy(), TrioPolicy)
     assert asyncio._get_running_loop() is None
 
 
 def test_same_task():
-    assert not isinstance(asyncio.get_event_loop_policy(), trio_asyncio.TrioPolicy)
+    assert not isinstance(asyncio.get_event_loop_policy(), TrioPolicy)
     trio.run(_test_same_task)
