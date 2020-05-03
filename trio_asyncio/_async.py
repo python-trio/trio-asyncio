@@ -1,7 +1,7 @@
 import trio
+import asyncio
 
 from ._base import BaseTrioEventLoop
-from ._handles import Handle
 
 
 class TrioEventLoop(BaseTrioEventLoop):
@@ -69,7 +69,7 @@ class TrioEventLoop(BaseTrioEventLoop):
         if self._stopped.is_set():
             waiter.set()
         else:
-            self._queue_handle(Handle(stop_me, (), self, context=None, is_sync=True))
+            self._queue_handle(asyncio.Handle(stop_me, (), self))
         return waiter
 
     def _close(self):

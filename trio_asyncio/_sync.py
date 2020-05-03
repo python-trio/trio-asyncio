@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import trio
 import queue
 import asyncio
@@ -5,7 +7,6 @@ import threading
 import outcome
 
 from ._base import BaseTrioEventLoop
-from ._handles import Handle
 
 
 async def _sync(proc, *args):
@@ -54,7 +55,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 #        async def stop_me():
 #            def kick_():
 #                raise StopAsyncIteration
-#            self._queue_handle(Handle(kick_, (), self, context=None, is_sync=True))
+#            self._queue_handle(asyncio.Handle(kick_, (), self))
 #            await self._main_loop()
 #        if threading.current_thread() != self._thread:
 #            self.__run_in_thread(stop_me)
@@ -62,7 +63,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
         if self._thread_running and not self._stop_pending:
             self._stop_pending = True
-            self._queue_handle(Handle(do_stop, (), self, context=None, is_sync=True))
+            self._queue_handle(asyncio.Handle(do_stop, (), self))
 
     def _queue_handle(self, handle):
         self._check_closed()
