@@ -69,7 +69,10 @@ else:
         )
         if candidate == expected:
             fspath = py.path.local(test_asyncio.__file__)
-            return UnittestOnlyPackage(fspath, parent, nodeid=aio_test_nodeid(fspath))
+            node = UnittestOnlyPackage.from_parent(parent, fspath=fspath)
+            # This keeps all test names from showing as "."
+            node._nodeid = aio_test_nodeid(fspath)
+            return node
 
 
     def pytest_collection_modifyitems(items):
