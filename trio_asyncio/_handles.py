@@ -69,6 +69,7 @@ class AsyncHandle(ScopedHandle):
         self._fut = result_future
         self._started = trio.Event()
         if self._fut is not None:
+
             @self._fut.add_done_callback
             def propagate_cancel(f):
                 if f.cancelled():

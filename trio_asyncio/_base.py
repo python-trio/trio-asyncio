@@ -304,9 +304,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_at')
-        return self._queue_handle(
-            asyncio.TimerHandle(when, callback, args, self, **context)
-        )
+        return self._queue_handle(asyncio.TimerHandle(when, callback, args, self, **context))
 
     def call_soon(self, callback, *args, **context):
         """asyncio's defer-to-mainloop callback executor.
