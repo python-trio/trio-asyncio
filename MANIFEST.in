@@ -1,3 +1,6 @@
-include README.rst
+include README.rst LICENSE* CODE_OF_CONDUCT* CONTRIBUTING*
+include .coveragerc
 include ci/test-requirements.txt
 recursive-include tests *.pem
+recursive-include docs *
+prune docs/build
