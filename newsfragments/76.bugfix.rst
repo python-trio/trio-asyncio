@@ -1,0 +1,6 @@
+On Python versions with native contextvars support (3.7+), a Trio task
+started from asyncio context (using :func:`trio_as_aio`,
+:meth:`~BaseTrioEventLoop.trio_as_future`, etc) will now properly
+inherit the contextvars of its caller.  Also, if the entire
+trio-asyncio loop is cancelled, such tasks will no longer let
+`trio.Cancelled` exceptions leak into their asyncio caller.

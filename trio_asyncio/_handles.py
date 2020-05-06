@@ -55,11 +55,14 @@ class ScopedHandle(asyncio.Handle):
 
 
 class AsyncHandle(ScopedHandle):
-    """A ScopedHandle associated with the execution of an async function.
+    """A ScopedHandle associated with the execution of a Trio-flavored
+    async function.
+
     If the handle is cancelled, the cancel scope surrounding the async function
     will be cancelled too. It is also possible to link a future to the result
     of the async function. If you do that, the future will evaluate to the
     result of the function, and cancelling the future will cancel the handle too.
+
     """
 
     __slots__ = ("_fut", "_started")
