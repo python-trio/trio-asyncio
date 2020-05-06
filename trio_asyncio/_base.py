@@ -631,8 +631,16 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         sniffio.current_async_library_cvar.set("asyncio")
 
         try:
-            while not self._stopped.is_set():
-                await self._main_loop_one()
+            # The shield here ensures that if the context surrounding
+            # the loop is cancelled, we keep processing callbacks
+            # until we reach the callback inserted by stop().
+            # There's a call to stop() in the finally block of
+            # open_loop(), and we're not shielding the body of the
+            # open_loop() context, so this should be safe against
+            # deadlocks.
+            with trio.CancelScope(shield=True):
+                while not self._stopped.is_set():
+                    await self._main_loop_one()
         except StopAsyncIteration:
             # raised by .stop_me() to interrupt the loop
             pass
@@ -693,16 +701,20 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if self._closed:
             return
 
-        self.stop()
-        await self.wait_stopped()
+        with trio.CancelScope(shield=True):
+            self.stop()
+            await self.wait_stopped()
 
-        while True:
-            try:
-                await self._main_loop_one(no_wait=True)
-            except trio.WouldBlock:
-                break
-            except StopAsyncIteration:
-                pass
+            # Drain all remaining callbacks, even those after an initial
+            # call to stop(). This avoids a deadlock if stop() was called
+            # again during unwinding.
+            while True:
+                try:
+                    await self._main_loop_one(no_wait=True)
+                except trio.WouldBlock:
+                    break
+                except StopAsyncIteration:
+                    pass
 
         # Kill off unprocessed work
         self._cancel_fds()

@@ -390,10 +390,6 @@ async def open_loop(queue_len=None):
 
     # TODO: make sure that there is no asyncio loop already running
 
-    def _main_loop_exit(self):
-        super()._main_loop_exit()
-        self._thread = None
-
     async with trio.open_nursery() as nursery:
         loop = TrioEventLoop(queue_len=queue_len)
         old_loop = current_loop.set(loop)
@@ -404,14 +400,11 @@ async def open_loop(queue_len=None):
             await yield_(loop)
         finally:
             try:
-                await loop.stop().wait()
+                await loop._main_loop_exit()
             finally:
-                try:
-                    await loop._main_loop_exit()
-                finally:
-                    loop.close()
-                    nursery.cancel_scope.cancel()
-                    current_loop.reset(old_loop)
+                loop.close()
+                nursery.cancel_scope.cancel()
+                current_loop.reset(old_loop)
 
 
 def run(proc, *args, queue_len=None):
