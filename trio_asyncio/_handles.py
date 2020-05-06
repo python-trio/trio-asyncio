@@ -88,19 +88,10 @@ class AsyncHandle(ScopedHandle):
             if not isinstance(exc, Exception):
                 # Let BaseExceptions such as Cancelled escape without being noted.
                 return exc
-            try:
-                orig_tb = exc.__traceback__
-                self._raise(exc)
-                # If self._raise() just logged something, suppress the exception.
-                return None
-            except BaseException as other_exc:
-                if other_exc is exc:
-                    # If _raise() reraised its argument, remove the _raise and
-                    # default_exception_handler frames that it added to the traceback.
-                    return exc.with_traceback(orig_tb)
-                # If _raise() raised a different exception, don't mess with
-                # the traceback.
-                return other_exc
+            # Otherwise defer to the asyncio exception handler. (In an async loop
+            # this will still raise the exception out of the loop, terminating it.)
+            self._raise(exc)
+            return None
 
         def remove_cancelled(exc):
             if isinstance(exc, trio.Cancelled):
@@ -129,7 +120,7 @@ class AsyncHandle(ScopedHandle):
                 # Pass Exceptions through the fallback exception handler since
                 # they have nowhere better to go. Let BaseExceptions escape so
                 # that Cancelled and SystemExit work reasonably.
-                with trio.MultiError.catch(handle_exc):
+                with trio.MultiError.catch(report_exception):
                     raise
             else:
                 # The result future gets all the non-Cancelled

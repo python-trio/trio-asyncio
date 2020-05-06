@@ -397,6 +397,75 @@ async def test_cancel_loop(throw_another):
 
 
 @pytest.mark.trio
+async def test_trio_as_fut_throws_after_cancelled():
+    """If a trio_as_future() future is cancelled, any exception
+    thrown by the Trio task as it unwinds is ignored. (This is
+    somewhat infelicitous, but the asyncio Future API doesn't allow
+    a future to go from cancelled to some other outcome.)
+    """
+
+    async def trio_task():
+        try:
+            await trio.sleep_forever()
+        finally:
+            raise ValueError("hi")
+
+    async with trio_asyncio.open_loop() as loop:
+        fut = loop.trio_as_future(trio_task)
+        await trio.testing.wait_all_tasks_blocked()
+        fut.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await fut
+
+
+@pytest.mark.trio
+async def test_run_trio_task_errors(monkeypatch):
+    async with trio_asyncio.open_loop() as loop:
+        # Test never getting to start the task
+        handle = loop.run_trio_task(trio.sleep_forever)
+        handle.cancel()
+
+        # Test cancelling the task
+        handle = loop.run_trio_task(trio.sleep_forever)
+        await trio.testing.wait_all_tasks_blocked()
+        handle.cancel()
+
+    # Helper for the rest of this test, which covers cases where
+    # the Trio task raises an exception
+    async def raise_in_aio_loop(exc):
+        async def raise_it():
+            raise exc
+
+        async with trio_asyncio.open_loop() as loop:
+            loop.run_trio_task(raise_it)
+
+    # We temporarily modify the default exception handler to collect
+    # the exceptions instead of logging or raising them
+
+    exceptions = []
+
+    def collect_exceptions(loop, context):
+        if context.get("exception"):
+            exceptions.append(context["exception"])
+        else:
+            exceptions.append(RuntimeError(context.get("message") or "unknown"))
+
+    monkeypatch.setattr(
+        trio_asyncio.TrioEventLoop, "default_exception_handler", collect_exceptions
+    )
+    expected = [
+        ValueError("hi"), ValueError("lo"), KeyError(), IndexError()
+    ]
+    await raise_in_aio_loop(expected[0])
+    with pytest.raises(SystemExit):
+        await raise_in_aio_loop(SystemExit(0))
+    with pytest.raises(SystemExit):
+        await raise_in_aio_loop(trio.MultiError([expected[1], SystemExit()]))
+    await raise_in_aio_loop(trio.MultiError(expected[2:]))
+    assert exceptions == expected
+
+
+@pytest.mark.trio
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="needs asyncio contextvars")
 async def test_contextvars():
     import contextvars
