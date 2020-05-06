@@ -389,7 +389,6 @@ async def open_loop(queue_len=None):
     """
 
     # TODO: make sure that there is no asyncio loop already running
-
     async with trio.open_nursery() as nursery:
         loop = TrioEventLoop(queue_len=queue_len)
         old_loop = current_loop.set(loop)
