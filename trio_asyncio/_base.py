@@ -687,8 +687,19 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         sniffio.current_async_library_cvar.set("asyncio")
 
         try:
-            while not self._stopped.is_set():
-                await self._main_loop_one()
+            # The shield here ensures that if the context surrounding
+            # the loop is cancelled, we keep processing callbacks
+            # until we reach the callback inserted by stop().
+            # That's important to maintain the asyncio invariant
+            # that everything you schedule before stop() will run
+            # before the loop stops. In order to be safe against
+            # deadlocks, it's important that the surrounding
+            # context ensure that stop() gets called upon a
+            # cancellation. (open_loop() does this indirectly
+            # by calling _main_loop_exit().)
+            with trio.CancelScope(shield=True):
+                while not self._stopped.is_set():
+                    await self._main_loop_one()
         except StopAsyncIteration:
             # raised by .stop_me() to interrupt the loop
             pass
@@ -745,16 +756,27 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if self._closed:
             return
 
-        self.stop()
-        await self.wait_stopped()
+        with trio.CancelScope(shield=True):
+            # wait_stopped() will return once _main_loop() exits.
+            # stop() inserts a callback that will cause such, and
+            # _main_loop() doesn't block except to wait for new
+            # callbacks to be added, so this should be deadlock-proof.
+            self.stop()
+            await self.wait_stopped()
 
-        while True:
-            try:
-                await self._main_loop_one(no_wait=True)
-            except trio.WouldBlock:
-                break
-            except StopAsyncIteration:
-                pass
+            # Drain all remaining callbacks, even those after an initial
+            # call to stop(). This avoids deadlocks in some cases if
+            # work is submitted to the loop after the shutdown process
+            # starts. TODO: figure out precisely what this helps with,
+            # maybe find a better way. test_wrong_context_manager_order
+            # deadlocks if we remove it for now.
+            while True:
+                try:
+                    await self._main_loop_one(no_wait=True)
+                except trio.WouldBlock:
+                    break
+                except StopAsyncIteration:
+                    pass
 
         # Kill off unprocessed work
         self._cancel_fds()
