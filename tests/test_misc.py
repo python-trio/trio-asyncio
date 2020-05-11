@@ -351,3 +351,138 @@ async def test_keyboard_interrupt_teardown():
                 await nursery.start(run_asyncio_loop, nursery)
                 # Trigger KeyboardInterrupt that should propagate accross the coroutines
                 signal.pthread_kill(threading.get_ident(), signal.SIGINT)
+
+
+@pytest.mark.trio
+@pytest.mark.parametrize("throw_another", [False, True])
+async def test_cancel_loop(throw_another):
+    """Regression test for #76: ensure that cancelling a trio-asyncio loop
+    does not cause any of the tasks running within it to yield a
+    result of Cancelled.
+    """
+    async def manage_loop(task_status):
+        try:
+            with trio.CancelScope() as scope:
+                async with trio_asyncio.open_loop() as loop:
+                    task_status.started((loop, scope))
+                    await trio.sleep_forever()
+        finally:
+            assert scope.cancelled_caught
+
+    # Trio-flavored async function. Runs as a trio-aio loop task
+    # and gets cancelled when the loop does.
+    async def trio_task():
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(trio.sleep_forever)
+            try:
+                await trio.sleep_forever()
+            except trio.Cancelled:
+                if throw_another:
+                    # This will combine with the Cancelled from the
+                    # background sleep_forever task to create a
+                    # MultiError escaping from trio_task
+                    raise ValueError("hi")
+
+    async with trio.open_nursery() as nursery:
+        loop, scope = await nursery.start(manage_loop)
+        fut = loop.trio_as_future(trio_task)
+        await trio.testing.wait_all_tasks_blocked()
+        scope.cancel()
+    assert fut.done()
+    if throw_another:
+        with pytest.raises(ValueError, match="hi"):
+            fut.result()
+    else:
+        assert fut.cancelled()
+
+
+@pytest.mark.trio
+async def test_trio_as_fut_throws_after_cancelled():
+    """If a trio_as_future() future is cancelled, any exception
+    thrown by the Trio task as it unwinds is ignored. (This is
+    somewhat infelicitous, but the asyncio Future API doesn't allow
+    a future to go from cancelled to some other outcome.)
+    """
+
+    async def trio_task():
+        try:
+            await trio.sleep_forever()
+        finally:
+            raise ValueError("hi")
+
+    async with trio_asyncio.open_loop() as loop:
+        fut = loop.trio_as_future(trio_task)
+        await trio.testing.wait_all_tasks_blocked()
+        fut.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await fut
+
+
+@pytest.mark.trio
+async def test_run_trio_task_errors(monkeypatch):
+    async with trio_asyncio.open_loop() as loop:
+        # Test never getting to start the task
+        handle = loop.run_trio_task(trio.sleep_forever)
+        handle.cancel()
+
+        # Test cancelling the task
+        handle = loop.run_trio_task(trio.sleep_forever)
+        await trio.testing.wait_all_tasks_blocked()
+        handle.cancel()
+
+    # Helper for the rest of this test, which covers cases where
+    # the Trio task raises an exception
+    async def raise_in_aio_loop(exc):
+        async def raise_it():
+            raise exc
+
+        async with trio_asyncio.open_loop() as loop:
+            loop.run_trio_task(raise_it)
+
+    # We temporarily modify the default exception handler to collect
+    # the exceptions instead of logging or raising them
+
+    exceptions = []
+
+    def collect_exceptions(loop, context):
+        if context.get("exception"):
+            exceptions.append(context["exception"])
+        else:
+            exceptions.append(RuntimeError(context.get("message") or "unknown"))
+
+    monkeypatch.setattr(
+        trio_asyncio.TrioEventLoop, "default_exception_handler", collect_exceptions
+    )
+    expected = [
+        ValueError("hi"), ValueError("lo"), KeyError(), IndexError()
+    ]
+    await raise_in_aio_loop(expected[0])
+    with pytest.raises(SystemExit):
+        await raise_in_aio_loop(SystemExit(0))
+    with pytest.raises(SystemExit):
+        await raise_in_aio_loop(trio.MultiError([expected[1], SystemExit()]))
+    await raise_in_aio_loop(trio.MultiError(expected[2:]))
+    assert exceptions == expected
+
+
+@pytest.mark.trio
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="needs asyncio contextvars")
+async def test_contextvars():
+    import contextvars
+
+    cvar = contextvars.ContextVar("test_cvar")
+    cvar.set("outer")
+
+    async def fudge_in_aio():
+        assert cvar.get() == "outer"
+        cvar.set("middle")
+        await trio_asyncio.trio_as_aio(fudge_in_trio)()
+        assert cvar.get() == "middle"
+
+    async def fudge_in_trio():
+        assert cvar.get() == "middle"
+        cvar.set("inner")
+
+    async with trio_asyncio.open_loop() as loop:
+        await trio_asyncio.aio_as_trio(fudge_in_aio)()
+        assert cvar.get() == "outer"

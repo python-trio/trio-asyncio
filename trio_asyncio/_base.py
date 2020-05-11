@@ -9,7 +9,7 @@ import asyncio
 import warnings
 import concurrent.futures
 
-from ._handles import Handle, TimerHandle
+from ._handles import ScopedHandle, AsyncHandle
 from ._util import run_aio_future, run_aio_generator
 from ._deprecate import deprecated, deprecated_alias
 from . import _util
@@ -37,28 +37,6 @@ except AttributeError:
 class _Clear:
     def clear(self):
         pass
-
-
-def _h_raise(handle, exc):
-    """
-    Convince a handle to raise an error.
-
-    trio-asyncio enhanced handles have a method to do this
-    but asyncio's native handles don't. Thus we need to fudge things.
-    """
-    if hasattr(handle, '_raise'):
-        handle._raise(exc)
-        return
-
-    def _raise(exc):
-        raise exc
-
-    cb, handle._callback = handle._callback, _raise
-    ar, handle._args = handle._args, (exc,)
-    try:
-        handle._run()
-    finally:
-        handle._callback, handle._args = cb, ar
 
 
 class _TrioSelector(_BaseSelectorImpl):
@@ -241,25 +219,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         finally:
             sniffio.current_async_library_cvar.reset(t)
 
-    async def __run_trio(self, h):
-        """Helper for copying the result of a Trio task to an asyncio future"""
-        f, proc, *args = h._args
-        if f.cancelled():  # pragma: no cover
-            return
-        try:
-            with trio.CancelScope() as scope:
-                h._scope = scope
-                res = await proc(*args)
-            if scope.cancelled_caught:
-                f.cancel()
-                return
-        except BaseException as exc:
-            if not f.cancelled():  # pragma: no branch
-                f.set_exception(exc)
-        else:
-            if not f.cancelled():  # pragma: no branch
-                f.set_result(res)
-
     def trio_as_future(self, proc, *args):
         """Start a new Trio task to run ``await proc(*args)`` asynchronously.
         Return an `asyncio.Future` that will resolve to the value or exception
@@ -292,14 +251,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
           an `asyncio.Future` which will resolve to the result of the call to *proc*
         """
         f = asyncio.Future(loop=self)
-        h = Handle(
-            self.__run_trio, (
-                f,
-                proc,
-            ) + args, self, context=None, is_sync=None
-        )
-        self._queue_handle(h)
-        f.add_done_callback(h._cb_future_cancel)
+        self._queue_handle(AsyncHandle(proc, args, self, result_future=f))
         return f
 
     def run_trio_task(self, proc, *args):
@@ -314,7 +266,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Returns:
           an `asyncio.Handle` which can be used to cancel the background task
         """
-        return self._queue_handle(Handle(proc, args, self, is_sync=False))
+        return self._queue_handle(AsyncHandle(proc, args, self))
 
     # Callback handling #
 
@@ -331,7 +283,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def _call_soon(self, *arks, **kwargs):
         raise RuntimeError("_call_soon() should not have been called")
 
-    def call_later(self, delay, callback, *args, context=None):
+    def call_later(self, delay, callback, *args, **context):
         """asyncio's timer-based delay
 
         Note that the callback is a sync function.
@@ -342,36 +294,34 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """
         self._check_callback(callback, 'call_later')
         assert delay >= 0, delay
-        h = TimerHandle(delay + self.time(), callback, args, self, context=context, is_sync=True)
+        h = asyncio.TimerHandle(delay + self.time(), callback, args, self, **context)
         self._queue_handle(h)
         return h
 
-    def call_at(self, when, callback, *args, context=None):
+    def call_at(self, when, callback, *args, **context):
         """asyncio's time-based delay
 
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_at')
-        return self._queue_handle(
-            TimerHandle(when, callback, args, self, context=context, is_sync=True)
-        )
+        return self._queue_handle(asyncio.TimerHandle(when, callback, args, self, **context))
 
-    def call_soon(self, callback, *args, context=None):
+    def call_soon(self, callback, *args, **context):
         """asyncio's defer-to-mainloop callback executor.
 
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_soon')
-        return self._queue_handle(Handle(callback, args, self, context=context, is_sync=True))
+        return self._queue_handle(asyncio.Handle(callback, args, self, **context))
 
-    def call_soon_threadsafe(self, callback, *args, context=None):
+    def call_soon_threadsafe(self, callback, *args, **context):
         """asyncio's thread-safe defer-to-mainloop
 
         Note that the callback is a sync function.
         """
         self._check_callback(callback, 'call_soon_threadsafe')
         self._check_closed()
-        h = Handle(callback, args, self, context=context, is_sync=True)
+        h = asyncio.Handle(callback, args, self, **context)
         self._token.run_sync_soon(self._q_send.send_nowait, h)
 
     # drop all timers
@@ -471,7 +421,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         """
         w = trio.Event()
-        self._queue_handle(Handle(w.set, (), self, is_sync=True))
+        self._queue_handle(asyncio.Handle(w.set, (), self))
         await w.wait()
 
     # Signal handling #
@@ -488,7 +438,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._check_signal(sig)
         if sig == signal.SIGKILL:
             raise RuntimeError("SIGKILL cannot be caught")
-        h = Handle(callback, args, self, context=None, is_sync=True)
+        h = asyncio.Handle(callback, args, self)
         assert sig not in self._signal_handlers, \
             "Signal %d is already being caught" % (sig,)
         self._orig_signals[sig] = signal.signal(sig, self._handle_sig)
@@ -528,7 +478,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def _add_reader(self, fd, callback, *args):
         self._check_closed()
-        handle = Handle(callback, args, self, context=None, is_sync=True)
+        handle = ScopedHandle(callback, args, self)
         reader = self._set_read_handle(fd, handle)
         if reader is not None:
             reader.cancel()
@@ -547,20 +497,17 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             self._selector.modify(fd, mask | EVENT_READ, (handle, writer))
             return reader
 
-    async def _reader_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
-        task_status.started()
-        with trio.CancelScope() as scope:
-            handle._scope = scope
+    async def _reader_loop(self, fd, handle):
+        with handle._scope:
             try:
-                while not handle._cancelled:  # pragma: no branch
+                while True:
                     await _wait_readable(fd)
-                    handle._call_sync()
+                    if handle._cancelled:
+                        break
+                    handle._run()
                     await self.synchronize()
             except Exception as exc:
-                _h_raise(handle, exc)
-                return
-            finally:
-                handle._scope = None
+                handle._raise(exc)
 
     # writing to a file descriptor
 
@@ -583,7 +530,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def _add_writer(self, fd, callback, *args):
         self._check_closed()
-        handle = Handle(callback, args, self, context=None, is_sync=True)
+        handle = ScopedHandle(callback, args, self)
         writer = self._set_write_handle(fd, handle)
         if writer is not None:
             writer.cancel()
@@ -601,20 +548,17 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             self._selector.modify(fd, mask | EVENT_WRITE, (reader, handle))
             return writer
 
-    async def _writer_loop(self, fd, handle, task_status=trio.TASK_STATUS_IGNORED):
-        with trio.CancelScope() as scope:
-            handle._scope = scope
-            task_status.started()
+    async def _writer_loop(self, fd, handle):
+        with handle._scope:
             try:
-                while not handle._cancelled:  # pragma: no branch
+                while True:
                     await _wait_writable(fd)
-                    handle._call_sync()
+                    if handle._cancelled:
+                        break
+                    handle._run()
                     await self.synchronize()
             except Exception as exc:
-                _h_raise(handle, exc)
-                return
-            finally:
-                handle._scope = None
+                handle._raise(exc)
 
     def autoclose(self, fd):
         """
@@ -728,7 +672,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     # so restart from the beginning.
                     return
 
-            if isinstance(obj, TimerHandle):
+            if isinstance(obj, asyncio.TimerHandle):
                 # A TimerHandle is added to the list of timers.
                 heapq.heappush(self._timers, obj)
                 return
@@ -743,13 +687,17 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         # Don't go through the expensive nursery dance
         # if this is a sync function.
-        if getattr(obj, '_is_sync', True):
+        if isinstance(obj, AsyncHandle):
+            if hasattr(obj, '_context'):
+                obj._context.run(self._nursery.start_soon, obj._run, name=obj._callback)
+            else:
+                self._nursery.start_soon(obj._run, name=obj._callback)
+            await obj._started.wait()
+        else:
             if hasattr(obj, '_context'):
                 obj._context.run(obj._callback, *obj._args)
             else:
                 obj._callback(*obj._args)
-        else:
-            await self._nursery.start(obj._call_async)
 
     async def _main_loop_exit(self):
         """Finalize the loop. It may not be re-entered."""

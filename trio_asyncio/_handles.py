@@ -16,59 +16,31 @@ def _format_callback_source(func, args):
     return func_repr
 
 
-async def _set_sniff(proc, *args):
-    sniffio.current_async_library_cvar.set("trio")
-    return await proc(*args)
+class ScopedHandle(asyncio.Handle):
+    """An asyncio.Handle that cancels a trio.CancelScope when the Handle is cancelled.
 
-
-class _TrioHandle:
-    """
-    This extends asyncio.Handle by providing:
-    * a way to cancel an async callback
-    * a way to declare the type of the callback function
-
-    ``is_sync`` may be
-    * True: sync function, use _call_sync()
-    * False: async function, use _call_async()
-    * None: also async, but the callback function accepts
-      the handle as its sole argument
-
-    The caller is responsible for checking whether the handle
-    has been cancelled before invoking ``call_[a]sync()``.
+    This is used to manage installed readers and writers, so that the Trio call to
+    wait_readable() or wait_writable() can be cancelled when the handle is.
     """
 
-    def _init(self, is_sync):
-        """Secondary init.
-        """
-        self._is_sync = is_sync
-        self._scope = None
+    __slots__ = ("_scope",)
+
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self._scope = trio.CancelScope()
 
     def cancel(self):
-        try:
-            task = self._callback.__self__
-        except AttributeError:
-            task = None
-        else:
-            if not isinstance(task, asyncio.Task):
-                task = None
         super().cancel()
-        if self._scope is not None:
-            self._scope.cancel()
-        elif task is not None:
-            task.cancel()
+        self._scope.cancel()
 
-    def _cb_future_cancel(self, f):
-        """If a Trio task completes an asyncio Future,
-        add this callback to the future
-        and set ``_scope`` to the Trio cancel scope
-        so that the task is terminated when the future gets canceled.
-
-        """
-        if f.cancelled():
-            self.cancel()
+    def _repr_info(self):
+        return super()._repr_info() + ["scope={!r}".format(self._scope)]
 
     def _raise(self, exc):
-        """This is a copy of the exception handling in asyncio.events.Handle._run()
+        """This is a copy of the exception handling in asyncio.events.Handle._run().
+        It's used to report exceptions that arise when waiting for readability
+        or writability, and exceptions in async tasks managed by our subclass
+        AsyncHandle.
         """
         cb = _format_callback_source(self._callback, self._args)
         msg = 'Exception in callback {}'.format(cb)
@@ -81,86 +53,91 @@ class _TrioHandle:
             context['source_traceback'] = self._source_traceback
         self._loop.call_exception_handler(context)
 
-    def _repr_info(self):
-        info = [self.__class__.__name__]
-        if self._cancelled:
-            info.append('cancelled')
-        if self._callback is not None:
-            info.append(_format_callback_source(self._callback, self._args))
-        if self._source_traceback:
-            frame = self._source_traceback[-1]
-            info.append('created at %s:%s' % (frame[0], frame[1]))
-        if self._scope is not None:
-            info.append('scope=%s' % repr(self._scope))
-        return info
 
-    def _call_sync(self):
-        assert self._is_sync
+class AsyncHandle(ScopedHandle):
+    """A ScopedHandle associated with the execution of a Trio-flavored
+    async function.
+
+    If the handle is cancelled, the cancel scope surrounding the async function
+    will be cancelled too. It is also possible to link a future to the result
+    of the async function. If you do that, the future will evaluate to the
+    result of the function, and cancelling the future will cancel the handle too.
+
+    """
+
+    __slots__ = ("_fut", "_started")
+
+    def __init__(self, *args, result_future=None, **kw):
+        super().__init__(*args, **kw)
+        self._fut = result_future
+        self._started = trio.Event()
+        if self._fut is not None:
+
+            @self._fut.add_done_callback
+            def propagate_cancel(f):
+                if f.cancelled():
+                    self.cancel()
+
+    async def _run(self):
+        sniffio.current_async_library_cvar.set("trio")
+        self._started.set()
         if self._cancelled:
             return
-        self._run()
 
-    if sys.version_info >= (3, 7):
+        def report_exception(exc):
+            if not isinstance(exc, Exception):
+                # Let BaseExceptions such as Cancelled escape without being noted.
+                return exc
+            # Otherwise defer to the asyncio exception handler. (In an async loop
+            # this will still raise the exception out of the loop, terminating it.)
+            self._raise(exc)
+            return None
 
-        async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
-            assert not self._is_sync
-            if self._cancelled:
-                return
-            task_status.started()
-            try:
-                with trio.CancelScope() as scope:
-                    self._scope = scope
-                    if self._is_sync is None:
-                        await self._context.run(_set_sniff, self._callback, self)
+        def remove_cancelled(exc):
+            if isinstance(exc, trio.Cancelled):
+                return None
+            return exc
+
+        def only_cancelled(exc):
+            if isinstance(exc, trio.Cancelled):
+                return exc
+            return None
+
+        try:
+            # Run the callback
+            with self._scope:
+                res = await self._callback(*self._args)
+
+            if self._fut:
+                # Propagate result or just-this-handle cancellation to the Future
+                if self._scope.cancelled_caught:
+                    self._fut.cancel()
+                elif not self._fut.cancelled():
+                    self._fut.set_result(res)
+
+        except BaseException as exc:
+            if not self._fut:
+                # Pass Exceptions through the fallback exception handler since
+                # they have nowhere better to go. Let BaseExceptions escape so
+                # that Cancelled and SystemExit work reasonably.
+                with trio.MultiError.catch(report_exception):
+                    raise
+            else:
+                # The result future gets all the non-Cancelled
+                # exceptions.  Any Cancelled need to keep propagating
+                # out of this stack frame in order to reach the cancel
+                # scope for which they're intended.  This would be a
+                # great place for ExceptionGroup.split() if we had it.
+                cancelled = trio.MultiError.filter(only_cancelled, exc)
+                rest = trio.MultiError.filter(remove_cancelled, exc)
+                if not self._fut.cancelled():
+                    if rest:
+                        self._fut.set_exception(rest)
                     else:
-                        await self._context.run(_set_sniff, self._callback, *self._args)
-            except Exception as exc:
-                self._raise(exc)
-            finally:
-                self._scope = None
-
-    else:  # no contextvars
-
-        async def _call_async(self, task_status=trio.TASK_STATUS_IGNORED):
-            assert not self._is_sync
-            if self._cancelled:
-                return
-            task_status.started()
-            try:
-                with trio.CancelScope() as scope:
-                    self._scope = scope
-                    if self._is_sync is None:
-                        await self._callback(self)
-                    else:
-                        await self._callback(*self._args)
-            except Exception as exc:
-                self._raise(exc)
-            finally:
-                self._scope = None
-
-
-if sys.version_info >= (3, 7):
-
-    class Handle(_TrioHandle, asyncio.Handle):
-        def __init__(self, callback, args, loop, context=None, is_sync=True):
-            assert not isinstance(context, bool)
-            super().__init__(callback, args, loop, context=context)
-            self._init(is_sync)
-
-    class TimerHandle(_TrioHandle, asyncio.TimerHandle):
-        def __init__(self, when, callback, args, loop, context=None, is_sync=True):
-            assert not isinstance(context, bool)
-            super().__init__(when, callback, args, loop, context=context)
-            self._init(is_sync)
-
-else:
-
-    class Handle(_TrioHandle, asyncio.Handle):
-        def __init__(self, callback, args, loop, context=None, is_sync=True):
-            super().__init__(callback, args, loop)
-            self._init(is_sync)
-
-    class TimerHandle(_TrioHandle, asyncio.TimerHandle):
-        def __init__(self, when, callback, args, loop, context=None, is_sync=True):
-            super().__init__(when, callback, args, loop)
-            self._init(is_sync)
+                        self._fut.cancel()
+                if cancelled:
+                    raise cancelled
+        finally:
+            # asyncio says this is needed to break cycles when an exception occurs.
+            # I'm not so sure, but it doesn't seem to do any harm.
+            self = None
