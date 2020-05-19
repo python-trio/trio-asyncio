@@ -43,7 +43,7 @@ This works rather well: ``trio_asyncio`` consists of just ~700 lines of
 code (asyncio: ~8000) but passes the complete Python 3.6 test suite with no
 errors.
 
-``trio_asyncio`` requires Python 3.5.3 or better.
+``trio_asyncio`` requires Python 3.6 or better.
 
 Author
 ======
@@ -53,12 +53,12 @@ Matthias Urlichs <matthias@urlichs.de>
 """
 
 install_requires = [
-    "trio >= 0.12.0",
-    "async_generator >= 1.6",
+    "trio >= 0.13.0",
     "outcome",
 ]
 if sys.version_info < (3, 7):
     install_requires.append("contextvars >= 2.1")
+    install_requires.append("async_generator >= 1.6")
 
 setup(
     name="trio_asyncio",
@@ -74,7 +74,7 @@ setup(
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
-    python_requires=">=3.5.2",  # temporary, for RTD
+    python_requires=">=3.6",  # temporary, for RTD
     keywords=["async", "io", "trio", "asyncio", "trio-asyncio"],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'outcome'],

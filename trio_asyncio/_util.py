@@ -6,7 +6,6 @@ import asyncio
 import sys
 import outcome
 import sniffio
-from async_generator import async_generator, yield_
 
 
 async def run_aio_future(future):
@@ -59,7 +58,6 @@ async def run_aio_future(future):
 STOP = object()
 
 
-@async_generator
 async def run_aio_generator(loop, async_generator):
     """Return a Trio-flavored async iterator which wraps the given
     asyncio-flavored async iterator (usually an async generator, but
@@ -116,7 +114,7 @@ async def run_aio_generator(loop, async_generator):
 
             if item is STOP:
                 break
-            await yield_(item)
+            yield item
 
     except asyncio.CancelledError as exc:
         if raise_cancel is not None:
@@ -130,7 +128,6 @@ async def run_aio_generator(loop, async_generator):
             raise
 
 
-@async_generator
 async def run_trio_generator(loop, async_generator):
     """Run a Trio generator from within asyncio"""
     while True:
@@ -140,7 +137,7 @@ async def run_trio_generator(loop, async_generator):
         except StopAsyncIteration:
             break
         else:
-            await yield_(item)
+            yield item
 
 
 # Copied from Trio:

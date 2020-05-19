@@ -2,7 +2,6 @@ import pytest
 import asyncio
 import trio
 import sniffio
-from async_generator import async_generator, yield_
 from trio_asyncio import aio_as_trio, trio_as_aio
 from tests import aiotest
 from functools import partial
@@ -526,11 +525,10 @@ class TestCalls(aiotest.TestCase):
 
     @pytest.mark.trio
     async def test_trio_asyncio_generator(self, loop):
-        @async_generator
         async def dly_asyncio():
-            await yield_(1)
+            yield 1
             await asyncio.sleep(0.01, loop=loop)
-            await yield_(2)
+            yield 2
 
         with test_utils.deprecate(self):
             res = await async_gen_to_list(loop.wrap_generator(dly_asyncio))
@@ -538,11 +536,10 @@ class TestCalls(aiotest.TestCase):
 
     @pytest.mark.trio
     async def test_trio_asyncio_generator_with_error(self, loop):
-        @async_generator
         async def dly_asyncio():
-            await yield_(1)
+            yield 1
             raise RuntimeError("I has an owie")
-            await yield_(2)
+            yield 2
 
         with test_utils.deprecate(self):
             with pytest.raises(RuntimeError) as err:
@@ -551,9 +548,8 @@ class TestCalls(aiotest.TestCase):
 
     @pytest.mark.trio
     async def test_trio_asyncio_generator_with_cancellation(self, loop):
-        @async_generator
         async def dly_asyncio(hold, seen):
-            await yield_(1)
+            yield 1
             seen.flag |= 1
             await hold.wait()
 
@@ -573,11 +569,10 @@ class TestCalls(aiotest.TestCase):
 
     @pytest.mark.trio
     async def test_trio_asyncio_iterator(self, loop):
-        @async_generator
         async def slow_nums():
             for n in range(1, 6):
                 await asyncio.sleep(0.01, loop=loop)
-                await yield_(n)
+                yield n
 
         sum = 0
         async for n in aio_as_trio(slow_nums()):
@@ -586,11 +581,10 @@ class TestCalls(aiotest.TestCase):
 
     @pytest.mark.trio
     async def test_trio_asyncio_iterator_depr(self, loop):
-        @async_generator
         async def slow_nums():
             for n in range(1, 6):
                 await asyncio.sleep(0.01, loop=loop)
-                await yield_(n)
+                yield n
 
         sum = 0
         # with test_utils.deprecate(self): ## not yet

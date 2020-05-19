@@ -8,7 +8,10 @@ import warnings
 import threading
 from contextvars import ContextVar
 
-from async_generator import async_generator, yield_, asynccontextmanager
+try:
+    from contextlib import asynccontextmanager
+except ImportError:
+    from async_generator import asynccontextmanager
 
 from ._util import run_aio_future, run_aio_generator
 from ._async import TrioEventLoop
@@ -368,7 +371,6 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' e
 
 
 @asynccontextmanager
-@async_generator
 async def open_loop(queue_len=None):
     """Returns a Trio-flavored async context manager which provides
     an asyncio event loop running on top of Trio.
@@ -396,7 +398,7 @@ async def open_loop(queue_len=None):
             loop._closed = False
             await loop._main_loop_init(nursery)
             await nursery.start(loop._main_loop)
-            await yield_(loop)
+            yield loop
         finally:
             try:
                 await loop._main_loop_exit()
