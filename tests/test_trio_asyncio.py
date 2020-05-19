@@ -10,25 +10,16 @@ async def use_asyncio():
 
 
 @pytest.fixture()
-@async_generator
-async def asyncio_loop():
-    async with trio_asyncio.open_loop() as loop:
-        await yield_(loop)
-
-
-@pytest.fixture()
-@async_generator
-async def asyncio_fixture_with_fixtured_loop(asyncio_loop):
+async def asyncio_fixture_with_fixtured_loop(loop):
     await use_asyncio()
-    await yield_()
+    yield None
 
 
 @pytest.fixture()
-@async_generator
 async def asyncio_fixture_own_loop():
     async with trio_asyncio.open_loop():
         await use_asyncio()
-        await yield_()
+        yield None
 
 
 @pytest.mark.trio
