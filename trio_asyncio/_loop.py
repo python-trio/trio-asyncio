@@ -18,7 +18,7 @@ from ._async import TrioEventLoop
 from ._deprecate import deprecated, warn_deprecated
 
 try:
-    from trio.hazmat import wait_for_child
+    from trio.lowlevel import wait_for_child
 except ImportError:
     from ._child import wait_for_child
 
@@ -103,7 +103,7 @@ _faked_policy = _FakedPolicy()
 
 def _in_trio_context():
     try:
-        trio.hazmat.current_task()
+        trio.lowlevel.current_task()
     except RuntimeError:
         return False
     else:
@@ -147,7 +147,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         ``.current_event_loop`` property.
         """
         try:
-            task = trio.hazmat.current_task()
+            task = trio.lowlevel.current_task()
         except RuntimeError:
             pass
         else:
@@ -230,7 +230,7 @@ else:
 
     def _new_run_get():
         try:
-            task = trio.hazmat.current_task()
+            task = trio.lowlevel.current_task()
         except RuntimeError:
             pass
         else:

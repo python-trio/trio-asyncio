@@ -96,7 +96,7 @@ class ProcessWaiter:
     async def _start_waiting(self):
         """Start the background thread that waits for a specific child"""
         self.__event = trio.Event()
-        self.__token = trio.hazmat.current_trio_token()
+        self.__token = trio.lowlevel.current_trio_token()
 
         self.__thread = threading.Thread(
             target=self._wait_thread, name="waitpid_%d" % self.__pid, daemon=True
