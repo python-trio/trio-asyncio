@@ -53,7 +53,7 @@ Matthias Urlichs <matthias@urlichs.de>
 """
 
 install_requires = [
-    "trio >= 0.13.0",
+    "trio >= 0.15.0",
     "outcome",
 ]
 if sys.version_info < (3, 7):
