@@ -77,7 +77,7 @@ setup(
     python_requires=">=3.6",  # temporary, for RTD
     keywords=["async", "io", "trio", "asyncio", "trio-asyncio"],
     setup_requires=['pytest-runner'],
-    tests_require=['pytest', 'outcome'],
+    tests_require=['pytest >= 5.4', 'outcome'],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
