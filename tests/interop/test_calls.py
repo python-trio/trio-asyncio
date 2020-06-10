@@ -303,7 +303,7 @@ class TestCalls(aiotest.TestCase):
         async def cancelled_trio(seen):
             seen.flag |= 1
             await trio.sleep(0.01)
-            scope = trio.hazmat.current_task()._cancel_status._scope
+            scope = trio.lowlevel.current_task()._cancel_status._scope
             scope.cancel()
             seen.flag |= 2
             await trio.sleep(0.01)

@@ -17,7 +17,7 @@ from . import _util
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 
 try:
-    from trio.hazmat import wait_for_child
+    from trio.lowlevel import wait_for_child
 except ImportError:
     from ._child import wait_for_child
 
@@ -27,11 +27,11 @@ logger = logging.getLogger(__name__)
 _mswindows = (sys.platform == "win32")
 
 try:
-    _wait_readable = trio.hazmat.wait_readable
-    _wait_writable = trio.hazmat.wait_writable
+    _wait_readable = trio.lowlevel.wait_readable
+    _wait_writable = trio.lowlevel.wait_writable
 except AttributeError:
-    _wait_readable = trio.hazmat.wait_socket_readable
-    _wait_writable = trio.hazmat.wait_socket_writable
+    _wait_readable = trio.lowlevel.wait_socket_readable
+    _wait_writable = trio.lowlevel.wait_socket_writable
 
 
 class _Clear:
@@ -466,7 +466,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         ready for reading.
 
         This creates a new Trio task. You may want to use "await
-        :obj:`trio.hazmat.wait_readable` (fd)" instead, or
+        :obj:`trio.lowlevel.wait_readable` (fd)" instead, or
 
         :param fd: Either an integer (Unix file descriptor) or an object
                    with a ``fileno`` method providing one.
@@ -516,7 +516,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         ready for writing.
 
         This creates a new Trio task. You may want to use "await
-        :obj:`trio.hazmat.wait_writable` (fd) instead, or
+        :obj:`trio.lowlevel.wait_writable` (fd) instead, or
 
         :param fd: Either an integer (Unix file descriptor) or an object
                    with a ``fileno`` method providing one.
@@ -614,8 +614,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         if self._nursery is not None or not self._stopped.is_set():
             raise RuntimeError("You can't enter a loop twice")
         self._nursery = nursery
-        self._task = trio.hazmat.current_task()
-        self._token = trio.hazmat.current_trio_token()
+        self._task = trio.lowlevel.current_task()
+        self._token = trio.lowlevel.current_trio_token()
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """Run the loop by processing its event queue.
