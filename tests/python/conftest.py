@@ -21,7 +21,11 @@ else:
     # to the event loop in the testsuite class, because
     # SyncTrioEventLoop spawns a thread that only exits when the
     # loop is closed. Nerf it.
-    from test.support import threading_cleanup
+    try:
+        from test.support import threading_cleanup
+    except ImportError:
+        # Python 3.10+
+        from test.support.threading_helper import threading_cleanup
 
     def threading_no_cleanup(*original_values):
         pass
