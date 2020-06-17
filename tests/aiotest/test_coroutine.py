@@ -7,7 +7,7 @@ from .. import utils as test_utils
 async def hello_world(asyncio, result, delay, loop):
     result.append("Hello")
     # retrieve the event loop from the policy
-    await asyncio.sleep(delay)
+    await asyncio.sleep(delay, loop=loop)
     result.append('World')
     return "."
 

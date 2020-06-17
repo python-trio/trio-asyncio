@@ -45,7 +45,8 @@ class TestCallback(aiotest.TestCase):
         await loop.stop().wait()
         loop.close()
 
-        async def test():
+        @config.asyncio.coroutine
+        def test():
             pass
 
         func = lambda: False
