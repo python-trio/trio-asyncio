@@ -6,7 +6,7 @@ set -ex
 YAPF_VERSION=0.20.0
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-    curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
+    curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.9.pkg
     sudo installer -pkg macpython.pkg -target /
     ls /Library/Frameworks/Python.framework/Versions/*/bin/
     PYTHON_EXE=/Library/Frameworks/Python.framework/Versions/*/bin/python3
