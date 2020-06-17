@@ -167,7 +167,7 @@ class TestMisc:
         with pytest.raises(RuntimeError):
             trio_asyncio.run_trio_task(nest, 100)
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises((AttributeError, RuntimeError)):
             with trio_asyncio.open_loop():
                 nest(1000)
 
