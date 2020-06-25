@@ -21,7 +21,11 @@ else:
     # to the event loop in the testsuite class, because
     # SyncTrioEventLoop spawns a thread that only exits when the
     # loop is closed. Nerf it.
-    from test.support import threading_cleanup
+    try:
+        from test.support import threading_cleanup
+    except ImportError:
+        # Python 3.10+
+        from test.support.threading_helper import threading_cleanup
 
     def threading_no_cleanup(*original_values):
         pass
@@ -124,7 +128,7 @@ else:
 
         # These fail with ConnectionResetError on Pythons <= 3.7.x
         # for some unknown x. (3.7.1 fails, 3.7.5 and 3.7.6 pass;
-        # older 3.6.x also affected, and older-or-all 3.5.x)
+        # older 3.6.x also affected)
         if sys.platform != "win32" and sys.version_info < (3, 8):
             import selectors
 

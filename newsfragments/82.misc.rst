@@ -1,0 +1,3 @@
+``trio-asyncio`` now requires Trio 0.15.
+
+Support for Python < 3.6 has been removed.

@@ -2,7 +2,6 @@ import pytest
 import asyncio
 import trio_asyncio
 import inspect
-from async_generator import async_generator, yield_
 
 # Hacks for <3.7
 if not hasattr(asyncio, 'run'):
@@ -45,11 +44,10 @@ if not hasattr(asyncio, 'create_task'):
 
 
 @pytest.fixture
-@async_generator
 async def loop():
     async with trio_asyncio.open_loop() as loop:
         try:
-            await yield_(loop)
+            yield loop
         finally:
             await loop.stop().wait()
 

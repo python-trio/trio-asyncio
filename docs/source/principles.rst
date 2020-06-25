@@ -81,7 +81,7 @@ Most *synchronous* asyncio or Trio functions (:meth:`trio.Event.set`,
 asyncio or Trio context, and work equally well regardless of the
 flavor of function calling them. The exceptions are functions that
 access the current task (:func:`asyncio.current_task`,
-:func:`trio.hazmat.current_task`, and anything that calls them),
+:func:`trio.lowlevel.current_task`, and anything that calls them),
 because there's only a meaningful concept of the current *foo* task
 when a *foo*-flavored function is executing.  For example, this means
 context managers that set a timeout on their body (``with

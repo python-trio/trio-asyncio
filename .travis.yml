@@ -3,7 +3,6 @@ dist: xenial
 
 matrix:
   include:
-    - python: 3.5
     - python: 3.6
     - python: 3.7
     - python: 3.7-dev
@@ -12,7 +11,13 @@ matrix:
     - python: nightly
     - os: osx
       language: generic
-      env: MACPYTHON=3.6.3
+      env: MACPYTHON=3.6.8  # last binary release
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.7.7  # last binary release
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.8.3
     - python: 3.6
       env: CHECK_DOCS=1
     - python: 3.6

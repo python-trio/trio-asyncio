@@ -6,7 +6,6 @@ import asyncio
 import sys
 import outcome
 import sniffio
-from async_generator import async_generator, yield_
 
 
 async def run_aio_future(future):
@@ -24,11 +23,11 @@ async def run_aio_future(future):
     This is a Trio-flavored async function.
 
     """
-    task = trio.hazmat.current_task()
+    task = trio.lowlevel.current_task()
     raise_cancel = None
 
     def done_cb(_):
-        trio.hazmat.reschedule(task, outcome.capture(future.result))
+        trio.lowlevel.reschedule(task, outcome.capture(future.result))
 
     future.add_done_callback(done_cb)
 
@@ -39,10 +38,10 @@ async def run_aio_future(future):
         # Attempt to cancel our future
         future.cancel()
         # Keep waiting
-        return trio.hazmat.Abort.FAILED
+        return trio.lowlevel.Abort.FAILED
 
     try:
-        res = await trio.hazmat.wait_task_rescheduled(abort_cb)
+        res = await trio.lowlevel.wait_task_rescheduled(abort_cb)
         return res
     except asyncio.CancelledError as exc:
         if raise_cancel is not None:
@@ -59,14 +58,13 @@ async def run_aio_future(future):
 STOP = object()
 
 
-@async_generator
 async def run_aio_generator(loop, async_generator):
     """Return a Trio-flavored async iterator which wraps the given
     asyncio-flavored async iterator (usually an async generator, but
     doesn't have to be). The asyncio tasks that perform each iteration
     of *async_generator* will run in *loop*.
     """
-    task = trio.hazmat.current_task()
+    task = trio.lowlevel.current_task()
     raise_cancel = None
     current_read = None
 
@@ -85,7 +83,7 @@ async def run_aio_generator(loop, async_generator):
         finally:
             sniffio.current_async_library_cvar.reset(t)
 
-        trio.hazmat.reschedule(task, result)
+        trio.lowlevel.reschedule(task, result)
 
     def abort_cb(raise_cancel_arg):
         # Save the cancel-raising function
@@ -94,29 +92,29 @@ async def run_aio_generator(loop, async_generator):
 
         if not current_read:
             # There is no current read
-            return trio.hazmat.Abort.SUCCEEDED
+            return trio.lowlevel.Abort.SUCCEEDED
         else:
             # Attempt to cancel the current iterator read, do not
             # report success until the future was actually cancelled.
             already_cancelled = current_read.cancel()
             if already_cancelled:
-                return trio.hazmat.Abort.SUCCEEDED
+                return trio.lowlevel.Abort.SUCCEEDED
             else:
                 # Continue dealing with the cancellation once
                 # future.cancel() goes to the result of
                 # wait_task_rescheduled()
-                return trio.hazmat.Abort.FAILED
+                return trio.lowlevel.Abort.FAILED
 
     try:
         while True:
             # Schedule in asyncio that we read the next item from the iterator
             current_read = asyncio.ensure_future(consume_next(), loop=loop)
 
-            item = await trio.hazmat.wait_task_rescheduled(abort_cb)
+            item = await trio.lowlevel.wait_task_rescheduled(abort_cb)
 
             if item is STOP:
                 break
-            await yield_(item)
+            yield item
 
     except asyncio.CancelledError as exc:
         if raise_cancel is not None:
@@ -130,7 +128,6 @@ async def run_aio_generator(loop, async_generator):
             raise
 
 
-@async_generator
 async def run_trio_generator(loop, async_generator):
     """Run a Trio generator from within asyncio"""
     while True:
@@ -140,7 +137,7 @@ async def run_trio_generator(loop, async_generator):
         except StopAsyncIteration:
             break
         else:
-            await yield_(item)
+            yield item
 
 
 # Copied from Trio:

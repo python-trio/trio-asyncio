@@ -30,7 +30,7 @@ class TestMisc:
     async def test_too_many_stops(self):
         with trio.move_on_after(1) as scope:
             async with trio_asyncio.open_loop() as loop:
-                await trio.hazmat.checkpoint()
+                await trio.lowlevel.checkpoint()
                 loop.stop()
         assert not scope.cancelled_caught, \
             "Possible deadlock after manual call to loop.stop"
@@ -167,7 +167,7 @@ class TestMisc:
         with pytest.raises(RuntimeError):
             trio_asyncio.run_trio_task(nest, 100)
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises((AttributeError, RuntimeError)):
             with trio_asyncio.open_loop():
                 nest(1000)
 
