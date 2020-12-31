@@ -344,7 +344,7 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' e
 
     def add_child_handler(self, pid, callback, *args):
         """Add a callback to run when a child process terminates."""
-        h = self._loop.run_trio(self._waitpid, pid, callback, *args)
+        h = self._loop.trio_as_future(self._waitpid, pid, callback, *args)
         self._callbacks[pid] = h
 
     def remove_child_handler(self, pid):

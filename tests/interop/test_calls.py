@@ -71,11 +71,6 @@ class TestCalls(aiotest.TestCase):
         """call from asyncio to an async trio function"""
         return await trio_as_aio(proc, loop=loop)(*args)
 
-    async def call_a_t_depr(self, proc, *args, loop=None):
-        """call from asyncio to an async trio function"""
-        with test_utils.deprecate(self):
-            return await loop.run_trio(proc, *args)
-
     async def call_a_ts(self, proc, *args, loop=None):
         """called from asyncio to a sync trio function"""
         return proc(*args)
@@ -112,20 +107,6 @@ class TestCalls(aiotest.TestCase):
 
         seen = Seen()
         res = await aio_as_trio(partial(self.call_a_t, loop=loop), loop=loop)(dly_trio, seen)
-        assert res == 8
-        assert seen.flag == 2
-
-    @pytest.mark.trio
-    async def test_asyncio_trio_depr(self, loop):
-        """Call asyncio from trio"""
-
-        async def dly_trio(seen):
-            await trio.sleep(0.01)
-            seen.flag |= 2
-            return 8
-
-        seen = Seen()
-        res = await aio_as_trio(partial(self.call_a_t_depr, loop=loop), loop=loop)(dly_trio, seen)
         assert res == 8
         assert seen.flag == 2
 
@@ -212,16 +193,6 @@ class TestCalls(aiotest.TestCase):
         assert err.value.args[0] == "I has another owie"
 
     @pytest.mark.trio
-    async def test_asyncio_trio_error_depr1(self, loop):
-        async def err_trio():
-            await trio.sleep(0.01)
-            raise RuntimeError("I has another owie")
-
-        with pytest.raises(RuntimeError) as err:
-            await aio_as_trio(partial(self.call_a_t_depr, loop=loop), loop=loop)(err_trio)
-        assert err.value.args[0] == "I has another owie"
-
-    @pytest.mark.trio
     async def test_asyncio_trio_error_depr2(self, loop):
         async def err_trio():
             await trio.sleep(0.01)
@@ -230,17 +201,6 @@ class TestCalls(aiotest.TestCase):
         with pytest.raises(RuntimeError) as err:
             with test_utils.deprecate(self):
                 await loop.run_asyncio(partial(self.call_a_t, loop=loop), err_trio)
-        assert err.value.args[0] == "I has another owie"
-
-    @pytest.mark.trio
-    async def test_asyncio_trio_error_depr3(self, loop):
-        async def err_trio():
-            await trio.sleep(0.01)
-            raise RuntimeError("I has another owie")
-
-        with pytest.raises(RuntimeError) as err:
-            with test_utils.deprecate(self):
-                await loop.run_asyncio(partial(self.call_a_t_depr, loop=loop), err_trio)
         assert err.value.args[0] == "I has another owie"
 
     @pytest.mark.trio

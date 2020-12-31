@@ -795,7 +795,3 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def run_asyncio(self, proc, *args):
         from ._adapter import Asyncio_Trio_Wrapper
         return Asyncio_Trio_Wrapper(proc, args=args, loop=self)
-
-    @deprecated("0.10.0", issue=38, instead="trio_as_aio(proc)(*args)")
-    def run_trio(self, proc, *args):
-        return self.trio_as_future(proc, *args)

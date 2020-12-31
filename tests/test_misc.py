@@ -72,24 +72,6 @@ class TestMisc:
         assert owch
 
     @pytest.mark.trio
-    async def test_err3_depr(self, loop):
-        owch = 0
-
-        async def nest():
-            nonlocal owch
-            owch = 1
-            raise RuntimeError("Hello")
-
-        async def call_nested():
-            with pytest.raises(RuntimeError) as err:
-                await loop.run_trio(nest)
-            assert err.value.args[0] == "Hello"
-
-        with test_utils.deprecate(self):
-            await loop.run_asyncio(call_nested)
-        assert owch
-
-    @pytest.mark.trio
     async def test_run(self, loop):
         owch = 0
 
@@ -102,23 +84,6 @@ class TestMisc:
             await trio_asyncio.trio_as_aio(nest, loop=loop)()
 
         await trio_asyncio.aio_as_trio(call_nested, loop=loop)()
-        assert owch
-
-    @pytest.mark.trio
-    async def test_run_depr(self, loop):
-        owch = 0
-
-        async def nest():
-            await trio.sleep(0.01)
-            nonlocal owch
-            owch = 1
-
-        async def call_nested():
-            with test_utils.deprecate(self):
-                await loop.run_trio(nest)
-
-        with test_utils.deprecate(self):
-            await loop.run_asyncio(call_nested)
         assert owch
 
     async def _test_run(self):
@@ -137,24 +102,6 @@ class TestMisc:
 
     def test_run2(self):
         trio_asyncio.run(self._test_run)
-
-    async def _test_run_depr(self):
-        owch = 0
-
-        async def nest():
-            await trio.sleep(0.01)
-            nonlocal owch
-            owch = 1
-
-        async def call_nested():
-            await trio_asyncio.run_trio(nest)
-
-        with test_utils.deprecate(self):
-            await trio_asyncio.run_asyncio(call_nested)
-        assert owch
-
-    def test_run2_depr(self):
-        trio_asyncio.run(self._test_run_depr)
 
     @pytest.mark.trio
     async def test_run_task(self):
@@ -197,27 +144,6 @@ class TestMisc:
         assert owch
 
     @pytest.mark.trio
-    async def test_err2_depr(self, loop):
-        owch = 0
-
-        async def nest():
-            nonlocal owch
-            owch = 1
-            raise RuntimeError("Hello")
-
-        async def call_nested():
-            await loop.run_asyncio(nest)
-
-        async def call_more_nested():
-            with pytest.raises(RuntimeError) as err:
-                await loop.run_trio(call_nested)
-            assert err.value.args[0] == "Hello"
-
-        with test_utils.deprecate(self):
-            await loop.run_asyncio(call_more_nested)
-        assert owch
-
-    @pytest.mark.trio
     async def test_run3(self, loop):
         owch = 0
 
@@ -232,24 +158,6 @@ class TestMisc:
             await trio_asyncio.trio_as_aio(call_nested, loop=loop)()
 
         await trio_asyncio.aio_as_trio(call_more_nested, loop=loop)()
-        assert owch
-
-    @pytest.mark.trio
-    async def test_run3_depr(self, loop):
-        owch = 0
-
-        async def nest():
-            nonlocal owch
-            owch = 1
-
-        async def call_nested():
-            await loop.run_asyncio(nest)
-
-        async def call_more_nested():
-            await loop.run_trio(call_nested)
-
-        with test_utils.deprecate(self):
-            await loop.run_asyncio(call_more_nested)
         assert owch
 
     @pytest.mark.trio
