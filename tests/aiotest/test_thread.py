@@ -66,24 +66,6 @@ class TestThread(aiotest.TestCase):
         assert result == ["run", "run"]
 
     @pytest.mark.trio
-    async def test_run_twice_depr(self, loop):
-        result = []
-
-        def work():
-            result.append("run")
-
-        fut = loop.run_in_executor(None, work)
-        with test_utils.deprecate(self):
-            await loop.run_future(fut)
-        assert result == ["run"]
-
-        # ensure that run_in_executor() can be called twice
-        fut = loop.run_in_executor(None, work)
-        with test_utils.deprecate(self):
-            await loop.run_future(fut)
-        assert result == ["run", "run"]
-
-    @pytest.mark.trio
     async def test_policy(self, loop, config):
         asyncio = config.asyncio
         result = {'loop': 'not set'}  # sentinel, different than None
@@ -97,23 +79,6 @@ class TestThread(aiotest.TestCase):
         # get_event_loop() must return None in a different thread
         fut = loop.run_in_executor(None, work)
         await loop.run_aio_future(fut)
-        assert isinstance(result['loop'], (AssertionError, RuntimeError))
-
-    @pytest.mark.trio
-    async def test_policy_depr(self, loop, config):
-        asyncio = config.asyncio
-        result = {'loop': 'not set'}  # sentinel, different than None
-
-        def work():
-            try:
-                result['loop'] = asyncio.get_event_loop()
-            except Exception as exc:
-                result['loop'] = exc
-
-        # get_event_loop() must return None in a different thread
-        fut = loop.run_in_executor(None, work)
-        with test_utils.deprecate(self):
-            await loop.run_future(fut)
         assert isinstance(result['loop'], (AssertionError, RuntimeError))
 
     @pytest.mark.trio

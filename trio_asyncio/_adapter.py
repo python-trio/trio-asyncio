@@ -236,7 +236,7 @@ def _allow_asyncio(fn, *args):
     coro = fn(*args)
     # start the coroutine
     if isinstance(coro, asyncio.Future):
-        return (yield from trio_asyncio.run_future(coro))
+        return (yield from trio_asyncio.run_aio_future(coro))
 
     p, a = coro.send, None
     while True:

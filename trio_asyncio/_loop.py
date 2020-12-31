@@ -488,8 +488,3 @@ def run_asyncio(proc, *args):
 @deprecated("0.10.0", issue=38, instead="run_aio_coroutine")
 async def run_coroutine(fut):
     return await _running_loop().run_aio_coroutine(fut)
-
-
-@deprecated("0.10.0", issue=38, instead="run_aio_future")
-async def run_future(fut):
-    return await run_aio_future(fut)

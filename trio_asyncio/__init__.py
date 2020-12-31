@@ -28,7 +28,6 @@ from ._loop import (
     run_trio,
     run_aio_coroutine,
     # forwarders to deprecated event loop methods:
-    run_future,
     run_coroutine,
     run_asyncio,
 )

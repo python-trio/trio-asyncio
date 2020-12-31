@@ -791,15 +791,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     # Deprecated aliases #
 
-    run_future = staticmethod(
-        deprecated_alias(
-            "trio_asyncio.BaseTrioEventLoop.run_future",
-            _util.run_aio_future,
-            "0.10.0",
-            issue=38,
-        )
-    )
-
     run_coroutine = deprecated_alias(
         "trio_asyncio.BaseTrioEventLoop.run_coroutine",
         run_aio_coroutine,
