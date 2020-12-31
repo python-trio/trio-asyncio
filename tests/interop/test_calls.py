@@ -151,19 +151,6 @@ class TestCalls(aiotest.TestCase):
         await aio_as_trio(_call_trio_ctx, loop=loop)()
 
     @pytest.mark.trio
-    async def test_call_trio_ctx_depr(self, loop):
-        async def _call_trio_ctx():
-            self.did_it = 0
-            async with loop.wrap_trio_context(TrioContext(self)) as ctx:
-                assert ctx.parent is self
-                assert self.did_it == 2
-                self.did_it = 3
-            assert self.did_it == 4
-
-        with test_utils.deprecate(self):
-            await loop.run_asyncio(_call_trio_ctx)
-
-    @pytest.mark.trio
     async def test_asyncio_trio_sync(self, loop):
         """Call asyncio from trio"""
 
