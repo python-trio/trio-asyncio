@@ -473,11 +473,6 @@ def run_trio_task(proc, *args):
 # deprecated loop method into each of these functions.
 
 
-@deprecated("0.10.0", issue=38, instead="aio_as_trio(proc(*args))")
-def wrap_generator(proc, *args):
-    return run_aio_generator(_running_loop(), proc(*args))
-
-
 @deprecated("0.10.0", issue=38, instead="aio_as_trio(aiter)")
 def run_iterator(aiter):
     return run_aio_generator(_running_loop(), aiter)

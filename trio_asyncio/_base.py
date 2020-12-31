@@ -807,10 +807,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         issue=38,
     )
 
-    @deprecated("0.10.0", issue=38, instead="aio_as_trio(gen(*args))")
-    def wrap_generator(self, gen, *args):
-        return run_aio_generator(self, gen(*args))
-
     @deprecated("0.10.0", issue=38, instead="aio_as_trio(aiter)")
     def run_iterator(self, aiter):
         return run_aio_generator(self, aiter)
