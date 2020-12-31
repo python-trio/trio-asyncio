@@ -483,8 +483,3 @@ def wrap_trio_context(ctx):
 def run_asyncio(proc, *args):
     from ._adapter import Asyncio_Trio_Wrapper
     return Asyncio_Trio_Wrapper(proc, args=args, loop=_running_loop())
-
-
-@deprecated("0.10.0", issue=38, instead="run_aio_coroutine")
-async def run_coroutine(fut):
-    return await _running_loop().run_aio_coroutine(fut)

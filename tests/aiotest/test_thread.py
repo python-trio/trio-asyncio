@@ -28,28 +28,6 @@ class TestThread(aiotest.TestCase):
         assert work_ident != get_ident()
 
     @pytest.mark.trio
-    async def test_ident_depr(self, loop, config):
-        threading = config.threading
-        try:
-            get_ident = threading.get_ident  # Python 3
-        except AttributeError:
-            get_ident = threading._get_ident  # Python 2
-
-        result = {'ident': None}
-
-        def work():
-            result['ident'] = get_ident()
-
-        fut = loop.run_in_executor(None, work)
-        with test_utils.deprecate(self):
-            await loop.run_coroutine(fut)
-
-        # ensure that work() was executed in a different thread
-        work_ident = result['ident']
-        assert work_ident is not None
-        assert work_ident != get_ident()
-
-    @pytest.mark.trio
     async def test_run_twice(self, loop):
         result = []
 

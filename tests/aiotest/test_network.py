@@ -79,7 +79,7 @@ class TestNetwork(aiotest.TestCase):
 
         proto = TcpEchoClientProtocol(message, loop)
         coro = loop.create_connection(lambda: proto, host, port)
-        await loop.run_coroutine(coro)
+        await loop.run_aio_coroutine(coro)
         assert proto.state != 'new'
 
         await loop.stop().wait()()

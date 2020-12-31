@@ -791,13 +791,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     # Deprecated aliases #
 
-    run_coroutine = deprecated_alias(
-        "trio_asyncio.BaseTrioEventLoop.run_coroutine",
-        run_aio_coroutine,
-        "0.10.0",
-        issue=38,
-    )
-
     @deprecated("0.10.0", issue=38, instead="aio_as_trio(proc)(*args)")
     def run_asyncio(self, proc, *args):
         from ._adapter import Asyncio_Trio_Wrapper
