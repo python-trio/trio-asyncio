@@ -2,7 +2,6 @@ from tests import aiotest
 import pytest
 import trio
 import trio_asyncio
-from .. import utils as test_utils
 
 
 class TestThread(aiotest.TestCase):
