@@ -31,7 +31,6 @@ from ._loop import (
     run_future,
     run_coroutine,
     run_asyncio,
-    run_iterator,
 )
 from ._adapter import (
     aio_as_trio,
