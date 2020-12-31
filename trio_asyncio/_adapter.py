@@ -2,17 +2,15 @@
 # Trio.
 
 import types
-import warnings
 
 import asyncio
 import trio_asyncio
 from contextvars import ContextVar
 
-from ._deprecate import deprecated_alias
 from ._util import run_aio_generator, run_aio_future, run_trio_generator
-from ._loop import current_loop, current_policy
+from ._loop import current_loop
 
-from functools import wraps, partial
+from functools import partial
 
 
 async def _call_defer(proc, *args, **kwargs):
