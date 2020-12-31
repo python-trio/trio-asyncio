@@ -38,8 +38,6 @@ from ._adapter import (
     # aliases for the above:
     asyncio_as_trio,
     trio_as_asyncio,
-    # deprecated aliases for the above:
-    aio2trio,
     # additional experimental goodie:
     allow_asyncio,
 )

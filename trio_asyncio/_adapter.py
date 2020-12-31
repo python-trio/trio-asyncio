@@ -293,6 +293,3 @@ async def allow_asyncio(fn, *args):
         return await _allow_asyncio(fn, *args)
     finally:
         shim.reset(token)
-
-
-aio2trio = deprecated_alias("trio_asyncio.aio2trio", trio_as_aio, "0.10.0", issue=38)
