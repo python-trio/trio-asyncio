@@ -1,6 +1,6 @@
 import pytest
 from trio_asyncio import aio_as_trio, trio_as_aio, allow_asyncio
-from trio_asyncio import aio2trio, trio2aio
+from trio_asyncio import aio2trio
 import asyncio
 import trio
 import sniffio
@@ -52,14 +52,6 @@ class SomeThing:
         await trio.sleep(0.01)
         self.flag |= 2
         return 8
-
-    @de_deprecate_converter(trio2aio)
-    async def dly_asyncio_depr(self):
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "asyncio"
-        await asyncio.sleep(0.01, loop=self.loop)
-        self.flag |= 1
-        return 4
 
     @aio_as_trio
     async def dly_asyncio_adapted(self):
@@ -173,13 +165,6 @@ class TestAdapt(aiotest.TestCase):
         assert sth.flag == 1
 
     @pytest.mark.trio
-    async def test_trio_asyncio_depr(self, loop):
-        sth = SomeThing(loop)
-        res = await sth.dly_asyncio_depr()
-        assert res == 4
-        assert sth.flag == 1
-
-    @pytest.mark.trio
     async def test_trio_asyncio_iter(self, loop):
         sth = SomeThing(loop)
         n = 0
@@ -271,16 +256,6 @@ class TestAllow(aiotest.TestCase):
     @pytest.mark.trio
     async def test_trio_asyncio_future(self, loop):
         await allow_asyncio(self.run_trio_asyncio_future, loop)
-
-    async def run_trio_asyncio_depr(self, loop):
-        sth = SomeThing(loop)
-        res = await sth.dly_asyncio_depr()
-        assert res == 4
-        assert sth.flag == 1
-
-    @pytest.mark.trio
-    async def test_trio_asyncio_depr(self, loop):
-        await allow_asyncio(self.run_trio_asyncio_depr, loop)
 
     async def run_trio_asyncio_iter(self, loop):
         sth = SomeThing(loop)
