@@ -1,3 +1,0 @@
-``trio-asyncio`` now requires Trio 0.15. As a side effect this gets rid of ``"TrioDeprecationWarning"`` about ``trio.hazmat``.
-
-Support for Python < 3.6 has been removed.
