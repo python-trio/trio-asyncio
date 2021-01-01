@@ -788,10 +788,3 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def __exit__(self, *tb):
         raise RuntimeError("You need to use a sync loop, or 'async with open_loop()'.")
-
-    # Deprecated aliases #
-
-    @deprecated("0.10.0", issue=38, instead="aio_as_trio(proc)(*args)")
-    def run_asyncio(self, proc, *args):
-        from ._adapter import Asyncio_Trio_Wrapper
-        return Asyncio_Trio_Wrapper(proc, args=args, loop=self)

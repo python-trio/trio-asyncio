@@ -107,16 +107,6 @@ class TestAdapt(aiotest.TestCase):
         assert sth.flag == 2
 
     @pytest.mark.trio
-    async def test_asyncio_trio_depr2(self, loop):
-        """Call asyncio from trio"""
-
-        sth = SomeThing(loop)
-        with test_utils.deprecate(self):
-            res = await loop.run_asyncio(sth.dly_trio_adapted)
-        assert res == 8
-        assert sth.flag == 2
-
-    @pytest.mark.trio
     async def test_trio_asyncio_adapted(self, loop):
         sth = SomeThing(loop)
         res = await sth.dly_asyncio_adapted()

@@ -54,7 +54,7 @@ class Asyncio_Trio_Wrapper:
         return await self.loop.run_aio_coroutine(f)
 
     def __await__(self):
-        """Compatibility code for "await loop.run_asyncio(coro)"
+        """Support for commonly used (but not recommended) "await aio_as_trio(proc(*args))"
         """
         f = self.proc
         if not hasattr(f, "__await__"):

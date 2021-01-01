@@ -45,16 +45,6 @@ class TestMisc:
         assert err.value.args[0] == "Foo"
 
     @pytest.mark.trio
-    async def test_err1_depr(self, loop):
-        async def raise_err():
-            raise RuntimeError("Foo")
-
-        with test_utils.deprecate(self):
-            with pytest.raises(RuntimeError) as err:
-                await loop.run_asyncio(raise_err)
-        assert err.value.args[0] == "Foo"
-
-    @pytest.mark.trio
     async def test_err3(self, loop):
         owch = 0
 
@@ -176,25 +166,6 @@ class TestMisc:
             await asyncio.sleep(0.3, loop=loop)
 
         await trio_asyncio.aio_as_trio(cancel_sleep, loop=loop)()
-        assert owch == 0
-
-    @pytest.mark.trio
-    async def test_cancel_sleep_depr(self, loop):
-        owch = 0
-
-        def do_not_run():
-            nonlocal owch
-            owch = 1
-            raise Exception("should not run")
-
-        async def cancel_sleep():
-            h = loop.call_later(0.2, do_not_run)
-            await asyncio.sleep(0.1, loop=loop)
-            h.cancel()
-            await asyncio.sleep(0.3, loop=loop)
-
-        with test_utils.deprecate(self):
-            await loop.run_asyncio(cancel_sleep)
         assert owch == 0
 
 

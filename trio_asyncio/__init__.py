@@ -27,8 +27,6 @@ from ._loop import (
     run_trio_task,
     run_trio,
     run_aio_coroutine,
-    # forwarders to deprecated event loop methods:
-    run_asyncio,
 )
 from ._adapter import (
     aio_as_trio,

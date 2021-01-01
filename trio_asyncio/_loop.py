@@ -463,17 +463,3 @@ def run_trio_task(proc, *args):
     will propagate to, and terminate, the trio-asyncio loop.
     """
     _running_loop().run_trio_task(proc, *args)
-
-
-# These are aliases for methods in BaseTrioEventLoop which are
-# themselves deprecated. If we deprecate these and call the deprecated
-# loop method, the user gets two warnings. If we just call the
-# deprecated loop method, the warning points here instead of to user
-# code. Therefore, we "chase the pointer" and inline the body of the
-# deprecated loop method into each of these functions.
-
-
-@deprecated("0.10.0", issue=38, instead="aio_as_trio(proc)(*args)")
-def run_asyncio(proc, *args):
-    from ._adapter import Asyncio_Trio_Wrapper
-    return Asyncio_Trio_Wrapper(proc, args=args, loop=_running_loop())
