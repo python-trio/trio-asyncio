@@ -3,9 +3,6 @@ import trio_asyncio
 import asyncio
 import trio
 import sys
-from . import utils as test_utils
-
-# from tests import aiotest
 
 
 class Seen:

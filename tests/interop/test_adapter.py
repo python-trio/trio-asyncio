@@ -10,7 +10,6 @@ try:
     from contextlib import asynccontextmanager
 except ImportError:
     from async_generator import asynccontextmanager
-from .. import utils as test_utils
 from trio_asyncio import TrioAsyncioDeprecationWarning
 
 

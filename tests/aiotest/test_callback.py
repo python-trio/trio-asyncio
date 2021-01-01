@@ -1,7 +1,6 @@
 from tests import aiotest
 import signal
 import pytest
-from .. import utils as test_utils
 
 
 class TestCallback(aiotest.TestCase):
