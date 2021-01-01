@@ -10,9 +10,7 @@ import warnings
 import concurrent.futures
 
 from ._handles import ScopedHandle, AsyncHandle
-from ._util import run_aio_future, run_aio_generator
-from ._deprecate import deprecated, deprecated_alias
-from . import _util
+from ._util import run_aio_future
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
 

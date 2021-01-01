@@ -4,7 +4,6 @@
 import sys
 import trio
 import asyncio
-import warnings
 import threading
 from contextvars import ContextVar
 
@@ -13,9 +12,8 @@ try:
 except ImportError:
     from async_generator import asynccontextmanager
 
-from ._util import run_aio_future, run_aio_generator
 from ._async import TrioEventLoop
-from ._deprecate import deprecated, warn_deprecated
+from ._deprecate import warn_deprecated
 
 try:
     from trio.lowlevel import wait_for_child
