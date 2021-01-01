@@ -413,7 +413,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         This is a Trio-flavored async function.
 
-        From asyncio, call ``await loop.run_trio(loop.synchronize)``
+        From asyncio, call ``await trio_as_aio(loop.synchronize)()``
         instead of ``await asyncio.sleep(0)`` if you need to process all
         queued callbacks.
 
