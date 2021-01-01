@@ -29,23 +29,3 @@ showcontent = true
 directory = "misc"
 name = "Miscellaneous"
 showcontent = true
-
-[tool.poetry]
-name = "trio-asyncio"
-version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
-
-[tool.poetry.dependencies]
-python = "^3.6"
-
-[tool.poetry.dev-dependencies]
-towncrier = "^19.2.0"
-pytest = "^6.2.1"
-pytest-cov = "^2.10.1"
-pytest-trio = "^0.7.0"
-outcome = "^1.1.0"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
