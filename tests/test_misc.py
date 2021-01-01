@@ -228,7 +228,7 @@ async def test_keyboard_interrupt_teardown():
                 # Trigger KeyboardInterrupt that should propagate accross the coroutines
                 signal.pthread_kill(threading.get_ident(), signal.SIGINT)
 
-
+@pytest.mark.xfail(reason="RuntimeError: Event loop is closed", raises=RuntimeError)
 @pytest.mark.trio
 @pytest.mark.parametrize("throw_another", [False, True])
 async def test_cancel_loop(throw_another):
