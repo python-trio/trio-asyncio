@@ -263,9 +263,9 @@ class TestMisc:
 
         async def cancel_sleep():
             h = loop.call_later(0.2, do_not_run)
-            await asyncio.sleep(0.1, loop=loop)
+            await asyncio.sleep(0.1)
             h.cancel()
-            await asyncio.sleep(0.3, loop=loop)
+            await asyncio.sleep(0.3)
 
         await trio_asyncio.aio_as_trio(cancel_sleep, loop=loop)()
         assert owch == 0
