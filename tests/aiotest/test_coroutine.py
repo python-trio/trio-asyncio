@@ -6,7 +6,7 @@ import pytest
 async def hello_world(asyncio, result, delay, loop):
     result.append("Hello")
     # retrieve the event loop from the policy
-    await asyncio.sleep(delay, loop=loop)
+    await asyncio.sleep(delay)
     result.append('World')
     return "."
 

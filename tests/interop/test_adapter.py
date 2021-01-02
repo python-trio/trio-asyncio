@@ -47,25 +47,25 @@ class SomeThing:
     async def dly_asyncio_adapted(self):
         if sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "asyncio"
-        await asyncio.sleep(0.01, loop=self.loop)
+        await asyncio.sleep(0.01)
         self.flag |= 1
         return 4
 
     async def dly_asyncio(self, do_test=True):
         if do_test and sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "asyncio"
-        await asyncio.sleep(0.01, loop=self.loop)
+        await asyncio.sleep(0.01)
         self.flag |= 1
         return 4
 
     async def iter_asyncio(self, do_test=True):
         if do_test and sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "asyncio"
-        await asyncio.sleep(0.01, loop=self.loop)
+        await asyncio.sleep(0.01)
         yield 1
-        await asyncio.sleep(0.01, loop=self.loop)
+        await asyncio.sleep(0.01)
         yield 2
-        await asyncio.sleep(0.01, loop=self.loop)
+        await asyncio.sleep(0.01)
         self.flag |= 1
 
     async def iter_trio(self):
@@ -80,10 +80,10 @@ class SomeThing:
 
     @asynccontextmanager
     async def ctx_asyncio(self):
-        await asyncio.sleep(0.01, loop=self.loop)
+        await asyncio.sleep(0.01)
         self.flag |= 1
         yield self
-        await asyncio.sleep(0.01, loop=self.loop)
+        await asyncio.sleep(0.01)
         self.flag |= 2
 
     @asynccontextmanager
