@@ -73,7 +73,7 @@ class TestCalls(aiotest.TestCase):
     @pytest.mark.trio
     async def test_call_at(self, loop):
         async def delay(t):
-            done = asyncio.Event(loop=loop)
+            done = asyncio.Event()
             loop.call_at(t, done.set)
             await done.wait()
 
@@ -191,13 +191,13 @@ class TestCalls(aiotest.TestCase):
         async def cancelled_asyncio(seen):
             seen.flag |= 1
             await asyncio.sleep(0.01)
-            f = asyncio.Future(loop=loop)
+            f = asyncio.Future()
             f.cancel()
             return f.result()  # raises error
 
         def cancelled_future(seen):
             seen.flag |= 1
-            f = asyncio.Future(loop=loop)
+            f = asyncio.Future()
             f.cancel()
             return f  # contains error
 
@@ -230,7 +230,7 @@ class TestCalls(aiotest.TestCase):
                 seen.flag |= 2
 
         async def cancel_asyncio(seen):
-            started = asyncio.Event(loop=loop)
+            started = asyncio.Event()
             f = asyncio.ensure_future(self.call_a_t(in_trio, started, seen, loop=loop))
             await started.wait()
             f.cancel()
@@ -335,7 +335,7 @@ class TestCalls(aiotest.TestCase):
             await trio.sleep(0.01)
             nursery.cancel_scope.cancel()
 
-        hold = asyncio.Event(loop=loop)
+        hold = asyncio.Event()
         seen = Seen()
 
         async with trio.open_nursery() as nursery:
