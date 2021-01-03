@@ -106,6 +106,15 @@ class TestAdapt(aiotest.TestCase):
         assert sth.flag == 2
 
     @pytest.mark.trio
+    async def test_asyncio_trio_adapted_no_loop(self, loop):
+        """Call asyncio from trio"""
+
+        sth = SomeThing(loop)
+        res = await aio_as_trio(sth.dly_trio_adapted)
+        assert res == 8
+        assert sth.flag == 2
+
+    @pytest.mark.trio
     async def test_trio_asyncio_adapted(self, loop):
         sth = SomeThing(loop)
         res = await sth.dly_asyncio_adapted()
