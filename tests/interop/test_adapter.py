@@ -197,13 +197,6 @@ class TestAllow(aiotest.TestCase):
         assert res == 8
         assert sth.flag == 2
 
-    async def run_asyncio_trio_adapted(self, loop):
-        """Call asyncio from trio"""
-        sth = SomeThing(loop)
-        res = await sth.dly_trio_adapted()
-        assert res == 8
-        assert sth.flag == 2
-
     @pytest.mark.trio
     async def test_asyncio_trio(self, loop):
         await allow_asyncio(self.run_asyncio_trio, loop)
@@ -229,6 +222,16 @@ class TestAllow(aiotest.TestCase):
     @pytest.mark.trio
     async def test_trio_asyncio_future(self, loop):
         await allow_asyncio(self.run_trio_asyncio_future, loop)
+
+    async def run_trio_asyncio_adapted(self, loop):
+        sth = SomeThing(loop)
+        res = await sth.dly_asyncio_adapted()
+        assert res == 4
+        assert sth.flag == 1
+
+    @pytest.mark.trio
+    async def test_trio_asyncio_adapted(self, loop):
+        await allow_asyncio(self.run_trio_asyncio_adapted, loop)
 
     async def run_trio_asyncio_iter(self, loop):
         sth = SomeThing(loop)
