@@ -223,6 +223,23 @@ class TestAllow(aiotest.TestCase):
     async def test_trio_asyncio_future(self, loop):
         await allow_asyncio(self.run_trio_asyncio_future, loop)
 
+    def get_asyncio_future(self, loop, sth):
+        async def set_result(future, sth):
+            await asyncio.sleep(0.01)
+            sth.flag |= 1
+            future.set_result(4)
+
+        f = loop.create_future()
+        loop.create_task(set_result(f, sth))
+        return f
+
+    @pytest.mark.trio
+    async def test_trio_asyncio_future_getter(self, loop):
+        sth = SomeThing(loop)
+        res = await allow_asyncio(self.get_asyncio_future, loop, sth)
+        assert res == 4
+        assert sth.flag == 1
+
     async def run_trio_asyncio_adapted(self, loop):
         sth = SomeThing(loop)
         res = await sth.dly_asyncio_adapted()
