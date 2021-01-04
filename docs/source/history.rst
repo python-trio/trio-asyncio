@@ -5,7 +5,7 @@ Release history
 
 .. towncrier release notes start
 
-Trio_Asyncio 0.12.0 (2021-01-01)
+trio-asyncio 0.12.0 (2021-01-04)
 --------------------------------
 
 Bugfixes

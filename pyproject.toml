@@ -1,5 +1,6 @@
 [tool.towncrier]
 package = "trio_asyncio"
+title_format = "trio-asyncio {version} ({project_date})"
 filename = "docs/source/history.rst"
 directory = "newsfragments"
 underlines = ["-", "~", "^"]
