@@ -30,15 +30,15 @@ A number of functions deprecated since 0.10.0 are now removed:
 ================================================= =============================================
   Removed                                           Replacement
 ================================================= =============================================
-``wrap_generator``                                :func:`aio_as_trio(proc(*args))<aio_as_trio>`
-``run_iterator``                                  :func:`aio_as_trio(aiter)<aio_as_trio>`
-``trio2aio``                                      :func:`~aio_as_trio`
-``aio2trio``                                      :func:`~trio_as_aio`
-``run_future`` ``TrioEventLoop.run_future``       :func:`~run_aio_future`
-``run_coroutine`` ``TrioEventLoop.run_coroutine`` :func:`~run_aio_coroutine`
-``wrap_trio_context``                             :func:`trio_as_aio(ctx)<trio_as_aio>`
-``TrioEventLoop.run_trio``                        :func:`trio_as_aio(proc)(*args)<trio_as_aio>`
-``run_asyncio``                                   :func:`aio_as_trio(proc)(*args)<aio_as_trio>`
+``wrap_generator(proc, *args)``                   :func:`aio_as_trio(proc(*args))<aio_as_trio>`
+``run_iterator(aiter)``                           :func:`aio_as_trio(aiter)<aio_as_trio>`
+``trio2aio``                                      :func:`aio_as_trio`
+``aio2trio``                                      :func:`trio_as_aio`
+``run_future`` ``TrioEventLoop.run_future``       :func:`run_aio_future`
+``run_coroutine`` ``TrioEventLoop.run_coroutine`` :func:`run_aio_coroutine`
+``wrap_trio_context(ctx)``                        :func:`trio_as_aio(ctx)<trio_as_aio>`
+``TrioEventLoop.run_trio(proc, *args)``           :func:`trio_as_aio(proc)(*args)<trio_as_aio>`
+``run_asyncio(proc, *args)``                      :func:`aio_as_trio(proc)(*args)<aio_as_trio>`
 ================================================= =============================================
 
 Miscellaneous
