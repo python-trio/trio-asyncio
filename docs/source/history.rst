@@ -20,7 +20,7 @@ Bugfixes
 - Previously, cancelling the context surrounding an :func:`open_loop`
   block might cause a deadlock in some cases. The ordering of operations
   during loop teardown has been improved, so this shouldn't happen
-  anymore. (`#80 <https://github.com/python-trio/trio-asyncio/issues/80>`__)
+  anymore. (`#81 <https://github.com/python-trio/trio-asyncio/issues/81>`__)
 
 Deprecations and Removals
 ~~~~~~~~~~~~~~~~~~~~~~~~~
