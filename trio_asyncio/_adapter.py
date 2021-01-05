@@ -271,7 +271,7 @@ async def allow_asyncio(fn, *args):
         import trio_asyncio
 
         async def hello(loop):
-            await asyncio.sleep(1)
+            await asyncio.sleep(1, loop=loop)
             print("Hello")
             await trio.sleep(1)
             print("World")

@@ -48,7 +48,7 @@ class AioContext:
         self.parent.did_it = 1
         if sys.version_info >= (3, 7):
             assert sniffio.current_async_library() == "asyncio"
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.01, loop=self.loop)
         self.parent.did_it = 2
         return self
 
@@ -83,7 +83,7 @@ class TestCalls(aiotest.TestCase):
     @pytest.mark.trio
     async def test_call_at(self, loop):
         async def delay(t):
-            done = asyncio.Event()
+            done = asyncio.Event(loop=loop)
             loop.call_at(t, done.set)
             await done.wait()
 
@@ -193,7 +193,7 @@ class TestCalls(aiotest.TestCase):
     @pytest.mark.trio
     async def test_trio_asyncio(self, loop):
         async def dly_asyncio(seen):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01, loop=loop)
             seen.flag |= 1
             return 4
 
@@ -280,7 +280,7 @@ class TestCalls(aiotest.TestCase):
     @pytest.mark.trio
     async def test_trio_asyncio_error(self, loop):
         async def err_asyncio():
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01, loop=loop)
             raise RuntimeError("I has an owie")
 
         with pytest.raises(RuntimeError) as err:
@@ -317,14 +317,14 @@ class TestCalls(aiotest.TestCase):
     async def test_trio_asyncio_cancel_out(self, loop):
         async def cancelled_asyncio(seen):
             seen.flag |= 1
-            await asyncio.sleep(0.01)
-            f = asyncio.Future()
+            await asyncio.sleep(0.01, loop=loop)
+            f = asyncio.Future(loop=loop)
             f.cancel()
             return f.result()  # raises error
 
         def cancelled_future(seen):
             seen.flag |= 1
-            f = asyncio.Future()
+            f = asyncio.Future(loop=loop)
             f.cancel()
             return f  # contains error
 
@@ -387,7 +387,7 @@ class TestCalls(aiotest.TestCase):
                 seen.flag |= 2
 
         async def cancel_asyncio(seen):
-            started = asyncio.Event()
+            started = asyncio.Event(loop=loop)
             f = asyncio.ensure_future(self.call_a_t(in_trio, started, seen, loop=loop))
             await started.wait()
             f.cancel()
@@ -404,7 +404,7 @@ class TestCalls(aiotest.TestCase):
         async def in_asyncio(started, seen):
             started.set()
             try:
-                await asyncio.sleep(9999)
+                await asyncio.sleep(9999, loop=loop)
             except asyncio.CancelledError:
                 seen.flag |= 1
             except trio.Cancelled:
@@ -527,7 +527,7 @@ class TestCalls(aiotest.TestCase):
     async def test_trio_asyncio_generator(self, loop):
         async def dly_asyncio():
             yield 1
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01, loop=loop)
             yield 2
 
         with test_utils.deprecate(self):
@@ -557,7 +557,7 @@ class TestCalls(aiotest.TestCase):
             await trio.sleep(0.01)
             nursery.cancel_scope.cancel()
 
-        hold = asyncio.Event()
+        hold = asyncio.Event(loop=loop)
         seen = Seen()
 
         with test_utils.deprecate(self):
@@ -571,7 +571,7 @@ class TestCalls(aiotest.TestCase):
     async def test_trio_asyncio_iterator(self, loop):
         async def slow_nums():
             for n in range(1, 6):
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01, loop=loop)
                 yield n
 
         sum = 0
@@ -583,7 +583,7 @@ class TestCalls(aiotest.TestCase):
     async def test_trio_asyncio_iterator_depr(self, loop):
         async def slow_nums():
             for n in range(1, 6):
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01, loop=loop)
                 yield n
 
         sum = 0

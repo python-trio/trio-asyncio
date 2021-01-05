@@ -108,7 +108,7 @@ async def run_aio_generator(loop, async_generator):
     try:
         while True:
             # Schedule in asyncio that we read the next item from the iterator
-            current_read = asyncio.ensure_future(consume_next())
+            current_read = asyncio.ensure_future(consume_next(), loop=loop)
 
             item = await trio.lowlevel.wait_task_rescheduled(abort_cb)
 
