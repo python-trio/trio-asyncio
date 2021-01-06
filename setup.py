@@ -54,6 +54,7 @@ Matthias Urlichs <matthias@urlichs.de>
 
 install_requires = [
     "trio >= 0.15.0",
+    "attrs",
     "outcome",
 ]
 if sys.version_info < (3, 7):
