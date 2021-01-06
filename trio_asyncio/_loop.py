@@ -391,20 +391,43 @@ async def open_loop(queue_len=None):
     """
 
     # TODO: make sure that there is no asyncio loop already running
-    async with trio.open_nursery() as nursery:
+
+    # The trio-asyncio loop can't shut down until all trio_as_aio tasks
+    # (or others using run_trio) have exited. This is because the
+    # termination of such a Trio task sets an asyncio future, which
+    # uses call_soon(), which won't work if the loop is closed.
+    # So, we use two nested nurseries.
+    async with trio.open_nursery() as loop_nursery:
         loop = TrioEventLoop(queue_len=queue_len)
         old_loop = current_loop.set(loop)
         try:
             loop._closed = False
-            await loop._main_loop_init(nursery)
-            await nursery.start(loop._main_loop)
-            yield loop
+            async with trio.open_nursery() as tasks_nursery:
+                await loop._main_loop_init(tasks_nursery)
+                await loop_nursery.start(loop._main_loop)
+                yield loop
+                tasks_nursery.cancel_scope.cancel()
+
+                # Allow all submitted run_trio() tasks calls a chance
+                # to start before the tasks_nursery closes, unless the
+                # loop stops (due to someone else calling stop())
+                # before that:
+                async with trio.open_nursery() as sync_nursery:
+                    sync_nursery.cancel_scope.shield = True
+
+                    @sync_nursery.start_soon
+                    async def wait_for_sync():
+                        if not loop.is_closed():
+                            await loop.synchronize()
+                        sync_nursery.cancel_scope.cancel()
+
+                    await loop.wait_stopped()
+                    sync_nursery.cancel_scope.cancel()
         finally:
             try:
                 await loop._main_loop_exit()
             finally:
                 loop.close()
-                nursery.cancel_scope.cancel()
                 current_loop.reset(old_loop)
 
 
