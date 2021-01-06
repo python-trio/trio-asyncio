@@ -228,7 +228,6 @@ async def test_keyboard_interrupt_teardown():
                 # Trigger KeyboardInterrupt that should propagate accross the coroutines
                 signal.pthread_kill(threading.get_ident(), signal.SIGINT)
 
-@pytest.mark.xfail(reason="https://github.com/python-trio/trio-asyncio/issues/95", raises=RuntimeError)
 @pytest.mark.trio
 @pytest.mark.parametrize("throw_another", [False, True])
 async def test_cancel_loop(throw_another):
