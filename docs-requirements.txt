@@ -1,3 +1,6 @@
 sphinx >= 1.7.0
 sphinx_rtd_theme
 sphinxcontrib-trio
+trio >= 0.15.0
+outcome
+attrs

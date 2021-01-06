@@ -1,6 +1,8 @@
 include README.rst LICENSE* CODE_OF_CONDUCT* CONTRIBUTING*
 include .coveragerc
 include ci/test-requirements.txt
-recursive-include tests *.pem
+recursive-include tests *.py
+recursive-exclude tests *.pyc
+prune tests/.pytest_cache
 recursive-include docs *
 prune docs/build
