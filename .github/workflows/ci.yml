@@ -51,9 +51,11 @@ jobs:
           - python: '3.8'
             check_docs: '1'
             extra_name: ', check docs'
-          - python: '3.7'  # <- not actually used
-            pypy_nightly_branch: 'py3.7'
-            extra_name: ', pypy 3.7 nightly'
+        # pypy3.7-nightly produces an "OSError: handle is closed" in the
+        # bowels of multiprocessing after all tests appear to complete successfully
+        #  - python: '3.7'  # <- not actually used
+        #    pypy_nightly_branch: 'py3.7'
+        #    extra_name: ', pypy 3.7 nightly'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
