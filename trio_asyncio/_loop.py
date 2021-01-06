@@ -417,10 +417,8 @@ async def open_loop(queue_len=None):
 
                     @sync_nursery.start_soon
                     async def wait_for_sync():
-                        try:
+                        if not loop.is_closed():
                             await loop.synchronize()
-                        except RuntimeError:  # "Event loop is closed"
-                            pass
                         sync_nursery.cancel_scope.cancel()
 
                     await loop.wait_stopped()
