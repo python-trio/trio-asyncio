@@ -24,7 +24,11 @@ class TestTimer(aiotest.TestCase):
         loop.call_soon(display_date, [], loop)
         await h.wait()
 
-        assert len(result) == count, result
+        assert 2 <= len(result) <= 3
+        assert all(
+            later - earlier >= datetime.timedelta(microseconds=150000)
+            for earlier, later in zip(result[:-1], result[1:])
+        )
 
     @pytest.mark.trio
     async def test_later_stop_later(self, loop):

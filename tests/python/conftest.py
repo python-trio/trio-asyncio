@@ -125,33 +125,73 @@ else:
                 "test_tasks.py::RunCoroutineThreadsafeTests::"
                 "test_run_coroutine_threadsafe_with_timeout"
             )
+            if sys.platform == "win32":
+                xfail("test_windows_events.py::ProactorLoopCtrlC::test_ctrl_c")
 
-        # These fail with ConnectionResetError on Pythons <= 3.7.x
-        # for some unknown x. (3.7.1 fails, 3.7.5 and 3.7.6 pass;
-        # older 3.6.x also affected)
-        if sys.platform != "win32" and sys.version_info < (3, 8):
+        # The CPython SSL tests ignored here fail with
+        # ConnectionResetError on Pythons <= 3.7.x for some unknown x.
+        # (3.7.1 fails, 3.7.5 and 3.7.6 pass; older 3.6.x also affected)
+        if sys.platform != "win32":
             import selectors
+
+            xfail_per_eventloop = []
+            if sys.implementation.name == "pypy":
+                # pypy uses a different spelling of the certificate
+                # failure error message which causes this test to spuriously fail
+                if sys.version_info >= (3, 7):
+                    xfail_per_eventloop += [
+                        "test_create_server_ssl_match_failed"
+                    ]
+            else:
+                if sys.version_info < (3, 8):
+                    xfail_per_eventloop += [
+                        "test_create_ssl_connection",
+                        "test_create_ssl_unix_connection"
+                    ]
+                if sys.version_info < (3, 7):
+                    xfail_per_eventloop += [
+                        "test_legacy_create_ssl_connection",
+                        "test_legacy_create_ssl_unix_connection",
+                    ]
 
             kinds = ("Select",)
             for candidate in ("Kqueue", "Epoll", "Poll"):
                 if hasattr(selectors, candidate + "Selector"):
                     kinds += (candidate.replace("Epoll", "EPoll"),)
             for kind in kinds:
-                tests = (
-                    "test_create_ssl_connection", "test_create_ssl_unix_connection"
-                )
+                for test in xfail_per_eventloop:
+                    xfail("test_events.py::{}EventLoopTests::{}".format(kind, test))
+
+            if sys.implementation.name != "pypy":
                 if sys.version_info < (3, 7):
-                    tests += (
-                        "test_legacy_create_ssl_connection",
-                        "test_legacy_create_ssl_unix_connection",
-                    )
                     stream_suite = "StreamReaderTests"
                 else:
                     stream_suite = "StreamTests"
-                for test in tests:
-                    xfail("test_events.py::{}EventLoopTests::{}".format(kind, test))
                 for which in ("open_connection", "open_unix_connection"):
                     xfail(
                         "test_streams.py::{}::test_{}_no_loop_ssl"
                         .format(stream_suite, which)
                     )
+
+        if sys.implementation.name == "pypy" and sys.version_info >= (3, 7):
+            # This fails due to a trivial difference in how pypy handles IPv6
+            # addresses
+            xfail(
+                "test_base_events.py::BaseEventLoopWithSelectorTests::"
+                "test_create_connection_ipv6_scope"
+            )
+            # This test depends on the C implementation of asyncio.Future, and
+            # unlike most such tests it is not configured to be skipped if
+            # the C implementation is not available
+            xfail(
+                "test_futures.py::CFutureInheritanceTests::"
+                "test_inherit_without_calling_super_init"
+            )
+            # These tests assume CPython-style immediate finalization of
+            # objects when they become unreferenced
+            for test in (
+                "test_create_connection_memory_leak",
+                "test_handshake_timeout",
+                "test_start_tls_client_reg_proto_1",
+            ):
+                xfail("test_sslproto.py::SelectorStartTLSTests::{}".format(test))
