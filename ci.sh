@@ -80,6 +80,9 @@ if python -c 'import sys; sys.exit(sys.version_info >= (3, 7))'; then
     git diff test-requirements.txt
 fi
 
+# See https://github.com/python-trio/trio/issues/334
+YAPF_VERSION=0.20.0
+
 if [ "$CHECK_FORMATTING" = "1" ]; then
     pip install yapf==${YAPF_VERSION}
     if ! yapf -rpd setup.py trio_asyncio; then

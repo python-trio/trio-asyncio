@@ -66,6 +66,13 @@ jobs:
         if: endsWith(matrix.python, '-dev')
         with:
           python-version: '${{ matrix.python }}'
+      - name: Install python testsuite
+        if: endsWith(matrix.python, '-dev')
+        run: |
+          version=$(echo $PYVERSION | sed 's/-dev//')
+          sudo apt-get install -y --no-install-recommends libpython${version}-testsuite
+        env:
+          PYVERSION: '${{ matrix.python }}'
       - name: Run tests
         run: ./ci.sh
         env:
