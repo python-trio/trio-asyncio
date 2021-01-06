@@ -69,7 +69,7 @@ setup(
     author_email="matthias@urlichs.de",
     url="https://github.com/python-trio/trio-asyncio",
     license="MIT -or- Apache License 2.0",
-    packages=find_packages(),
+    packages=["trio_asyncio"],
     install_requires=install_requires,
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
