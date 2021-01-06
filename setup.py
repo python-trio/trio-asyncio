@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 import sys
 
 exec(open("trio_asyncio/_version.py", encoding="utf-8").read())
