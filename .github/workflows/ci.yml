@@ -38,7 +38,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.6', 'pypy-3.7', '3.6', '3.7', '3.8', '3.9', '3.6-dev', '3.7-dev', '3.8-dev', '3.9-dev']
+        # No pypy-3.7 because Trio doesn't support it (nightly is fine, it has a fix we need)
+        python: ['pypy-3.6', '3.6', '3.7', '3.8', '3.9', '3.6-dev', '3.7-dev', '3.8-dev', '3.9-dev']
         check_formatting: ['0']
         check_docs: ['0']
         pypy_nightly_branch: ['']
