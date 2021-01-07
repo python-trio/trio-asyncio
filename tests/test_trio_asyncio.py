@@ -36,3 +36,14 @@ async def test_half_fixtured_asyncpg_conn(asyncio_fixture_own_loop):
 @pytest.mark.trio
 async def test_fixtured_asyncpg_conn(asyncio_fixture_with_fixtured_loop):
     await use_asyncio()
+
+
+@pytest.mark.trio
+async def test_get_running_loop():
+    async with trio_asyncio.open_loop() as loop:
+        try:
+            from asyncio import get_running_loop
+        except ImportError:
+            pass  # Python 3.6
+        else:
+            assert get_running_loop() == loop
