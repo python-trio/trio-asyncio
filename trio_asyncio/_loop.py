@@ -249,6 +249,8 @@ else:
 
     _aio_event._get_running_loop = _new_run_get
     _aio_event.get_running_loop = _new_run_get_or_throw
+    asyncio._get_running_loop = _new_run_get
+    asyncio.get_running_loop = _new_run_get_or_throw
 
 #####
 

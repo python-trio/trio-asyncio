@@ -1,0 +1,2 @@
+:func:`asyncio.get_running_loop()` will now return the trio-asyncio event loop
+(if running), instead of failing with :exc:`RuntimeError`.
