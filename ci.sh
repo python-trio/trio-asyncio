@@ -103,14 +103,6 @@ EOF
         exit 1
     fi
     exit 0
-fi
-
-if [ "$CHECK_DOCS" = "1" ]; then
-    python -m pip install -r docs-requirements.txt
-    cd docs
-    # -n (nit-picky): warn on missing references
-    # -W: turn warnings into errors
-    sphinx-build -nW  -b html source build
 else
     # Actual tests
     python -m pip install -r test-requirements.txt
