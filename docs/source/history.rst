@@ -5,12 +5,18 @@ Release history
 
 .. towncrier release notes start
 
-trio-asyncio 0.12.0 (2021-01-04)
+trio-asyncio 0.12.0 (2021-01-07)
 --------------------------------
 
 Bugfixes
 ~~~~~~~~
 
+- trio-asyncio now cancels any Trio tasks that were started inside a trio-asyncio
+  loop (using e.g. :func:`trio_as_aio`) before it allows the trio-asyncio loop
+  to close. This should resolve some cases of deadlocks and "RuntimeError: Event loop
+  is closed" when an ``async with open_loop():`` block is cancelled. (`#89 <https://github.com/python-trio/trio-asyncio/issues/89>`__)
+- :func:`asyncio.get_running_loop` will now return the trio-asyncio event loop
+  (if running), instead of failing with :exc:`RuntimeError`. (`#99 <https://github.com/python-trio/trio-asyncio/issues/99>`__)
 - On Python versions with native contextvars support (3.7+), a Trio task
   started from asyncio context (using :func:`trio_as_aio`,
   :meth:`~BaseTrioEventLoop.trio_as_future`, etc) will now properly
