@@ -48,9 +48,6 @@ jobs:
           - python: '3.8'
             check_formatting: '1'
             extra_name: ', check formatting'
-          - python: '3.8'
-            check_docs: '1'
-            extra_name: ', check docs'
         # pypy3.7-nightly produces an "OSError: handle is closed" in the
         # bowels of multiprocessing after all tests appear to complete successfully
         #  - python: '3.7'  # <- not actually used
