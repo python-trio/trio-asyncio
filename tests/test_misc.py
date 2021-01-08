@@ -154,11 +154,10 @@ class TestMisc:
         def do_not_run():
             nonlocal owch
             owch = 1
-            raise Exception("should not run")
 
         async def cancel_sleep():
             h = loop.call_later(0.2, do_not_run)
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
             h.cancel()
             await asyncio.sleep(0.3)
 
