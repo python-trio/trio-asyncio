@@ -54,7 +54,6 @@ Matthias Urlichs <matthias@urlichs.de>
 
 install_requires = [
     "trio >= 0.15.0",
-    "attrs",
     "outcome",
     "sniffio",
 ]
