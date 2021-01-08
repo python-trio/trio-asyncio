@@ -1,7 +1,6 @@
 from tests import aiotest
 import signal
 import pytest
-from .. import utils as test_utils
 
 
 class TestCallback(aiotest.TestCase):
@@ -51,10 +50,6 @@ class TestCallback(aiotest.TestCase):
         func = lambda: False
         coro = test()
         try:
-            # no longer depends on the loop
-            # with pytest.raises(RuntimeError):
-            #    fut = config.asyncio.Future(loop=loop)
-            #    await loop.run_future(fut)
             with pytest.raises(RuntimeError, match='not a sync loop'):
                 loop.run_until_complete(None)
             with pytest.raises(RuntimeError):
@@ -71,9 +66,6 @@ class TestCallback(aiotest.TestCase):
                 loop.run_in_executor(None, func)
             with pytest.raises(RuntimeError, match='Event loop is closed'):
                 await loop.run_aio_coroutine(coro)
-            with test_utils.deprecate(self):
-                with pytest.raises(RuntimeError, match='Event loop is closed'):
-                    await loop.run_coroutine(coro)
             with pytest.raises(RuntimeError, match='Event loop is closed'):
                 loop.add_signal_handler(signal.SIGTERM, func)
         finally:

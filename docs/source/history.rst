@@ -5,6 +5,56 @@ Release history
 
 .. towncrier release notes start
 
+trio-asyncio 0.12.0 (2021-01-07)
+--------------------------------
+
+Bugfixes
+~~~~~~~~
+
+- trio-asyncio now cancels any Trio tasks that were started inside a trio-asyncio
+  loop (using e.g. :func:`trio_as_aio`) before it allows the trio-asyncio loop
+  to close. This should resolve some cases of deadlocks and "RuntimeError: Event loop
+  is closed" when an ``async with open_loop():`` block is cancelled. (`#89 <https://github.com/python-trio/trio-asyncio/issues/89>`__)
+- :func:`asyncio.get_running_loop` will now return the trio-asyncio event loop
+  (if running), instead of failing with :exc:`RuntimeError`. (`#99 <https://github.com/python-trio/trio-asyncio/issues/99>`__)
+- On Python versions with native contextvars support (3.7+), a Trio task
+  started from asyncio context (using :func:`trio_as_aio`,
+  :meth:`~BaseTrioEventLoop.trio_as_future`, etc) will now properly
+  inherit the contextvars of its caller.  Also, if the entire
+  trio-asyncio loop is cancelled, such tasks will no longer let
+  `trio.Cancelled` exceptions leak into their asyncio caller. (`#76 <https://github.com/python-trio/trio-asyncio/issues/76>`__)
+- Previously, cancelling the context surrounding an :func:`open_loop`
+  block might cause a deadlock in some cases. The ordering of operations
+  during loop teardown has been improved, so this shouldn't happen
+  anymore. (`#81 <https://github.com/python-trio/trio-asyncio/issues/81>`__)
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A number of functions deprecated since 0.10.0 are now removed:
+
+================================================= =============================================
+  Removed                                           Replacement
+================================================= =============================================
+``wrap_generator(proc, *args)``                   :func:`aio_as_trio(proc(*args))<aio_as_trio>`
+``run_iterator(aiter)``                           :func:`aio_as_trio(aiter)<aio_as_trio>`
+``trio2aio``                                      :func:`aio_as_trio`
+``aio2trio``                                      :func:`trio_as_aio`
+``run_future`` ``TrioEventLoop.run_future``       :func:`run_aio_future`
+``run_coroutine`` ``TrioEventLoop.run_coroutine`` :func:`run_aio_coroutine`
+``wrap_trio_context(ctx)``                        :func:`trio_as_aio(ctx)<trio_as_aio>`
+``TrioEventLoop.run_trio(proc, *args)``           :func:`trio_as_aio(proc)(*args)<trio_as_aio>`
+``run_asyncio(proc, *args)``                      :func:`aio_as_trio(proc)(*args)<aio_as_trio>`
+================================================= =============================================
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+- ``trio-asyncio`` now requires Trio 0.15. Support for Python < 3.6 has been removed. (`#82 <https://github.com/python-trio/trio-asyncio/issues/82>`__)
+
+- No more ``TrioDeprecationWarning`` about ``trio.hazmat``. (`#82 <https://github.com/python-trio/trio-asyncio/issues/82>`__)
+
+
 trio-asyncio 0.11.0 (2020-03-09)
 --------------------------------
 

@@ -1,4 +1,0 @@
-trio-asyncio now cancels any Trio tasks that were started inside a trio-asyncio
-loop (using e.g. :func:`trio_as_aio`) before it allows the trio-asyncio loop
-to close. This should resolve some cases of deadlocks and "RuntimeError: Event loop
-is closed" when an ``async with open_loop():`` block is cancelled.
