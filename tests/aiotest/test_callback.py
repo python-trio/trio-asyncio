@@ -31,7 +31,7 @@ class TestCallback(aiotest.TestCase):
         loop.call_soon(func, result, loop)
         await loop.wait_stopped()
         # http://bugs.python.org/issue22875: Ensure that call_soon() does not
-        # call append_result() immediatly, but when control returns to the
+        # call append_result() immediately, but when control returns to the
         # event loop, when func() is done.
         assert result == ['[]', 'yes']
 
