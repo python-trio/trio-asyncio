@@ -86,8 +86,7 @@ async def test_tasks_get_cancelled():
         tasks.append(asyncio.ensure_future(aio_sleeper("aio early")))
         loop.run_trio_task(trio_sleeper, "trio early")
 
-    assert record[0] == "aio early"
-    assert set(record[1:]) == {"trio early", "trio late"}
+    assert set(record) == {"aio early", "trio early", "trio late"}
     assert len(tasks) == 2 and tasks[0].done() and not tasks[1].done()
 
     # Suppress "Task was destroyed but it was pending!" message

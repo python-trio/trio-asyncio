@@ -386,16 +386,16 @@ async def open_loop(queue_len=None):
 
     Exiting the context manager will attempt to do an orderly shutdown
     of the tasks it contains, analogously to :func:`asyncio.run`.
-    asyncio-flavored tasks are cancelled and awaited first, then
-    Trio-flavored tasks that were started using
-    :meth:`~BaseTrioEventLoop.trio_as_future` or
-    :meth:`~BaseTrioEventLoop.run_trio_task`. All
+    Both asyncio-flavored tasks and Trio-flavored tasks (the latter
+    started using :meth:`~BaseTrioEventLoop.trio_as_future`,
+    :meth:`~BaseTrioEventLoop.run_trio_task`, :func:`trio_as_aio`,
+    etc) are cancelled simultaneously, and the loop waits for them to
+    exit in response to this cancellation before proceeding. All
     :meth:`~asyncio.loop.call_soon` callbacks that are submitted
-    before exiting the context manager will run before starting
-    this shutdown sequence, and all callbacks that are submitted
-    before the last task exits will run before the loop closes.
-    The exact point at which the loop stops running callbacks is
-    not specified.
+    before exiting the context manager will run before starting this
+    shutdown sequence, and all callbacks that are submitted before the
+    last task exits will run before the loop closes.  The exact point
+    at which the loop stops running callbacks is not specified.
 
     .. warning:: As with :func:`asyncio.run`, asyncio-flavored tasks
        that are started *after* exiting the context manager (such as by
@@ -447,27 +447,22 @@ async def open_loop(queue_len=None):
                     await loop.wait_stopped()
                     sync_nursery.cancel_scope.cancel()
 
-                # Cancel and wait on all currently-running asyncio tasks.
+                # Cancel and wait on all currently-running tasks.
+                # Exiting the tasks_nursery will wait for the Trio tasks
+                # automatically; we mix in the asyncio tasks by scheduling
+                # a call to run_aio_future() for each one. It's important
+                # not to wait on one kind of task before the other, so that
+                # we support Trio tasks that need to run some asyncio
+                # code during teardown as well as the opposite.
                 # Like asyncio.run(), we don't bother cancelling and waiting
-                # on any additional tasks that these tasks start as they
+                # on any additional asyncio tasks that these tasks start as they
                 # unwind.
                 if sys.version_info >= (3, 7):
                     aio_tasks = asyncio.all_tasks(loop)
                 else:
                     aio_tasks = {t for t in asyncio.Task.all_tasks(loop) if not t.done()}
-                if aio_tasks:
-                    # Start one Trio task to wait for each still-running
-                    # asyncio task. This provides better exception
-                    # propagation than using asyncio.gather().
-                    async with trio.open_nursery() as aio_cancel_nursery:
-                        for task in aio_tasks:
-                            aio_cancel_nursery.start_soon(run_aio_future, task)
-                        aio_cancel_nursery.cancel_scope.cancel()
-
-                # If there are any trio_as_aio tasks still going after
-                # the cancellation of asyncio tasks above, this will
-                # cancel them, and exiting the tasks_nursery block
-                # will wait for them to exit.
+                for task in aio_tasks:
+                    tasks_nursery.start_soon(run_aio_future, task)
                 tasks_nursery.cancel_scope.cancel()
         finally:
             try:
