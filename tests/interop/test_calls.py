@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 import trio
+import trio.testing
 import sniffio
 from trio_asyncio import aio_as_trio, trio_as_aio, run_aio_generator
 from tests import aiotest
@@ -331,16 +332,13 @@ class TestCalls(aiotest.TestCase):
             seen.flag |= 1
             await hold.wait()
 
-        async def cancel_soon(nursery):
-            await trio.sleep(0.01)
-            nursery.cancel_scope.cancel()
-
         hold = asyncio.Event()
         seen = Seen()
 
         async with trio.open_nursery() as nursery:
             nursery.start_soon(async_gen_to_list, run_aio_generator(loop, dly_asyncio(hold, seen)))
-            nursery.start_soon(cancel_soon, nursery)
+            await trio.testing.wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
         assert nursery.cancel_scope.cancel_called
         assert seen.flag == 1
 

@@ -1,6 +1,8 @@
 import pytest
 import sys
+import types
 import asyncio
+import trio
 from async_generator import async_generator, yield_
 import trio_asyncio
 
@@ -47,3 +49,53 @@ async def test_get_running_loop():
             pass  # Python 3.6
         else:
             assert get_running_loop() == loop
+
+
+@pytest.mark.trio
+async def test_tasks_get_cancelled():
+    record = []
+    tasks = []
+
+    @types.coroutine
+    def aio_yield():
+        yield
+
+    async def aio_sleeper(key):
+        try:
+            await asyncio.sleep(10)
+            record.append("expired")
+        finally:
+            try:
+                # Prove that we're still running in the aio loop, not
+                # some GC pass
+                await aio_yield()
+            finally:
+                record.append(key)
+                if "early" in key:
+                    tasks.append(asyncio.ensure_future(aio_sleeper("aio late")))
+                    asyncio.get_event_loop().run_trio_task(trio_sleeper, "trio late")
+
+    async def trio_sleeper(key):
+        try:
+            await trio.sleep_forever()
+        finally:
+            await trio.lowlevel.cancel_shielded_checkpoint()
+            record.append(key)
+
+    async with trio_asyncio.open_loop() as loop:
+        tasks.append(asyncio.ensure_future(aio_sleeper("aio early")))
+        loop.run_trio_task(trio_sleeper, "trio early")
+
+    assert set(record) == {"aio early", "trio early", "trio late"}
+    assert len(tasks) == 2 and tasks[0].done() and not tasks[1].done()
+
+    # Suppress "Task was destroyed but it was pending!" message
+    tasks[1]._log_traceback = False
+    tasks[1]._log_destroy_pending = False
+
+    # Suppress the "coroutine ignored GeneratorExit" message
+    while True:
+        try:
+            tasks[1]._coro.throw(SystemExit)
+        except SystemExit:
+            break

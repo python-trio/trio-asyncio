@@ -13,6 +13,7 @@ except ImportError:
     from async_generator import asynccontextmanager
 
 from ._async import TrioEventLoop
+from ._util import run_aio_future
 from ._deprecate import warn_deprecated
 
 try:
@@ -375,10 +376,32 @@ async def open_loop(queue_len=None):
     """Returns a Trio-flavored async context manager which provides
     an asyncio event loop running on top of Trio.
 
+    The context manager evaluates to a new `TrioEventLoop` object.
+
     Entering the context manager is not enough on its own to immediately
     run asyncio code; it just provides the context that makes running that
     code possible. You additionally need to wrap any asyncio functions
     that you want to run in :func:`aio_as_trio`.
+
+    Exiting the context manager will attempt to do an orderly shutdown
+    of the tasks it contains, analogously to :func:`asyncio.run`.
+    Both asyncio-flavored tasks and Trio-flavored tasks (the latter
+    started using :meth:`~BaseTrioEventLoop.trio_as_future`,
+    :meth:`~BaseTrioEventLoop.run_trio_task`, :func:`trio_as_aio`,
+    etc) are cancelled simultaneously, and the loop waits for them to
+    exit in response to this cancellation before proceeding. All
+    :meth:`~asyncio.loop.call_soon` callbacks that are submitted
+    before exiting the context manager will run before starting this
+    shutdown sequence, and all callbacks that are submitted before the
+    last task exits will run before the loop closes.  The exact point
+    at which the loop stops running callbacks is not specified.
+
+    .. warning:: As with :func:`asyncio.run`, asyncio-flavored tasks
+       that are started *after* exiting the context manager (such as by
+       another task as it unwinds) may or may not be cancelled, and will
+       be abandoned if they survive the shutdown sequence. This may lead
+       to unclosed resources, stderr spew about "coroutine ignored
+       GeneratorExit", etc. Trio-flavored tasks do not have this hazard.
 
     Example usage::
 
@@ -406,12 +429,11 @@ async def open_loop(queue_len=None):
                 await loop._main_loop_init(tasks_nursery)
                 await loop_nursery.start(loop._main_loop)
                 yield loop
-                tasks_nursery.cancel_scope.cancel()
 
-                # Allow all submitted run_trio() tasks calls a chance
-                # to start before the tasks_nursery closes, unless the
-                # loop stops (due to someone else calling stop())
-                # before that:
+                # Allow all already-submitted tasks a chance to start
+                # (and then immediately be cancelled), unless the loop
+                # stops (due to someone else calling stop()) before
+                # that.
                 async with trio.open_nursery() as sync_nursery:
                     sync_nursery.cancel_scope.shield = True
 
@@ -423,6 +445,24 @@ async def open_loop(queue_len=None):
 
                     await loop.wait_stopped()
                     sync_nursery.cancel_scope.cancel()
+
+                # Cancel and wait on all currently-running tasks.
+                # Exiting the tasks_nursery will wait for the Trio tasks
+                # automatically; we mix in the asyncio tasks by scheduling
+                # a call to run_aio_future() for each one. It's important
+                # not to wait on one kind of task before the other, so that
+                # we support Trio tasks that need to run some asyncio
+                # code during teardown as well as the opposite.
+                # Like asyncio.run(), we don't bother cancelling and waiting
+                # on any additional asyncio tasks that these tasks start as they
+                # unwind.
+                if sys.version_info >= (3, 7):
+                    aio_tasks = asyncio.all_tasks(loop)
+                else:
+                    aio_tasks = {t for t in asyncio.Task.all_tasks(loop) if not t.done()}
+                for task in aio_tasks:
+                    tasks_nursery.start_soon(run_aio_future, task)
+                tasks_nursery.cancel_scope.cancel()
         finally:
             try:
                 await loop._main_loop_exit()
