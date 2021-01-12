@@ -27,12 +27,6 @@ from ._loop import (
     run_trio_task,
     run_trio,
     run_aio_coroutine,
-    # forwarders to deprecated event loop methods:
-    run_future,
-    run_coroutine,
-    run_asyncio,
-    wrap_generator,
-    run_iterator,
 )
 from ._adapter import (
     aio_as_trio,
@@ -40,9 +34,6 @@ from ._adapter import (
     # aliases for the above:
     asyncio_as_trio,
     trio_as_asyncio,
-    # deprecated aliases for the above:
-    trio2aio,
-    aio2trio,
     # additional experimental goodie:
     allow_asyncio,
 )

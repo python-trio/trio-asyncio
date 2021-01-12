@@ -2,17 +2,15 @@
 # Trio.
 
 import types
-import warnings
 
 import asyncio
 import trio_asyncio
 from contextvars import ContextVar
 
-from ._deprecate import deprecated_alias
 from ._util import run_aio_generator, run_aio_future, run_trio_generator
-from ._loop import current_loop, current_policy
+from ._loop import current_loop
 
-from functools import wraps, partial
+from functools import partial
 
 
 async def _call_defer(proc, *args, **kwargs):
@@ -56,7 +54,7 @@ class Asyncio_Trio_Wrapper:
         return await self.loop.run_aio_coroutine(f)
 
     def __await__(self):
-        """Compatibility code for "await loop.run_asyncio(coro)"
+        """Support for commonly used (but not recommended) "await aio_as_trio(proc(*args))"
         """
         f = self.proc
         if not hasattr(f, "__await__"):
@@ -236,7 +234,7 @@ def _allow_asyncio(fn, *args):
     coro = fn(*args)
     # start the coroutine
     if isinstance(coro, asyncio.Future):
-        return (yield from trio_asyncio.run_future(coro))
+        return (yield from trio_asyncio.run_aio_future(coro))
 
     p, a = coro.send, None
     while True:
@@ -271,7 +269,7 @@ async def allow_asyncio(fn, *args):
         import trio_asyncio
 
         async def hello(loop):
-            await asyncio.sleep(1, loop=loop)
+            await asyncio.sleep(1)
             print("Hello")
             await trio.sleep(1)
             print("World")
@@ -293,7 +291,3 @@ async def allow_asyncio(fn, *args):
         return await _allow_asyncio(fn, *args)
     finally:
         shim.reset(token)
-
-
-trio2aio = deprecated_alias("trio_asyncio.trio2aio", aio_as_trio, "0.10.0", issue=38)
-aio2trio = deprecated_alias("trio_asyncio.aio2trio", trio_as_aio, "0.10.0", issue=38)

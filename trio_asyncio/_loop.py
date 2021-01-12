@@ -4,7 +4,6 @@
 import sys
 import trio
 import asyncio
-import warnings
 import threading
 from contextvars import ContextVar
 
@@ -13,9 +12,8 @@ try:
 except ImportError:
     from async_generator import asynccontextmanager
 
-from ._util import run_aio_future, run_aio_generator
 from ._async import TrioEventLoop
-from ._deprecate import deprecated, warn_deprecated
+from ._deprecate import warn_deprecated
 
 try:
     from trio.lowlevel import wait_for_child
@@ -346,7 +344,7 @@ class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' e
 
     def add_child_handler(self, pid, callback, *args):
         """Add a callback to run when a child process terminates."""
-        h = self._loop.run_trio(self._waitpid, pid, callback, *args)
+        h = self._loop.trio_as_future(self._waitpid, pid, callback, *args)
         self._callbacks[pid] = h
 
     def remove_child_handler(self, pid):
@@ -527,43 +525,3 @@ def run_trio_task(proc, *args):
     will propagate to, and terminate, the trio-asyncio loop.
     """
     _running_loop().run_trio_task(proc, *args)
-
-
-# These are aliases for methods in BaseTrioEventLoop which are
-# themselves deprecated. If we deprecate these and call the deprecated
-# loop method, the user gets two warnings. If we just call the
-# deprecated loop method, the warning points here instead of to user
-# code. Therefore, we "chase the pointer" and inline the body of the
-# deprecated loop method into each of these functions.
-
-
-@deprecated("0.10.0", issue=38, instead="aio_as_trio(proc(*args))")
-def wrap_generator(proc, *args):
-    return run_aio_generator(_running_loop(), proc(*args))
-
-
-@deprecated("0.10.0", issue=38, instead="aio_as_trio(aiter)")
-def run_iterator(aiter):
-    return run_aio_generator(_running_loop(), aiter)
-
-
-@deprecated("0.10.0", issue=38, instead="trio_as_aio(ctx)")
-def wrap_trio_context(ctx):
-    from ._adapter import Trio_Asyncio_Wrapper
-    return Trio_Asyncio_Wrapper(ctx, loop=_running_loop())
-
-
-@deprecated("0.10.0", issue=38, instead="aio_as_trio(proc)(*args)")
-def run_asyncio(proc, *args):
-    from ._adapter import Asyncio_Trio_Wrapper
-    return Asyncio_Trio_Wrapper(proc, args=args, loop=_running_loop())
-
-
-@deprecated("0.10.0", issue=38, instead="run_aio_coroutine")
-async def run_coroutine(fut):
-    return await _running_loop().run_aio_coroutine(fut)
-
-
-@deprecated("0.10.0", issue=38, instead="run_aio_future")
-async def run_future(fut):
-    return await run_aio_future(fut)
