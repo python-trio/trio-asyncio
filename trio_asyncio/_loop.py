@@ -13,6 +13,7 @@ except ImportError:
     from async_generator import asynccontextmanager
 
 from ._async import TrioEventLoop
+from ._util import run_aio_future
 from ._deprecate import warn_deprecated
 
 try:
