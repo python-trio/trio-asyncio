@@ -22,7 +22,7 @@ class TestCoroutine(aiotest.TestCase):
     @pytest.mark.trio
     async def test_waiter(self, loop, config):
         async def waiter(asyncio, hello_world, result):
-            fut = asyncio.Future()
+            fut = asyncio.Future(loop=loop)
             loop.call_soon(fut.set_result, "Future")
 
             value = await fut

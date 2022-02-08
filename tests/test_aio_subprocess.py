@@ -20,9 +20,9 @@ class MySubprocessProtocol(asyncio.SubprocessProtocol):
     def __init__(self, loop):
         self.state = 'INITIAL'
         self.transport = None
-        self.connected = asyncio.Future()
+        self.connected = asyncio.Future(loop=loop)
         self.completed = asyncio.Future()
-        self.disconnects = {fd: asyncio.Future() for fd in range(3)}
+        self.disconnects = {fd: asyncio.Future(loop=loop) for fd in range(3)}
         self.data = {1: b'', 2: b''}
         self.returncode = None
         self.got_data = {1: asyncio.Event(), 2: asyncio.Event()}

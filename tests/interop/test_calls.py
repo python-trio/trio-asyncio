@@ -192,13 +192,13 @@ class TestCalls(aiotest.TestCase):
         async def cancelled_asyncio(seen):
             seen.flag |= 1
             await asyncio.sleep(0.01)
-            f = asyncio.Future()
+            f = asyncio.Future(loop=loop)
             f.cancel()
             return f.result()  # raises error
 
         def cancelled_future(seen):
             seen.flag |= 1
-            f = asyncio.Future()
+            f = asyncio.Future(loop=loop)
             f.cancel()
             return f  # contains error
 
