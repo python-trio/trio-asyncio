@@ -3,6 +3,7 @@ import sys
 import warnings
 import py
 import pytest
+import pathlib
 import unittest
 
 try:
@@ -72,8 +73,8 @@ else:
             os.path.join(os.path.dirname(__file__), "__init__.py")
         )
         if candidate == expected:
-            fspath = py.path.local(test_asyncio.__file__)
-            node = UnittestOnlyPackage.from_parent(parent, fspath=fspath)
+            fspath = pathlib.Path(test_asyncio.__file__)
+            node = UnittestOnlyPackage.from_parent(parent, path=fspath)
             # This keeps all test names from showing as "."
             node._nodeid = aio_test_nodeid(fspath)
             return node
