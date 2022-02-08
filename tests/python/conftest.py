@@ -36,10 +36,12 @@ else:
     asyncio_test_dir = py.path.local(test_asyncio.__path__[0])
 
     def aio_test_nodeid(fspath):
-        relpath = fspath.relto(asyncio_test_dir)
-        if relpath:
+        try:
+            relpath = fspath.relative_to(asyncio_test_dir)
+        except ValueError:
+            return None
+        else:
             return "/Python-{}.{}/test_asyncio/".format(*sys.version_info[:2]) + relpath
-        return None
 
 
     # A pytest.Module that will only collect unittest.TestCase
