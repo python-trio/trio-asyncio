@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9']
+        python: ['3.7', '3.8', '3.9', '3.10']
         arch: ['x86', 'x64']
     steps:
       - name: Checkout
@@ -39,13 +39,13 @@ jobs:
       fail-fast: false
       matrix:
         # No pypy-3.7 because Trio doesn't support it (nightly is fine, it has a fix we need)
-        python: ['pypy-3.6', '3.6', '3.7', '3.8', '3.9', '3.6-dev', '3.7-dev', '3.8-dev', '3.9-dev']
+        python: ['3.7', '3.8', '3.9', '3.10', '3.9-dev', '3.10-dev']
         check_formatting: ['0']
         check_docs: ['0']
         pypy_nightly_branch: ['']
         extra_name: ['']
         include:
-          - python: '3.8'
+          - python: '3.9'
             check_formatting: '1'
             extra_name: ', check formatting'
         # pypy3.7-nightly produces an "OSError: handle is closed" in the
@@ -89,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9']
+        python: ['3.7', '3.8', '3.9', '3.10']
     steps:
       - name: Checkout
         uses: actions/checkout@v2

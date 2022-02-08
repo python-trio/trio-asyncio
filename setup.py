@@ -53,7 +53,7 @@ Matthias Urlichs <matthias@urlichs.de>
 """
 
 install_requires = [
-    "trio >= 0.15.0",
+    "trio >= 0.18.0",
     "outcome",
     "sniffio",
 ]
@@ -75,7 +75,7 @@ setup(
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
-    python_requires=">=3.6",  # temporary, for RTD
+    python_requires=">=3.7",  # temporary, for RTD
     keywords=["async", "io", "trio", "asyncio", "trio-asyncio"],
     setup_requires=['pytest-runner'],
     tests_require=['pytest >= 5.4', 'pytest-trio >= 0.6', 'outcome'],
@@ -91,8 +91,10 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: System :: Networking",
         "Framework :: Trio",
         "Framework :: AsyncIO",
