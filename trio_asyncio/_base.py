@@ -593,7 +593,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     # drop all file descriptors, optionally close them
 
     def _cancel_fds(self):
-        """Clean up all of thsi loop's open read or write requests"""
+        """Clean up all of this loop's open read or write requests"""
         for fd, key in list(self._selector.get_map().items()):
             for flag in (0, 1):
                 if key.events & (1 << flag):
