@@ -65,7 +65,7 @@ setup(
     install_requires=[
         "trio >= 0.22.0",
         "outcome",
-        "sniffio",
+        "sniffio >= 1.3.0",
         "exceptiongroup >= 1.0.0; python_version < '3.11'",
     ],
     # This means, just install *everything* you see under trio/, even if it

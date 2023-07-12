@@ -4,7 +4,6 @@ import math
 import trio
 import heapq
 import signal
-import sniffio
 import asyncio
 import warnings
 import concurrent.futures
@@ -13,6 +12,7 @@ from ._handles import ScopedHandle, AsyncHandle
 from ._util import run_aio_future
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
+from sniffio import thread_local as sniffio_library
 
 try:
     from trio.lowlevel import wait_for_child
@@ -218,15 +218,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         """
         try:
             self._check_closed()
-            t = sniffio.current_async_library_cvar.set("asyncio")
             fut = asyncio.ensure_future(coro, loop=self)
         except BaseException:
             coro.close()  # avoid unawaited coroutine error
             raise
-        try:
-            return await run_aio_future(fut)
-        finally:
-            sniffio.current_async_library_cvar.reset(t)
+        return await run_aio_future(fut)
 
     def trio_as_future(self, proc, *args):
         """Start a new Trio task to run ``await proc(*args)`` asynchronously.
@@ -641,7 +637,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         self._stopped = trio.Event()
         task_status.started()
-        sniffio.current_async_library_cvar.set("asyncio")
 
         try:
             # The shield here ensures that if the context surrounding
@@ -701,10 +696,16 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         # Don't go through the expensive nursery dance
         # if this is a sync function.
         if isinstance(obj, AsyncHandle):
+            # AsyncHandle is only used to run Trio tasks, so no need to set the
+            # sniffio library
             obj._context.run(self._nursery.start_soon, obj._run, name=obj._callback)
             await obj._started.wait()
         else:
-            obj._run()
+            prev_library, sniffio_library.name = sniffio_library.name, "asyncio"
+            try:
+                obj._run()
+            finally:
+                sniffio_library.name = prev_library
 
     async def _main_loop_exit(self):
         """Finalize the loop. It may not be re-entered."""
