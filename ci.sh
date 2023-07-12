@@ -71,21 +71,18 @@ else
     mkdir empty || true
     cd empty
 
-    INSTALLDIR=$(python -c "import os, trio_asyncio; print(os.path.dirname(trio_asyncio.__file__))")
-    cp ../pyproject.toml $INSTALLDIR
+    cp ../pyproject.toml ../tests/
 
-    # support subprocess spawning with coverage.py
-    echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
-
-    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a --junitxml=../test-results.xml --verbose ../tests; then
+    # We have to copy .coveragerc into this directory, rather than passing
+    # --cov-config=../.coveragerc to pytest, because codecov.sh will run
+    # 'coverage xml' to generate the report that it uses, and that will only
+    # apply the ignore patterns in the current directory's .coveragerc.
+    cp ../.coveragerc .
+    if pytest -ra --junitxml=../test-results.xml --cov=trio_asyncio --verbose ../tests; then
         PASSED=true
     else
         PASSED=false
     fi
-
-    coverage combine --rcfile ../.coveragerc
-    coverage report -m --rcfile ../.coveragerc
-    coverage xml --rcfile ../.coveragerc
 
     $PASSED
 fi

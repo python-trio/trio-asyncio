@@ -209,9 +209,13 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         This is a Trio-flavored async function.
 
         """
-        self._check_closed()
-        t = sniffio.current_async_library_cvar.set("asyncio")
-        fut = asyncio.ensure_future(coro, loop=self)
+        try:
+            self._check_closed()
+            t = sniffio.current_async_library_cvar.set("asyncio")
+            fut = asyncio.ensure_future(coro, loop=self)
+        except BaseException:
+            coro.close()  # avoid unawaited coroutine error
+            raise
         try:
             return await run_aio_future(fut)
         finally:

@@ -201,10 +201,7 @@ def _new_policy_set(new_policy):
         raise RuntimeError("You can't set the Trio loop policy manually")
     if _in_trio_context():
         raise RuntimeError("You can't change the event loop policy in Trio context")
-    if (
-        new_policy is not None
-        and not isinstance(new_policy, asyncio.AbstractEventLoopPolicy)
-    ):
+    if (new_policy is not None and not isinstance(new_policy, asyncio.AbstractEventLoopPolicy)):
         # Raise the type of error that the CPython test suite expects
         raise_type = TypeError if sys.version_info >= (3, 11) else AssertionError
         raise raise_type(

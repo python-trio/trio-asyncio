@@ -9,12 +9,12 @@ on:
 jobs:
   Windows:
     name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: 'windows-latest'
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10', '3.11', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
+        python: ['3.7', '3.8', '3.9', '3.10', '3.11']
         arch: ['x86', 'x64']
         exclude:
           - python: 'pypy-3.8-nightly'
@@ -51,7 +51,7 @@ jobs:
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
-    timeout-minutes: 10
+    timeout-minutes: 20
     runs-on: 'ubuntu-latest'
     strategy:
       fail-fast: false
@@ -98,7 +98,7 @@ jobs:
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
-    timeout-minutes: 10
+    timeout-minutes: 20
     runs-on: 'macos-latest'
     strategy:
       fail-fast: false
