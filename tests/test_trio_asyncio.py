@@ -3,7 +3,6 @@ import sys
 import types
 import asyncio
 import trio
-from async_generator import async_generator, yield_
 import trio_asyncio
 
 
@@ -43,12 +42,7 @@ async def test_fixtured_asyncpg_conn(asyncio_fixture_with_fixtured_loop):
 @pytest.mark.trio
 async def test_get_running_loop():
     async with trio_asyncio.open_loop() as loop:
-        try:
-            from asyncio import get_running_loop
-        except ImportError:
-            pass  # Python 3.6
-        else:
-            assert get_running_loop() == loop
+        assert asyncio.get_running_loop() == loop
 
 
 @pytest.mark.trio

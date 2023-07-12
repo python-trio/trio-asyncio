@@ -26,8 +26,8 @@
 **trio-asyncio** is a re-implementation of the ``asyncio`` mainloop on top of
 Trio.
 
-Trio-Asyncio requires at least Python 3.6. It is tested on recent versions of
-3.6, 3.7, 3.8, and nightly.
+Trio-Asyncio requires at least Python 3.7. It is tested on recent versions of
+3.7 through 3.11, plus 3.12-dev.
 
 +++++++++++
  Rationale

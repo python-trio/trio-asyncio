@@ -4,6 +4,9 @@ import asyncio
 import trio
 import sys
 
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup, BaseExceptionGroup
+
 
 class Seen:
     flag = 0
@@ -101,7 +104,7 @@ class TestMisc:
         with pytest.raises(RuntimeError):
             trio_asyncio.run_trio_task(nest, 100)
 
-        with pytest.raises((AttributeError, RuntimeError)):
+        with pytest.raises((AttributeError, RuntimeError, TypeError)):
             with trio_asyncio.open_loop():
                 nest(1000)
 
@@ -253,8 +256,8 @@ async def test_cancel_loop(throw_another):
             except trio.Cancelled:
                 if throw_another:
                     # This will combine with the Cancelled from the
-                    # background sleep_forever task to create a
-                    # MultiError escaping from trio_task
+                    # background sleep_forever task to create an
+                    # ExceptionGroup escaping from trio_task
                     raise ValueError("hi")
 
     async with trio.open_nursery() as nursery:
@@ -333,14 +336,21 @@ async def test_run_trio_task_errors(monkeypatch):
     await raise_in_aio_loop(expected[0])
     with pytest.raises(SystemExit):
         await raise_in_aio_loop(SystemExit(0))
-    with pytest.raises(SystemExit):
-        await raise_in_aio_loop(trio.MultiError([expected[1], SystemExit()]))
-    await raise_in_aio_loop(trio.MultiError(expected[2:]))
-    assert exceptions == expected
+    with pytest.raises(BaseExceptionGroup) as result:
+        await raise_in_aio_loop(BaseExceptionGroup("", [expected[1], SystemExit()]))
+    assert len(result.value.exceptions) == 1
+    assert isinstance(result.value.exceptions[0], SystemExit)
+    await raise_in_aio_loop(ExceptionGroup("", expected[2:]))
+
+    assert len(exceptions) == 3
+    assert exceptions[0] is expected[0]
+    assert isinstance(exceptions[1], ExceptionGroup)
+    assert exceptions[1].exceptions == (expected[1],)
+    assert isinstance(exceptions[2], ExceptionGroup)
+    assert exceptions[2].exceptions == tuple(expected[2:])
 
 
 @pytest.mark.trio
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="needs asyncio contextvars")
 async def test_contextvars():
     import contextvars
 

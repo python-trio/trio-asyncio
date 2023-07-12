@@ -27,40 +27,6 @@ function curl-harder() {
 }
 
 ################################################################
-# Bootstrap python environment, if necessary
-################################################################
-
-### PyPy nightly (currently on Travis) ###
-
-if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
-    JOB_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
-    curl-harder -o pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
-    if [ ! -s pypy.tar.bz2 ]; then
-        # We know:
-        # - curl succeeded (200 response code)
-        # - nonetheless, pypy.tar.bz2 does not exist, or contains no data
-        # This isn't going to work, and the failure is not informative of
-        # anything involving Trio.
-        ls -l
-        echo "PyPy3 nightly build failed to download – something is wrong on their end."
-        echo "Skipping testing against the nightly build for right now."
-        exit 0
-    fi
-    tar xaf pypy.tar.bz2
-    # something like "pypy-c-jit-89963-748aa3022295-linux64"
-    PYPY_DIR=$(echo pypy-c-jit-*)
-    PYTHON_EXE=$PYPY_DIR/bin/pypy3
-
-    if ! ($PYTHON_EXE -m ensurepip \
-              && $PYTHON_EXE -m pip install virtualenv \
-              && $PYTHON_EXE -m virtualenv testenv); then
-        echo "pypy nightly is broken; skipping tests"
-        exit 0
-    fi
-    source testenv/bin/activate
-fi
-
-################################################################
 # We have a Python environment!
 ################################################################
 
@@ -71,14 +37,6 @@ python -m pip --version
 
 python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
-
-if python -c 'import sys; sys.exit(sys.version_info >= (3, 7))'; then
-    # Python < 3.7, select last ipython with 3.6 support
-    # macOS requires the suffix for --in-place or you get an undefined label error
-    sed -i'.bak' 's/ipython==[^ ]*/ipython==7.16.1/' test-requirements.txt
-    sed -i'.bak' 's/traitlets==[^ ]*/traitlets==4.3.3/' test-requirements.txt
-    git diff test-requirements.txt
-fi
 
 # See https://github.com/python-trio/trio/issues/334
 YAPF_VERSION=0.20.0
@@ -113,24 +71,21 @@ else
     mkdir empty || true
     cd empty
 
-    # We have to copy .coveragerc into this directory, rather than passing
-    # --cov-config=../.coveragerc to pytest, because codecov.sh will run
-    # 'coverage xml' to generate the report that it uses, and that will only
-    # apply the ignore patterns in the current directory's .coveragerc.
-    cp ../.coveragerc .
-    if pytest -ra --junitxml=../test-results.xml --cov=trio_asyncio --verbose ../tests; then
+    INSTALLDIR=$(python -c "import os, trio_asyncio; print(os.path.dirname(trio_asyncio.__file__))")
+    cp ../pyproject.toml $INSTALLDIR
+
+    # support subprocess spawning with coverage.py
+    echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
+
+    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a --junitxml=../test-results.xml --verbose ../tests; then
         PASSED=true
     else
         PASSED=false
     fi
 
-    # The codecov docs recommend something like 'bash <(curl ...)' to pipe the
-    # script directly into bash as its being downloaded. But, the codecov
-    # server is flaky, so we instead save to a temp file with retries, and
-    # wait until we've successfully fetched the whole script before trying to
-    # run it.
-    curl-harder -o codecov.sh https://codecov.io/bash
-    bash codecov.sh -n "${JOB_NAME}"
+    coverage combine --rcfile ../.coveragerc
+    coverage report -m --rcfile ../.coveragerc
+    coverage xml --rcfile ../.coveragerc
 
     $PASSED
 fi

@@ -686,16 +686,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         # Don't go through the expensive nursery dance
         # if this is a sync function.
         if isinstance(obj, AsyncHandle):
-            if hasattr(obj, '_context'):
-                obj._context.run(self._nursery.start_soon, obj._run, name=obj._callback)
-            else:
-                self._nursery.start_soon(obj._run, name=obj._callback)
+            obj._context.run(self._nursery.start_soon, obj._run, name=obj._callback)
             await obj._started.wait()
         else:
-            if hasattr(obj, '_context'):
-                obj._context.run(obj._callback, *obj._args)
-            else:
-                obj._callback(*obj._args)
+            obj._context.run(obj._callback, *obj._args)
 
     async def _main_loop_exit(self):
         """Finalize the loop. It may not be re-entered."""

@@ -6,11 +6,7 @@ import trio
 import asyncio
 import threading
 from contextvars import ContextVar
-
-try:
-    from contextlib import asynccontextmanager
-except ImportError:
-    from async_generator import asynccontextmanager
+from contextlib import asynccontextmanager
 
 from ._async import TrioEventLoop
 from ._util import run_aio_future
@@ -205,9 +201,17 @@ def _new_policy_set(new_policy):
         raise RuntimeError("You can't set the Trio loop policy manually")
     if _in_trio_context():
         raise RuntimeError("You can't change the event loop policy in Trio context")
-    else:
-        assert new_policy is None or isinstance(new_policy, asyncio.AbstractEventLoopPolicy)
-        _faked_policy.policy = new_policy
+    if (
+        new_policy is not None
+        and not isinstance(new_policy, asyncio.AbstractEventLoopPolicy)
+    ):
+        # Raise the type of error that the CPython test suite expects
+        raise_type = TypeError if sys.version_info >= (3, 11) else AssertionError
+        raise raise_type(
+            "policy must be an instance of AbstractEventLoopPolicy or None, "
+            f"not '{type(new_policy).__name__}'"
+        )
+    _faked_policy.policy = new_policy
 
 
 _orig_policy_get = _aio_event.get_event_loop_policy
@@ -456,10 +460,7 @@ async def open_loop(queue_len=None):
                 # Like asyncio.run(), we don't bother cancelling and waiting
                 # on any additional asyncio tasks that these tasks start as they
                 # unwind.
-                if sys.version_info >= (3, 7):
-                    aio_tasks = asyncio.all_tasks(loop)
-                else:
-                    aio_tasks = {t for t in asyncio.Task.all_tasks(loop) if not t.done()}
+                aio_tasks = asyncio.all_tasks(loop)
                 for task in aio_tasks:
                     tasks_nursery.start_soon(run_aio_future, task)
                 tasks_nursery.cancel_scope.cancel()

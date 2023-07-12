@@ -43,7 +43,7 @@ This works rather well: ``trio_asyncio`` consists of just ~700 lines of
 code (asyncio: ~8000) but passes the complete Python 3.6 test suite with no
 errors.
 
-``trio_asyncio`` requires Python 3.6 or better.
+``trio_asyncio`` requires Python 3.7 or better.
 
 Author
 ======
@@ -51,15 +51,6 @@ Author
 Matthias Urlichs <matthias@urlichs.de>
 
 """
-
-install_requires = [
-    "trio >= 0.15.0",
-    "outcome",
-    "sniffio",
-]
-if sys.version_info < (3, 7):
-    install_requires.append("contextvars >= 2.1")
-    install_requires.append("async_generator >= 1.6")
 
 setup(
     name="trio_asyncio",
@@ -71,11 +62,16 @@ setup(
     url="https://github.com/python-trio/trio-asyncio",
     license="MIT -or- Apache License 2.0",
     packages=["trio_asyncio"],
-    install_requires=install_requires,
+    install_requires=[
+        "trio >= 0.22.0",
+        "outcome",
+        "sniffio >= 1.3.0",
+        "exceptiongroup >= 1.0.0rc9; python_version < '3.11'",
+    ]
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
-    python_requires=">=3.6",  # temporary, for RTD
+    python_requires=">=3.7",
     keywords=["async", "io", "trio", "asyncio", "trio-asyncio"],
     setup_requires=['pytest-runner'],
     tests_require=['pytest >= 5.4', 'pytest-trio >= 0.6', 'outcome'],
@@ -91,7 +87,6 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Topic :: System :: Networking",
         "Framework :: Trio",
