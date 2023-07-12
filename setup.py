@@ -65,9 +65,9 @@ setup(
     install_requires=[
         "trio >= 0.22.0",
         "outcome",
-        "sniffio >= 1.3.0",
+        "sniffio",
         "exceptiongroup >= 1.0.0rc9; python_version < '3.11'",
-    ]
+    ],
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
