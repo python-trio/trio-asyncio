@@ -115,10 +115,11 @@ else:
                 "test_log_slow_callbacks"
             )
 
-        xfail(
-            "test_tasks.py::RunCoroutineThreadsafeTests::"
-            "test_run_coroutine_threadsafe_task_factory_exception"
-        )
+        if sys.version_info < (3, 12):
+            xfail(
+                "test_tasks.py::RunCoroutineThreadsafeTests::"
+                "test_run_coroutine_threadsafe_task_factory_exception"
+            )
         if sys.version_info >= (3, 8):
             xfail(
                 "test_tasks.py::RunCoroutineThreadsafeTests::"
@@ -130,7 +131,8 @@ else:
                     "test_run_coroutine_threadsafe_with_timeout"
                 )
             if sys.platform == "win32":
-                xfail("test_windows_events.py::ProactorLoopCtrlC::test_ctrl_c")
+                # hangs on 3.11+, fails without hanging on 3.8-3.10
+                skip("test_windows_events.py::ProactorLoopCtrlC::test_ctrl_c")
 
         if sys.implementation.name == "pypy":
             # This test depends on the C implementation of asyncio.Future, and
@@ -141,12 +143,6 @@ else:
                 "test_inherit_without_calling_super_init"
             )
             if sys.version_info < (3, 8):
-                # This fails due to a trivial difference in how pypy handles IPv6
-                # addresses
-                xfail(
-                    "test_base_events.py::BaseEventLoopWithSelectorTests::"
-                    "test_create_connection_ipv6_scope"
-                )
                 # These tests assume CPython-style immediate finalization of
                 # objects when they become unreferenced
                 for test in (
@@ -155,6 +151,18 @@ else:
                     "test_start_tls_client_reg_proto_1",
                 ):
                     xfail("test_sslproto.py::SelectorStartTLSTests::{}".format(test))
+            if sys.version_info < (3, 8) or sys.version_info >= (3, 9):
+                # This fails due to a trivial difference in how pypy handles IPv6
+                # addresses (fails in a different way on each of 3.7 and 3.9)
+                xfail(
+                    "test_base_events.py::BaseEventLoopWithSelectorTests::"
+                    "test_create_connection_ipv6_scope"
+                )
+            if sys.platform == "darwin":
+                # https://foss.heptapod.net/pypy/pypy/-/issues/3964 causes infinite loops
+                for nodeid, item in by_id.items():
+                    if "sendfile" in nodeid:
+                        item.add_marker(pytest.mark.skip)
 
         if sys.version_info >= (3, 11):
             # This tries to use a mock ChildWatcher that does something unlikely.
@@ -169,3 +177,18 @@ else:
             # This tries to create a new loop from within an existing one,
             # which we don't support.
             xfail("test_locks.py::ConditionTests::test_ambiguous_loops")
+
+        if sys.version_info >= (3, 12):
+            # This test sets signal handlers from within a coroutine,
+            # which doesn't work for us because SyncTrioEventLoop runs on
+            # a non-main thread.
+            xfail("test_unix_events.py::TestFork::test_fork_signal_handling")
+
+            # This test explicitly uses asyncio.tasks._c_current_task,
+            # bypassing our monkeypatch.
+            xfail("test_tasks.py::CCurrentLoopTests::test_current_task_with_implicit_loop")
+
+            # These tests assume asyncio.sleep(0) is sufficient to run all pending tasks
+            xfail("test_futures2.py::PyFutureTests::test_task_exc_handler_correct_context")
+            xfail("test_futures2.py::CFutureTests::test_task_exc_handler_correct_context")
+

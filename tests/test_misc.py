@@ -15,16 +15,16 @@ class Seen:
 class TestMisc:
     @pytest.mark.trio
     async def test_close_no_stop(self):
-        with pytest.raises(RuntimeError):
-            async with trio_asyncio.open_loop() as loop:
+        async with trio_asyncio.open_loop() as loop:
+            triggered = trio.Event()
 
-                def close_no_stop():
+            def close_no_stop():
+                with pytest.raises(RuntimeError):
                     loop.close()
+                triggered.set()
 
-                loop.call_soon(close_no_stop)
-
-                await trio.sleep(0.1)
-                await loop.wait_closed()
+            loop.call_soon(close_no_stop)
+            await triggered.wait()
 
     @pytest.mark.trio
     async def test_too_many_stops(self):
