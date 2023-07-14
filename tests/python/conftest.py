@@ -114,12 +114,6 @@ else:
                 "test_base_events.py::BaseEventLoopWithSelectorTests::"
                 "test_log_slow_callbacks"
             )
-
-        if sys.version_info < (3, 12):
-            xfail(
-                "test_tasks.py::RunCoroutineThreadsafeTests::"
-                "test_run_coroutine_threadsafe_task_factory_exception"
-            )
         if sys.version_info >= (3, 8):
             xfail(
                 "test_tasks.py::RunCoroutineThreadsafeTests::"
@@ -192,3 +186,6 @@ else:
             xfail("test_futures2.py::PyFutureTests::test_task_exc_handler_correct_context")
             xfail("test_futures2.py::CFutureTests::test_task_exc_handler_correct_context")
 
+            # This test assumes that get_event_loop_policy().get_event_loop() doesn't
+            # automatically return the running loop
+            skip("test_subprocess.py::GenericWatcherTests::test_create_subprocess_with_pidfd")

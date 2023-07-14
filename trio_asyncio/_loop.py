@@ -189,15 +189,16 @@ if sys.version_info >= (3, 12):
     __name__ = "asyncio.fake.trio_asyncio._loop"
 
 # Make sure we don't try to continue using the Trio loop after a fork()
-def _clear_state_after_fork():
-    if _in_trio_context():
-        from trio._core._run import GLOBAL_RUN_CONTEXT
+if hasattr(os, "register_at_fork"):
+    def _clear_state_after_fork():
+        if _in_trio_context():
+            from trio._core._run import GLOBAL_RUN_CONTEXT
 
-        del GLOBAL_RUN_CONTEXT.task
-        del GLOBAL_RUN_CONTEXT.runner
-        current_loop.set(None)
+            del GLOBAL_RUN_CONTEXT.task
+            del GLOBAL_RUN_CONTEXT.runner
+            current_loop.set(None)
 
-os.register_at_fork(after_in_child=_clear_state_after_fork)
+    os.register_at_fork(after_in_child=_clear_state_after_fork)
 
 from asyncio import events as _aio_event
 
