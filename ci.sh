@@ -35,8 +35,7 @@ python -c "import sys, struct, ssl; print('#' * 70); print('python:', sys.versio
 python -m pip install -U pip setuptools wheel
 python -m pip --version
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+python -m pip install .
 
 # See https://github.com/python-trio/trio/issues/334
 YAPF_VERSION=0.20.0
