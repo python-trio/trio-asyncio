@@ -182,6 +182,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
         else:
             super().set_event_loop(loop)
 
+
 # get_event_loop() without a running loop is deprecated in 3.12+. The logic for emitting the
 # DeprecationWarning walks the stack looking at module names in order to associate it with
 # the first caller outside asyncio. We need to pretend to be asyncio in order for that to work.
@@ -190,6 +191,7 @@ if sys.version_info >= (3, 12):
 
 # Make sure we don't try to continue using the Trio loop after a fork()
 if hasattr(os, "register_at_fork"):
+
     def _clear_state_after_fork():
         if _in_trio_context():
             from trio._core._run import GLOBAL_RUN_CONTEXT
@@ -240,6 +242,7 @@ asyncio.set_event_loop_policy = _new_policy_set
 
 _orig_run_get = _aio_event._get_running_loop
 
+
 def _new_run_get():
     try:
         task = trio.lowlevel.current_task()
@@ -252,6 +255,7 @@ def _new_run_get():
     # Not Trio context
     return _orig_run_get()
 
+
 # Must override the non-underscore-prefixed get_running_loop() too,
 # else will use the C-accelerated one which doesn't call the patched
 # _get_running_loop()
@@ -260,6 +264,7 @@ def _new_run_get_or_throw():
     if result is None:
         raise RuntimeError("no running event loop")
     return result
+
 
 _aio_event._get_running_loop = _new_run_get
 _aio_event.get_running_loop = _new_run_get_or_throw
@@ -298,8 +303,10 @@ asyncio.new_event_loop = _new_loop_new
 # accesses the non-monkeypatched version of _get_running_loop()
 from asyncio import current_task as _orig_current_task
 
+
 def _new_current_task(loop=None):
     return _orig_current_task(loop or _new_run_get())
+
 
 asyncio.tasks.current_task = _new_current_task
 asyncio.current_task = _new_current_task
