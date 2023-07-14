@@ -168,6 +168,11 @@ else:
                 "test_create_subprocess_fails_with_inactive_watcher"
             )
 
+            # This forks a child process and tries to run a new event loop there,
+            # but Trio isn't fork-safe -- it hangs nondeterministically.
+            skip("test_events.py::TestPyGetEventLoop::test_get_event_loop_new_process")
+            skip("test_events.py::TestCGetEventLoop::test_get_event_loop_new_process")
+
         if sys.version_info >= (3, 9):
             # This tries to create a new loop from within an existing one,
             # which we don't support.
