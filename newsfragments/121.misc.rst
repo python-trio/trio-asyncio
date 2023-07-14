@@ -1,3 +1,2 @@
 ``trio-asyncio`` now requires Trio 0.22 and does not produce deprecation warnings.
-Support for Python < 3.7 has been removed. The test suite now passes on CPythons
-through 3.12.
+Python 3.12 is now supported. Python 3.6 is no longer supported.

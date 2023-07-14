@@ -49,7 +49,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
         def do_stop():
             self._stop_pending = False
-            raise TrioAsyncioExit
+            raise TrioAsyncioExit("stopping trio-asyncio loop")
 
 
 #        async def stop_me():

@@ -145,13 +145,14 @@ else:
                     "test_start_tls_client_reg_proto_1",
                 ):
                     xfail("test_sslproto.py::SelectorStartTLSTests::{}".format(test))
-            if sys.version_info < (3, 8) or sys.version_info >= (3, 9):
-                # This fails due to a trivial difference in how pypy handles IPv6
-                # addresses (fails in a different way on each of 3.7 and 3.9)
-                xfail(
-                    "test_base_events.py::BaseEventLoopWithSelectorTests::"
-                    "test_create_connection_ipv6_scope"
-                )
+
+            # This test depends on the name of the loopback interface. On Github Actions
+            # it fails on macOS always, and on Linux/Windows except on 3.8.
+            skip(
+                "test_base_events.py::BaseEventLoopWithSelectorTests::"
+                "test_create_connection_ipv6_scope"
+            )
+
             if sys.platform == "darwin":
                 # https://foss.heptapod.net/pypy/pypy/-/issues/3964 causes infinite loops
                 for nodeid, item in by_id.items():
