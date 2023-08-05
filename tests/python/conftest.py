@@ -1,9 +1,9 @@
 import os
 import sys
 import warnings
-import py
 import pytest
 import unittest
+from pathlib import Path
 
 try:
     # the global 'test' package installed with Python
@@ -32,13 +32,17 @@ else:
 
     threading_cleanup.__code__ = threading_no_cleanup.__code__
 
-    asyncio_test_dir = py.path.local(test_asyncio.__path__[0])
+    asyncio_test_dir = Path(test_asyncio.__path__[0])
 
-    def aio_test_nodeid(fspath):
-        relpath = fspath.relto(asyncio_test_dir)
-        if relpath:
-            return "/Python-{}.{}/test_asyncio/".format(*sys.version_info[:2]) + relpath
-        return None
+    def aio_test_nodeid(path):
+        try:
+            relpath = path.relative_to(asyncio_test_dir)
+        except ValueError:
+            return None
+        else:
+            return "/Python-{}.{}/test_asyncio/{}".format(
+                *sys.version_info[:2], relpath
+            )
 
 
     # A pytest.Module that will only collect unittest.TestCase
@@ -72,10 +76,10 @@ else:
             os.path.join(os.path.dirname(__file__), "__init__.py")
         )
         if candidate == expected:
-            fspath = py.path.local(test_asyncio.__file__)
-            node = UnittestOnlyPackage.from_parent(parent, fspath=fspath)
+            path = Path(test_asyncio.__file__)
+            node = UnittestOnlyPackage.from_parent(parent, path=path)
             # This keeps all test names from showing as "."
-            node._nodeid = aio_test_nodeid(fspath)
+            node._nodeid = aio_test_nodeid(path)
             return node
 
 
@@ -110,76 +114,21 @@ else:
                 "test_base_events.py::BaseEventLoopWithSelectorTests::"
                 "test_log_slow_callbacks"
             )
-
-        if sys.version_info >= (3, 7):
-            xfail(
-                "test_tasks.py::RunCoroutineThreadsafeTests::"
-                "test_run_coroutine_threadsafe_task_factory_exception"
-            )
         if sys.version_info >= (3, 8):
             xfail(
                 "test_tasks.py::RunCoroutineThreadsafeTests::"
                 "test_run_coroutine_threadsafe_task_cancelled"
             )
-            xfail(
-                "test_tasks.py::RunCoroutineThreadsafeTests::"
-                "test_run_coroutine_threadsafe_with_timeout"
-            )
+            if sys.version_info < (3, 11):
+                xfail(
+                    "test_tasks.py::RunCoroutineThreadsafeTests::"
+                    "test_run_coroutine_threadsafe_with_timeout"
+                )
             if sys.platform == "win32":
-                xfail("test_windows_events.py::ProactorLoopCtrlC::test_ctrl_c")
+                # hangs on 3.11+, fails without hanging on 3.8-3.10
+                skip("test_windows_events.py::ProactorLoopCtrlC::test_ctrl_c")
 
-        # The CPython SSL tests ignored here fail with
-        # ConnectionResetError on Pythons <= 3.7.x for some unknown x.
-        # (3.7.1 fails, 3.7.5 and 3.7.6 pass; older 3.6.x also affected)
-        if sys.platform != "win32":
-            import selectors
-
-            xfail_per_eventloop = []
-            if sys.implementation.name == "pypy":
-                # pypy uses a different spelling of the certificate
-                # failure error message which causes this test to spuriously fail
-                if sys.version_info >= (3, 7):
-                    xfail_per_eventloop += [
-                        "test_create_server_ssl_match_failed"
-                    ]
-            else:
-                if sys.version_info < (3, 8):
-                    xfail_per_eventloop += [
-                        "test_create_ssl_connection",
-                        "test_create_ssl_unix_connection"
-                    ]
-                if sys.version_info < (3, 7):
-                    xfail_per_eventloop += [
-                        "test_legacy_create_ssl_connection",
-                        "test_legacy_create_ssl_unix_connection",
-                    ]
-
-            kinds = ("Select",)
-            for candidate in ("Kqueue", "Epoll", "Poll"):
-                if hasattr(selectors, candidate + "Selector"):
-                    kinds += (candidate.replace("Epoll", "EPoll"),)
-            for kind in kinds:
-                for test in xfail_per_eventloop:
-                    xfail("test_events.py::{}EventLoopTests::{}".format(kind, test))
-
-            if sys.implementation.name != "pypy":
-                if sys.version_info < (3, 7):
-                    stream_suite = "StreamReaderTests"
-                else:
-                    stream_suite = "StreamTests"
-                for which in ("open_connection", "open_unix_connection"):
-                    xfail(
-                        "test_streams.py::{}::test_{}_no_loop_ssl"
-                        .format(stream_suite, which)
-                    )
-
-        if sys.implementation.name == "pypy" and sys.version_info >= (3, 7):
-            # This fails due to a trivial difference in how pypy handles IPv6
-            # addresses
-            xfail(
-                "test_base_events.py::BaseEventLoopWithSelectorTests::"
-                "test_create_connection_ipv6_scope"
-            )
+        if sys.implementation.name == "pypy":
             # This test depends on the C implementation of asyncio.Future, and
             # unlike most such tests it is not configured to be skipped if
             # the C implementation is not available
@@ -187,11 +136,62 @@ else:
                 "test_futures.py::CFutureInheritanceTests::"
                 "test_inherit_without_calling_super_init"
             )
-            # These tests assume CPython-style immediate finalization of
-            # objects when they become unreferenced
-            for test in (
-                "test_create_connection_memory_leak",
-                "test_handshake_timeout",
-                "test_start_tls_client_reg_proto_1",
-            ):
-                xfail("test_sslproto.py::SelectorStartTLSTests::{}".format(test))
+            if sys.version_info < (3, 8):
+                # These tests assume CPython-style immediate finalization of
+                # objects when they become unreferenced
+                for test in (
+                    "test_create_connection_memory_leak",
+                    "test_handshake_timeout",
+                    "test_start_tls_client_reg_proto_1",
+                ):
+                    xfail("test_sslproto.py::SelectorStartTLSTests::{}".format(test))
+
+            # This test depends on the name of the loopback interface. On Github Actions
+            # it fails on macOS always, and on Linux/Windows except on 3.8.
+            skip(
+                "test_base_events.py::BaseEventLoopWithSelectorTests::"
+                "test_create_connection_ipv6_scope"
+            )
+
+            if sys.platform == "darwin":
+                # https://foss.heptapod.net/pypy/pypy/-/issues/3964 causes infinite loops
+                for nodeid, item in by_id.items():
+                    if "sendfile" in nodeid:
+                        item.add_marker(pytest.mark.skip)
+
+        if sys.version_info >= (3, 11):
+            # This tries to use a mock ChildWatcher that does something unlikely.
+            # We don't support it because we don't actually use the ChildWatcher
+            # to manage subprocesses.
+            xfail(
+                "test_subprocess.py::GenericWatcherTests::"
+                "test_create_subprocess_fails_with_inactive_watcher"
+            )
+
+            # This forks a child process and tries to run a new event loop there,
+            # but Trio isn't fork-safe -- it hangs nondeterministically.
+            skip("test_events.py::TestPyGetEventLoop::test_get_event_loop_new_process")
+            skip("test_events.py::TestCGetEventLoop::test_get_event_loop_new_process")
+
+        if sys.version_info >= (3, 9):
+            # This tries to create a new loop from within an existing one,
+            # which we don't support.
+            xfail("test_locks.py::ConditionTests::test_ambiguous_loops")
+
+        if sys.version_info >= (3, 12):
+            # This test sets signal handlers from within a coroutine,
+            # which doesn't work for us because SyncTrioEventLoop runs on
+            # a non-main thread.
+            xfail("test_unix_events.py::TestFork::test_fork_signal_handling")
+
+            # This test explicitly uses asyncio.tasks._c_current_task,
+            # bypassing our monkeypatch.
+            xfail("test_tasks.py::CCurrentLoopTests::test_current_task_with_implicit_loop")
+
+            # These tests assume asyncio.sleep(0) is sufficient to run all pending tasks
+            xfail("test_futures2.py::PyFutureTests::test_task_exc_handler_correct_context")
+            xfail("test_futures2.py::CFutureTests::test_task_exc_handler_correct_context")
+
+            # This test assumes that get_event_loop_policy().get_event_loop() doesn't
+            # automatically return the running loop
+            skip("test_subprocess.py::GenericWatcherTests::test_create_subprocess_with_pidfd")

@@ -51,7 +51,7 @@ asyncio libraries such as ``home-assistant``.
 Helpful facts:
 
 * Supported environments: Linux, MacOS, or Windows running some kind of Python
-  3.6-or-better (either CPython or PyPy3 is fine). \*BSD and illumOS likely
+  3.7-or-better (either CPython or PyPy3 is fine). \*BSD and illumOS likely
   work too, but are untested.
 
 * Install: ``python3 -m pip install -U trio-asyncio`` (or on Windows, maybe

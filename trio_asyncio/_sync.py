@@ -6,7 +6,7 @@ import asyncio
 import threading
 import outcome
 
-from ._base import BaseTrioEventLoop
+from ._base import BaseTrioEventLoop, TrioAsyncioExit
 
 
 async def _sync(proc, *args):
@@ -49,7 +49,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
         def do_stop():
             self._stop_pending = False
-            raise StopAsyncIteration
+            raise TrioAsyncioExit("stopping trio-asyncio loop")
 
 
 #        async def stop_me():
@@ -148,7 +148,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                 while result is None:
                     try:
                         await self._main_loop_one(no_wait=True)
-                    except StopAsyncIteration:
+                    except TrioAsyncioExit:
                         pass
             except trio.WouldBlock:
                 pass
