@@ -71,7 +71,7 @@ setup(
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     keywords=["async", "io", "trio", "asyncio", "trio-asyncio"],
     setup_requires=['pytest-runner'],
     tests_require=['pytest >= 5.4', 'pytest-trio >= 0.6', 'outcome'],
