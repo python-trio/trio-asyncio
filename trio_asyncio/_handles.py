@@ -2,7 +2,6 @@ import sys
 import trio
 import types
 import asyncio
-import sniffio
 from asyncio.format_helpers import _format_callback, _get_function_source
 
 if sys.version_info < (3, 11):
@@ -139,7 +138,6 @@ class AsyncHandle(ScopedHandle):
                     self.cancel()
 
     async def _run(self):
-        sniffio.current_async_library_cvar.set("trio")
         self._started.set()
         if self._cancelled:
             return
