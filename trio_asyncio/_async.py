@@ -1,7 +1,7 @@
 import trio
 import asyncio
 
-from ._base import BaseTrioEventLoop
+from ._base import BaseTrioEventLoop, TrioAsyncioExit
 
 
 class TrioEventLoop(BaseTrioEventLoop):
@@ -32,16 +32,22 @@ class TrioEventLoop(BaseTrioEventLoop):
         asynchronous loops.
 
         """
-        # TODO: add context.get('handle') to the exception
 
+        # Call the original default handler so we get the full info in the log
+        super().default_exception_handler(context)
+
+        # Also raise an exception so it can't go unnoticed
         exception = context.get('exception')
         if exception is None:
             message = context.get('message')
             if not message:
                 message = 'Unhandled error in event loop'
-            raise RuntimeError(message)
-        else:
+            exception = RuntimeError(message)
+
+        async def propagate_asyncio_error():
             raise exception
+
+        self._nursery.start_soon(propagate_asyncio_error)
 
     def stop(self, waiter=None):
         """Halt the main loop.
@@ -64,7 +70,7 @@ class TrioEventLoop(BaseTrioEventLoop):
 
         def stop_me():
             waiter.set()
-            raise StopAsyncIteration
+            raise TrioAsyncioExit("stopping trio-asyncio loop")
 
         if self._stopped.is_set():
             waiter.set()

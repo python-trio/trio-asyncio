@@ -5,7 +5,6 @@ import trio
 import asyncio
 import sys
 import outcome
-import sniffio
 
 
 async def run_aio_future(future):
@@ -69,7 +68,6 @@ async def run_aio_generator(loop, async_generator):
     current_read = None
 
     async def consume_next():
-        t = sniffio.current_async_library_cvar.set("asyncio")
         try:
             item = await async_generator.__anext__()
             result = outcome.Value(value=item)
@@ -80,8 +78,6 @@ async def run_aio_generator(loop, async_generator):
             return
         except Exception as e:
             result = outcome.Error(error=e)
-        finally:
-            sniffio.current_async_library_cvar.reset(t)
 
         trio.lowlevel.reschedule(task, result)
 

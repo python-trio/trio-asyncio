@@ -28,8 +28,7 @@ class TrioContext:
     async def __aenter__(self):
         assert self.parent.did_it == 0
         self.parent.did_it = 1
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "trio"
+        assert sniffio.current_async_library() == "trio"
         await trio.sleep(0.01)
         self.parent.did_it = 2
         return self
@@ -47,8 +46,7 @@ class AioContext:
     async def __aenter__(self):
         assert self.parent.did_it == 0
         self.parent.did_it = 1
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "asyncio"
+        assert sniffio.current_async_library() == "asyncio"
         await asyncio.sleep(0.01)
         self.parent.did_it = 2
         return self

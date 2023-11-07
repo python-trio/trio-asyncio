@@ -4,7 +4,6 @@ import math
 import trio
 import heapq
 import signal
-import sniffio
 import asyncio
 import warnings
 import concurrent.futures
@@ -13,6 +12,7 @@ from ._handles import ScopedHandle, AsyncHandle
 from ._util import run_aio_future
 
 from selectors import _BaseSelectorImpl, EVENT_READ, EVENT_WRITE
+from sniffio import thread_local as sniffio_library
 
 try:
     from trio.lowlevel import wait_for_child
@@ -35,6 +35,13 @@ except AttributeError:
 class _Clear:
     def clear(self):
         pass
+
+
+# Exception raised internally to stop the main loop. Must subclass
+# SystemExit or KeyboardInterrupt in order to make it through various
+# asyncio layers.
+class TrioAsyncioExit(SystemExit):
+    pass
 
 
 class _TrioSelector(_BaseSelectorImpl):
@@ -209,13 +216,13 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         This is a Trio-flavored async function.
 
         """
-        self._check_closed()
-        t = sniffio.current_async_library_cvar.set("asyncio")
-        fut = asyncio.ensure_future(coro, loop=self)
         try:
-            return await run_aio_future(fut)
-        finally:
-            sniffio.current_async_library_cvar.reset(t)
+            self._check_closed()
+            fut = asyncio.ensure_future(coro, loop=self)
+        except BaseException:
+            coro.close()  # avoid unawaited coroutine error
+            raise
+        return await run_aio_future(fut)
 
     def trio_as_future(self, proc, *args):
         """Start a new Trio task to run ``await proc(*args)`` asynchronously.
@@ -499,6 +506,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         with handle._scope:
             try:
                 while True:
+                    if handle._cancelled:
+                        break
                     await _wait_readable(fd)
                     if handle._cancelled:
                         break
@@ -550,6 +559,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         with handle._scope:
             try:
                 while True:
+                    if handle._cancelled:
+                        break
                     await _wait_writable(fd)
                     if handle._cancelled:
                         break
@@ -626,7 +637,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         self._stopped = trio.Event()
         task_status.started()
-        sniffio.current_async_library_cvar.set("asyncio")
 
         try:
             # The shield here ensures that if the context surrounding
@@ -642,7 +652,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             with trio.CancelScope(shield=True):
                 while not self._stopped.is_set():
                     await self._main_loop_one()
-        except StopAsyncIteration:
+        except TrioAsyncioExit:
             # raised by .stop_me() to interrupt the loop
             pass
         finally:
@@ -686,16 +696,16 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         # Don't go through the expensive nursery dance
         # if this is a sync function.
         if isinstance(obj, AsyncHandle):
-            if hasattr(obj, '_context'):
-                obj._context.run(self._nursery.start_soon, obj._run, name=obj._callback)
-            else:
-                self._nursery.start_soon(obj._run, name=obj._callback)
+            # AsyncHandle is only used to run Trio tasks, so no need to set the
+            # sniffio library
+            obj._context.run(self._nursery.start_soon, obj._run, name=obj._callback)
             await obj._started.wait()
         else:
-            if hasattr(obj, '_context'):
-                obj._context.run(obj._callback, *obj._args)
-            else:
-                obj._callback(*obj._args)
+            prev_library, sniffio_library.name = sniffio_library.name, "asyncio"
+            try:
+                obj._run()
+            finally:
+                sniffio_library.name = prev_library
 
     async def _main_loop_exit(self):
         """Finalize the loop. It may not be re-entered."""
@@ -721,7 +731,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     await self._main_loop_one(no_wait=True)
                 except trio.WouldBlock:
                     break
-                except StopAsyncIteration:
+                except TrioAsyncioExit:
                     pass
 
         # Kill off unprocessed work

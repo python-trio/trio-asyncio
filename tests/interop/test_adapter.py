@@ -6,10 +6,7 @@ import sniffio
 from tests import aiotest
 import sys
 import warnings
-try:
-    from contextlib import asynccontextmanager
-except ImportError:
-    from async_generator import asynccontextmanager
+from contextlib import asynccontextmanager
 from trio_asyncio import TrioAsyncioDeprecationWarning
 
 
@@ -29,37 +26,34 @@ class SomeThing:
         self.loop = loop
 
     async def dly_trio(self):
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "trio"
+        assert sniffio.current_async_library() == "trio"
         await trio.sleep(0.01)
         self.flag |= 2
         return 8
 
     @trio_as_aio
     async def dly_trio_adapted(self):
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "trio"
+        assert sniffio.current_async_library() == "trio"
         await trio.sleep(0.01)
         self.flag |= 2
         return 8
 
     @aio_as_trio
     async def dly_asyncio_adapted(self):
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "asyncio"
+        assert sniffio.current_async_library() == "asyncio"
         await asyncio.sleep(0.01)
         self.flag |= 1
         return 4
 
     async def dly_asyncio(self, do_test=True):
-        if do_test and sys.version_info >= (3, 7):
+        if do_test:
             assert sniffio.current_async_library() == "asyncio"
         await asyncio.sleep(0.01)
         self.flag |= 1
         return 4
 
     async def iter_asyncio(self, do_test=True):
-        if do_test and sys.version_info >= (3, 7):
+        if do_test:
             assert sniffio.current_async_library() == "asyncio"
         await asyncio.sleep(0.01)
         yield 1
@@ -69,8 +63,7 @@ class SomeThing:
         self.flag |= 1
 
     async def iter_trio(self):
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "trio"
+        assert sniffio.current_async_library() == "trio"
         await trio.sleep(0.01)
         yield 1
         await trio.sleep(0.01)
@@ -148,8 +141,7 @@ class TestAdapt(aiotest.TestCase):
     async def test_trio_asyncio_iter(self, loop):
         sth = SomeThing(loop)
         n = 0
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "trio"
+        assert sniffio.current_async_library() == "trio"
         async for x in aio_as_trio(sth.iter_asyncio()):
             n += 1
             assert x == n
@@ -159,8 +151,7 @@ class TestAdapt(aiotest.TestCase):
     async def run_asyncio_trio_iter(self, loop):
         sth = SomeThing(loop)
         n = 0
-        if sys.version_info >= (3, 7):
-            assert sniffio.current_async_library() == "asyncio"
+        assert sniffio.current_async_library() == "asyncio"
         async for x in trio_as_aio(sth.iter_trio()):
             n += 1
             assert x == n

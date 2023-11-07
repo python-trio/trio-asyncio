@@ -1,0 +1,2 @@
+``trio-asyncio`` now requires Trio 0.22 and does not produce deprecation warnings.
+Python 3.12 is now supported. Python 3.6 and 3.7 are no longer supported.

@@ -9,58 +9,65 @@ on:
 jobs:
   Windows:
     name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: 'windows-latest'
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9']
+        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
         arch: ['x86', 'x64']
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: '${{ matrix.python }}'
+          # This allows the matrix to specify just the major.minor version while still
+          # expanding it to get the latest patch version including alpha releases.
+          # This avoids the need to update for each new alpha, beta, release candidate,
+          # and then finally an actual release version.  actions/setup-python doesn't
+          # support this for PyPy presently so we get no help there.
+          #
+          # CPython -> 3.9.0-alpha - 3.9.X
+          # PyPy    -> pypy-3.7
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           architecture: '${{ matrix.arch }}'
+          cache: pip
+          cache-dependency-path: test-requirements.txt
       - name: Run tests
         run: ./ci.sh
         shell: bash
-        env:
-          # Should match 'name:' up above
-          JOB_NAME: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
+      - if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          directory: empty
+          name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
+          flags: Windows,${{ matrix.python }}
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
-    timeout-minutes: 10
+    timeout-minutes: 20
     runs-on: 'ubuntu-latest'
     strategy:
       fail-fast: false
       matrix:
-        # No pypy-3.7 because Trio doesn't support it (nightly is fine, it has a fix we need)
-        python: ['pypy-3.6', '3.6', '3.7', '3.8', '3.9', '3.6-dev', '3.7-dev', '3.8-dev', '3.9-dev']
+        python: ['pypy-3.9', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', 'pypy-3.9-nightly']
         check_formatting: ['0']
-        check_docs: ['0']
-        pypy_nightly_branch: ['']
         extra_name: ['']
         include:
-          - python: '3.8'
+          - python: '3.11'
             check_formatting: '1'
             extra_name: ', check formatting'
-        # pypy3.7-nightly produces an "OSError: handle is closed" in the
-        # bowels of multiprocessing after all tests appear to complete successfully
-        #  - python: '3.7'  # <- not actually used
-        #    pypy_nightly_branch: 'py3.7'
-        #    extra_name: ', pypy 3.7 nightly'
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         if: "!endsWith(matrix.python, '-dev')"
         with:
-          python-version: '${{ matrix.python }}'
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
+          cache: pip
+          cache-dependency-path: test-requirements.txt
       - name: Setup python (dev)
         uses: deadsnakes/action@v2.0.2
         if: endsWith(matrix.python, '-dev')
@@ -76,29 +83,36 @@ jobs:
       - name: Run tests
         run: ./ci.sh
         env:
-          PYPY_NIGHTLY_BRANCH: '${{ matrix.pypy_nightly_branch }}'
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
-          CHECK_DOCS: '${{ matrix.check_docs }}'
-          # Should match 'name:' up above
-          JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
+      - if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          directory: empty
+          name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
+          flags: Ubuntu,${{ matrix.python }}
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
-    timeout-minutes: 10
+    timeout-minutes: 20
     runs-on: 'macos-latest'
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9']
+        python: ['3.8', '3.9', '3.10', '3.11', '3.12', 'pypy-3.9-nightly']
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: '${{ matrix.python }}'
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
+          cache: pip
+          cache-dependency-path: test-requirements.txt
       - name: Run tests
         run: ./ci.sh
-        env:
-          # Should match 'name:' up above
-          JOB_NAME: 'macOS (${{ matrix.python }})'
+      - if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          directory: empty
+          name: macOS (${{ matrix.python }})
+          flags: macOS,${{ matrix.python }}
