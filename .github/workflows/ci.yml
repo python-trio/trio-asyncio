@@ -14,13 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
         arch: ['x86', 'x64']
-        exclude:
-          - python: 'pypy-3.8-nightly'
-            arch: 'x86'
-          - python: 'pypy-3.9-nightly'
-            arch: 'x86'
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -56,11 +51,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.7', 'pypy-3.8', 'pypy-3.9', '3.7', '3.8', '3.9', '3.10', '3.11', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
+        python: ['pypy-3.9', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', 'pypy-3.9-nightly']
         check_formatting: ['0']
         extra_name: ['']
         include:
-          - python: '3.8'
+          - python: '3.11'
             check_formatting: '1'
             extra_name: ', check formatting'
     steps:
@@ -103,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10', '3.11', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
+        python: ['3.8', '3.9', '3.10', '3.11', '3.12', 'pypy-3.9-nightly']
     steps:
       - name: Checkout
         uses: actions/checkout@v3
