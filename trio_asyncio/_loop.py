@@ -456,40 +456,57 @@ async def open_loop(queue_len=None):
         try:
             loop._closed = False
             async with trio.open_nursery() as tasks_nursery:
-                await loop._main_loop_init(tasks_nursery)
-                await loop_nursery.start(loop._main_loop)
-                yield loop
+                # There are not actually any unshielded checkpoints in
+                # either of the following async functions, so the
+                # shield doesn't do much. However, it is necessary to
+                # make sure that start() actually moves the _main_loop
+                # task into the tasks_nursery if this call to
+                # open_loop() is cancelled. TaskStatus.started()
+                # doesn't complete Nursery.start() if there's a
+                # cancellation pending, because it figures the task
+                # will be cancelled soon enough and doesn't want to
+                # worry about Cancelled exceptions propagating to the
+                # wrong place; but _main_loop shields everything it does
+                # after started(), so this just results in start() never
+                # completing. With the shield here, started() can't see
+                # the outer cancellation, which avoids the deadlock.
+                with trio.CancelScope(shield=True):
+                    await loop._main_loop_init(tasks_nursery)
+                    await loop_nursery.start(loop._main_loop)
 
-                # Allow all already-submitted tasks a chance to start
-                # (and then immediately be cancelled), unless the loop
-                # stops (due to someone else calling stop()) before
-                # that.
-                async with trio.open_nursery() as sync_nursery:
-                    sync_nursery.cancel_scope.shield = True
+                try:
+                    yield loop
+                finally:
+                    # Allow all already-submitted tasks a chance to start
+                    # (and then immediately be cancelled), unless the loop
+                    # stops (due to someone else calling stop()) before
+                    # that.
+                    async with trio.open_nursery() as sync_nursery:
+                        sync_nursery.cancel_scope.shield = True
 
-                    @sync_nursery.start_soon
-                    async def wait_for_sync():
-                        if not loop.is_closed():
-                            await loop.synchronize()
+                        @sync_nursery.start_soon
+                        async def wait_for_sync():
+                            if not loop.is_closed():
+                                await loop.synchronize()
+                            sync_nursery.cancel_scope.cancel()
+
+                        await loop.wait_stopped()
                         sync_nursery.cancel_scope.cancel()
 
-                    await loop.wait_stopped()
-                    sync_nursery.cancel_scope.cancel()
-
-                # Cancel and wait on all currently-running tasks.
-                # Exiting the tasks_nursery will wait for the Trio tasks
-                # automatically; we mix in the asyncio tasks by scheduling
-                # a call to run_aio_future() for each one. It's important
-                # not to wait on one kind of task before the other, so that
-                # we support Trio tasks that need to run some asyncio
-                # code during teardown as well as the opposite.
-                # Like asyncio.run(), we don't bother cancelling and waiting
-                # on any additional asyncio tasks that these tasks start as they
-                # unwind.
-                aio_tasks = asyncio.all_tasks(loop)
-                for task in aio_tasks:
-                    tasks_nursery.start_soon(run_aio_future, task)
-                tasks_nursery.cancel_scope.cancel()
+                    # Cancel and wait on all currently-running tasks.
+                    # Exiting the tasks_nursery will wait for the Trio tasks
+                    # automatically; we mix in the asyncio tasks by scheduling
+                    # a call to run_aio_future() for each one. It's important
+                    # not to wait on one kind of task before the other, so that
+                    # we support Trio tasks that need to run some asyncio
+                    # code during teardown as well as the opposite.
+                    # Like asyncio.run(), we don't bother cancelling and waiting
+                    # on any additional asyncio tasks that these tasks start
+                    # as they unwind.
+                    aio_tasks = asyncio.all_tasks(loop)
+                    for task in aio_tasks:
+                        tasks_nursery.start_soon(run_aio_future, task)
+                    tasks_nursery.cancel_scope.cancel()
         finally:
             try:
                 await loop._main_loop_exit()
