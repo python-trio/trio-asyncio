@@ -1,4 +1,0 @@
-A deadlock will no longer occur if :func:`trio_asyncio.open_loop`
-is cancelled before its first checkpoint. We also now cancel and wait on
-all asyncio tasks even if :func:`~trio_asyncio.open_loop` terminates due
-to an exception that was raised within the ``async with`` block.

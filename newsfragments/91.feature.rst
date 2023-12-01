@@ -1,8 +1,0 @@
-Exiting an ``async with trio_asyncio.open_loop():`` block now cancels
-any asyncio tasks that are still running in the background, like
-:func:`asyncio.run` does, so that they have a chance to clean up
-resources by running async context managers and ``finally``
-blocks. Previously such tasks would simply be abandoned to the garbage
-collector, resulting in potential deadlocks and stderr spew. Note that,
-like :func:`asyncio.run`, we *do* still abandon any tasks that are
-started during this finalization phase and outlive the existing tasks.

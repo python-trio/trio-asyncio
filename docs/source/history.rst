@@ -5,6 +5,51 @@ Release history
 
 .. towncrier release notes start
 
+trio-asyncio 0.13.0 (2023-12-01)
+--------------------------------
+
+Features
+~~~~~~~~
+
+- Exiting an ``async with trio_asyncio.open_loop():`` block now cancels
+  any asyncio tasks that are still running in the background, like
+  :func:`asyncio.run` does, so that they have a chance to clean up
+  resources by running async context managers and ``finally``
+  blocks. Previously such tasks would simply be abandoned to the garbage
+  collector, resulting in potential deadlocks and stderr spew. Note that,
+  like :func:`asyncio.run`, we *do* still abandon any tasks that are
+  started during this finalization phase and outlive the existing tasks.
+  (`#91 <https://github.com/python-trio/trio-asyncio/issues/91>`__)
+
+Bugfixes
+~~~~~~~~
+
+- A deadlock will no longer occur if :func:`trio_asyncio.open_loop`
+  is cancelled before its first checkpoint. We also now cancel and wait on
+  all asyncio tasks even if :func:`~trio_asyncio.open_loop` terminates due
+  to an exception that was raised within the ``async with`` block. (`#115 <https://github.com/python-trio/trio-asyncio/issues/115>`__)
+- Uncaught exceptions from asyncio tasks will now propagate out of the
+  :func:`trio_asyncio.open_loop` call.  This has always been the
+  documented behavior, but didn't actually work before.
+  (`#121 <https://github.com/python-trio/trio-asyncio/issues/121>`__)
+- Use of ``loop.add_reader()`` or ``loop.add_writer()`` with a socket object
+  (rather than a file descriptor) will no longer potentially produce spurious
+  uncaught exceptions if the socket is closed in the reader/writer callback.
+  (`#121 <https://github.com/python-trio/trio-asyncio/issues/121>`__)
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+- ``trio-asyncio`` now requires Trio 0.22 and does not produce deprecation warnings.
+  Python 3.12 is now supported. Python 3.6 and 3.7 are no longer supported. (`#121 <https://github.com/python-trio/trio-asyncio/issues/121>`__)
+- trio-asyncio now indicates its presence to `sniffio` using the
+  ``sniffio.thread_local`` interface that is preferred since sniffio
+  v1.3.0. This should be less likely than the previous approach to cause
+  :func:`sniffio.current_async_library` to return incorrect results due
+  to unintended inheritance of contextvars.
+  (`#123 <https://github.com/python-trio/trio-asyncio/issues/123>`__)
+
+
 trio-asyncio 0.12.0 (2021-01-07)
 --------------------------------
 
