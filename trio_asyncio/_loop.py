@@ -11,7 +11,6 @@ from contextlib import asynccontextmanager
 
 from ._async import TrioEventLoop
 from ._util import run_aio_future
-from ._deprecate import warn_deprecated
 
 try:
     from trio.lowlevel import wait_for_child
@@ -106,26 +105,29 @@ def _in_trio_context():
         return True
 
 
+_sync_loop_task_name = "trio_asyncio sync loop task"
+
+
+def _in_trio_context_other_than_sync_loop():
+    try:
+        return trio.lowlevel.current_task().name != _sync_loop_task_name
+    except RuntimeError:
+        return False
+
+
 class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
     @staticmethod
     def _loop_factory():
         raise RuntimeError("Event loop creations shouldn't get here")
 
     def new_event_loop(self):
-        if _in_trio_context():
+        if _in_trio_context_other_than_sync_loop():
             raise RuntimeError(
                 "You're within a Trio environment.\n"
                 "Use 'async with open_loop()' instead."
             )
         if _faked_policy.policy is not None:
             return _faked_policy.policy.new_event_loop()
-        if "pytest" not in sys.modules:
-            warn_deprecated(
-                "Using trio-asyncio outside of a Trio event loop",
-                "0.10.0",
-                issue=None,
-                instead=None,
-            )
 
         from ._sync import SyncTrioEventLoop
 
@@ -220,7 +222,7 @@ def _new_policy_get():
 def _new_policy_set(new_policy):
     if isinstance(new_policy, TrioPolicy):
         raise RuntimeError("You can't set the Trio loop policy manually")
-    if _in_trio_context():
+    if _in_trio_context_other_than_sync_loop():
         raise RuntimeError("You can't change the event loop policy in Trio context")
     if new_policy is not None and not isinstance(
         new_policy, asyncio.AbstractEventLoopPolicy

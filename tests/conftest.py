@@ -123,10 +123,6 @@ else:
         def skip(rel_id):
             mark(pytest.mark.skip, rel_id)
 
-        # This hangs, probably due to the thread shenanigans (it works
-        # fine with a greenlet-based sync loop)
-        skip("test_base_events.py::RunningLoopTests::test_running_loop_within_a_loop")
-
         # Remainder of these have unclear issues
         if sys.version_info < (3, 8):
             xfail(
@@ -201,17 +197,7 @@ else:
                 may_be_absent=True,
             )
 
-        if sys.version_info >= (3, 9):
-            # This tries to create a new loop from within an existing one,
-            # which we don't support.
-            xfail("test_locks.py::ConditionTests::test_ambiguous_loops")
-
         if sys.version_info >= (3, 12):
-            # This test sets signal handlers from within a coroutine,
-            # which doesn't work for us because SyncTrioEventLoop runs on
-            # a non-main thread.
-            xfail("test_unix_events.py::TestFork::test_fork_signal_handling")
-
             # This test explicitly uses asyncio.tasks._c_current_task,
             # bypassing our monkeypatch.
             xfail(

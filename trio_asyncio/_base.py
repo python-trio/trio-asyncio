@@ -492,15 +492,45 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._ensure_fd_no_transport(fd)
         return self._add_reader(fd, callback, *args)
 
-    def _add_reader(self, fd, callback, *args):
+    # Local helper to factor out common logic between _add_reader/_add_writer
+    def _add_io_handler(self, set_handle, wait_ready, fd, callback, args):
         self._check_closed()
         handle = ScopedHandle(callback, args, self)
-        reader = self._set_read_handle(fd, handle)
-        if reader is not None:
-            reader.cancel()
+        old_handle = set_handle(fd, handle)
+
+        if old_handle is not None:
+            old_handle.cancel()
         if self._token is None:
-            return
-        self._nursery.start_soon(self._reader_loop, fd, handle)
+            return None
+        self._nursery.start_soon(self._io_task, fd, handle, wait_ready)
+        return handle
+
+    async def _io_task(self, fd, handle, wait_ready):
+        with handle._scope:
+            try:
+                while True:
+                    if handle._cancelled:
+                        break
+                    try:
+                        await wait_ready(fd)
+                    except OSError:
+                        # maybe someone did
+                        #   h = add_reader(sock); h.cancel(); sock.close()
+                        # without yielding to the event loop
+                        if handle._cancelled:
+                            break
+                        raise
+                    if handle._cancelled:
+                        break
+                    handle._run()
+                    await self.synchronize()
+            except Exception as exc:
+                handle._raise(exc)
+
+    def _add_reader(self, fd, callback, *args):
+        return self._add_io_handler(
+            self._set_read_handle, _wait_readable, fd, callback, args
+        )
 
     def _set_read_handle(self, fd, handle):
         try:
@@ -512,20 +542,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             mask, (reader, writer) = key.events, key.data
             self._selector.modify(fd, mask | EVENT_READ, (handle, writer))
             return reader
-
-    async def _reader_loop(self, fd, handle):
-        with handle._scope:
-            try:
-                while True:
-                    if handle._cancelled:
-                        break
-                    await _wait_readable(fd)
-                    if handle._cancelled:
-                        break
-                    handle._run()
-                    await self.synchronize()
-            except Exception as exc:
-                handle._raise(exc)
 
     # writing to a file descriptor
 
@@ -546,15 +562,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     # remove_writer: unchanged from asyncio
 
-    def _add_writer(self, fd, callback, *args):
-        self._check_closed()
-        handle = ScopedHandle(callback, args, self)
-        writer = self._set_write_handle(fd, handle)
-        if writer is not None:
-            writer.cancel()
-        if self._token is None:
-            return
-        self._nursery.start_soon(self._writer_loop, fd, handle)
+    def _add_writer(self, fd, callback, *args, _defer_start=False):
+        return self._add_io_handler(
+            self._set_write_handle, _wait_writable, fd, callback, args
+        )
 
     def _set_write_handle(self, fd, handle):
         try:
@@ -565,20 +576,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             mask, (reader, writer) = key.events, key.data
             self._selector.modify(fd, mask | EVENT_WRITE, (reader, handle))
             return writer
-
-    async def _writer_loop(self, fd, handle):
-        with handle._scope:
-            try:
-                while True:
-                    if handle._cancelled:
-                        break
-                    await _wait_writable(fd)
-                    if handle._cancelled:
-                        break
-                    handle._run()
-                    await self.synchronize()
-            except Exception as exc:
-                handle._raise(exc)
 
     def autoclose(self, fd):
         """
@@ -752,6 +749,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         # clean core fields
         self._nursery = None
         self._task = None
+        self._token = None
 
     def is_running(self):
         if self._stopped is None:
@@ -777,6 +775,11 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         within its scope have exited).
         """
         await self._stopped.wait()
+
+    def _trio_io_cancel(self, cancel_scope):
+        """Called when a ScopedHandle representing an I/O reader or writer
+        has its cancel() method called."""
+        cancel_scope.cancel()
 
     def stop(self):
         """Halt the main loop.
