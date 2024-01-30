@@ -8,8 +8,10 @@ from asyncio.log import logger
 
 from trio_asyncio import TrioAsyncioDeprecationWarning
 
+
 def deprecate(tc):
     return pytest.warns(TrioAsyncioDeprecationWarning)
+
 
 def deprecate_stdlib(tc, vers=None):
     if vers is None or sys.version_info >= vers:

@@ -46,7 +46,9 @@ class Asyncio_Trio_Wrapper:
 
     async def __call__(self, *args, **kwargs):
         if self.args:
-            raise RuntimeError("Call 'aio_as_trio(proc)(*args)', not 'aio_as_trio(proc, *args)'")
+            raise RuntimeError(
+                "Call 'aio_as_trio(proc)(*args)', not 'aio_as_trio(proc, *args)'"
+            )
 
         # We route this through _calL_defer because some wrappers require
         # running in asyncio context
@@ -54,8 +56,7 @@ class Asyncio_Trio_Wrapper:
         return await self.loop.run_aio_coroutine(f)
 
     def __await__(self):
-        """Support for commonly used (but not recommended) "await aio_as_trio(proc(*args))"
-        """
+        """Support for commonly used (but not recommended) "await aio_as_trio(proc(*args))" """
         f = self.proc
         if not hasattr(f, "__await__"):
             f = _call_defer(f, *self.args)
@@ -79,7 +80,9 @@ class Asyncio_Trio_Wrapper:
     def __aiter__(self):
         proc_iter = getattr(self.proc, "__aiter__", None)
         if proc_iter is None or self.args:
-            raise RuntimeError("Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'")
+            raise RuntimeError(
+                "Call 'aio_as_trio(gen(*args))', not 'aio_as_trio(gen, *args)'"
+            )
         return run_aio_generator(self.loop, proc_iter())
 
 
@@ -165,7 +168,9 @@ class Trio_Asyncio_Wrapper:
     def __aiter__(self):
         proc_iter = getattr(self.proc, "__aiter__", None)
         if proc_iter is None:
-            raise RuntimeError("Call 'trio_as_aio(gen(*args))', not 'trio_as_aio(gen, *args)'")
+            raise RuntimeError(
+                "Call 'trio_as_aio(gen(*args))', not 'trio_as_aio(gen, *args)'"
+            )
         return run_trio_generator(self.loop, proc_iter())
 
 

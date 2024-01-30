@@ -7,9 +7,10 @@ import outcome
 import trio
 
 import logging
+
 logger = logging.getLogger(__name__)
 
-_mswindows = (sys.platform == "win32")
+_mswindows = sys.platform == "win32"
 if _mswindows:
     import _winapi
 

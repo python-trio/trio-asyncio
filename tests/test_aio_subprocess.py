@@ -1,4 +1,5 @@
 """Tests for events.py."""
+
 import pytest
 
 import functools
@@ -13,50 +14,52 @@ from trio_asyncio import aio_as_trio
 
 from . import utils as test_utils
 
-pytestmark = pytest.mark.skipif(sys.platform == 'win32',
-                                reason="Not supported on Windows")
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="Not supported on Windows"
+)
+
 
 class MySubprocessProtocol(asyncio.SubprocessProtocol):
     def __init__(self, loop):
-        self.state = 'INITIAL'
+        self.state = "INITIAL"
         self.transport = None
         self.connected = asyncio.Future()
         self.completed = asyncio.Future()
         self.disconnects = {fd: asyncio.Future() for fd in range(3)}
-        self.data = {1: b'', 2: b''}
+        self.data = {1: b"", 2: b""}
         self.returncode = None
         self.got_data = {1: asyncio.Event(), 2: asyncio.Event()}
 
     def connection_made(self, transport):
         self.transport = transport
-        assert self.state == 'INITIAL', self.state
-        self.state = 'CONNECTED'
+        assert self.state == "INITIAL", self.state
+        self.state = "CONNECTED"
         self.connected.set_result(None)
 
     def connection_lost(self, exc):
-        assert self.state == 'CONNECTED', self.state
-        self.state = 'CLOSED'
+        assert self.state == "CONNECTED", self.state
+        self.state = "CLOSED"
         self.completed.set_result(None)
 
     def pipe_data_received(self, fd, data):
-        assert self.state == 'CONNECTED', self.state
+        assert self.state == "CONNECTED", self.state
         self.data[fd] += data
         self.got_data[fd].set()
 
     def pipe_connection_lost(self, fd, exc):
-        assert self.state == 'CONNECTED', self.state
+        assert self.state == "CONNECTED", self.state
         if exc:
             self.disconnects[fd].set_exception(exc)
         else:
             self.disconnects[fd].set_result(exc)
 
     def process_exited(self):
-        assert self.state == 'CONNECTED', self.state
+        assert self.state == "CONNECTED", self.state
         self.returncode = self.transport.get_returncode()
 
 
 def check_terminated(returncode):
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         assert isinstance(returncode, int)
         # expect 1 but sometimes get 0
     else:
@@ -64,7 +67,7 @@ def check_terminated(returncode):
 
 
 def check_killed(returncode):
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         assert isinstance(returncode, int)
         # expect 1 but sometimes get 0
     else:
@@ -78,7 +81,7 @@ async def test_subprocess_exec(loop):
 
 @aio_as_trio
 async def run_subprocess_exec(loop):
-    prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
+    prog = os.path.join(os.path.dirname(__file__), "scripts", "echo.py")
 
     connect = loop.subprocess_exec(
         functools.partial(MySubprocessProtocol, loop), sys.executable, prog
@@ -86,16 +89,16 @@ async def run_subprocess_exec(loop):
     transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
     await proto.connected
-    assert 'CONNECTED' == proto.state
+    assert "CONNECTED" == proto.state
 
     stdin = transp.get_pipe_transport(0)
-    stdin.write(b'Python The Winner')
+    stdin.write(b"Python The Winner")
     await proto.got_data[1].wait()
     with test_utils.disable_logger():
         transp.close()
     await proto.completed
     check_killed(proto.returncode)
-    assert b'Python The Winner' == proto.data[1]
+    assert b"Python The Winner" == proto.data[1]
 
 
 @pytest.mark.trio
@@ -105,7 +108,7 @@ async def test_subprocess_interactive(loop):
 
 @aio_as_trio
 async def run_subprocess_interactive(loop):
-    prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
+    prog = os.path.join(os.path.dirname(__file__), "scripts", "echo.py")
 
     connect = loop.subprocess_exec(
         functools.partial(MySubprocessProtocol, loop), sys.executable, prog
@@ -113,17 +116,17 @@ async def run_subprocess_interactive(loop):
     transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
     await proto.connected
-    assert 'CONNECTED' == proto.state
+    assert "CONNECTED" == proto.state
 
     stdin = transp.get_pipe_transport(0)
-    stdin.write(b'Python ')
+    stdin.write(b"Python ")
     await proto.got_data[1].wait()
     proto.got_data[1].clear()
-    assert b'Python ' == proto.data[1]
+    assert b"Python " == proto.data[1]
 
-    stdin.write(b'The Winner')
+    stdin.write(b"The Winner")
     await proto.got_data[1].wait()
-    assert b'Python The Winner' == proto.data[1]
+    assert b"Python The Winner" == proto.data[1]
 
     with test_utils.disable_logger():
         transp.close()
@@ -138,7 +141,9 @@ async def test_subprocess_shell(loop):
 
 @aio_as_trio
 async def run_subprocess_shell(loop):
-    connect = loop.subprocess_shell(functools.partial(MySubprocessProtocol, loop), 'echo Python')
+    connect = loop.subprocess_shell(
+        functools.partial(MySubprocessProtocol, loop), "echo Python"
+    )
     transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
     await proto.connected
@@ -147,8 +152,8 @@ async def run_subprocess_shell(loop):
     await proto.completed
     assert 0 == proto.returncode
     assert all(f.done() for f in proto.disconnects.values())
-    assert proto.data[1].rstrip(b'\r\n') == b'Python'
-    assert proto.data[2] == b''
+    assert proto.data[1].rstrip(b"\r\n") == b"Python"
+    assert proto.data[2] == b""
     transp.close()
 
 
@@ -161,10 +166,10 @@ async def test_subprocess_exitcode(loop):
 async def run_subprocess_exitcode(loop):
     connect = loop.subprocess_shell(
         functools.partial(MySubprocessProtocol, loop),
-        'exit 7',
+        "exit 7",
         stdin=None,
         stdout=None,
-        stderr=None
+        stderr=None,
     )
     transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
@@ -182,10 +187,10 @@ async def test_subprocess_close_after_finish(loop):
 async def run_subprocess_close_after_finish(loop):
     connect = loop.subprocess_shell(
         functools.partial(MySubprocessProtocol, loop),
-        'exit 7',
+        "exit 7",
         stdin=None,
         stdout=None,
-        stderr=None
+        stderr=None,
     )
     transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
@@ -204,7 +209,7 @@ async def test_subprocess_kill(loop):
 
 @aio_as_trio
 async def run_subprocess_kill(loop):
-    prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
+    prog = os.path.join(os.path.dirname(__file__), "scripts", "echo.py")
 
     connect = loop.subprocess_exec(
         functools.partial(MySubprocessProtocol, loop), sys.executable, prog
@@ -226,7 +231,7 @@ async def test_subprocess_terminate(loop):
 
 @aio_as_trio
 async def run_subprocess_terminate(loop):
-    prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
+    prog = os.path.join(os.path.dirname(__file__), "scripts", "echo.py")
 
     connect = loop.subprocess_exec(
         functools.partial(MySubprocessProtocol, loop), sys.executable, prog
@@ -241,7 +246,7 @@ async def run_subprocess_terminate(loop):
     transp.close()
 
 
-@unittest.skipIf(sys.platform == 'win32', "Don't have SIGHUP")
+@unittest.skipIf(sys.platform == "win32", "Don't have SIGHUP")
 @pytest.mark.trio
 async def test_subprocess_send_signal(loop):
     await run_subprocess_send_signal(loop)
@@ -254,7 +259,7 @@ async def run_subprocess_send_signal(loop):
     # and signal handlers are inherited.
     old_handler = signal.signal(signal.SIGHUP, signal.SIG_DFL)
     try:
-        prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo.py')
+        prog = os.path.join(os.path.dirname(__file__), "scripts", "echo.py")
 
         connect = loop.subprocess_exec(
             functools.partial(MySubprocessProtocol, loop), sys.executable, prog
@@ -278,7 +283,7 @@ async def test_subprocess_stderr(loop):
 
 @aio_as_trio
 async def run_subprocess_stderr(loop):
-    prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo2.py')
+    prog = os.path.join(os.path.dirname(__file__), "scripts", "echo2.py")
 
     connect = loop.subprocess_exec(
         functools.partial(MySubprocessProtocol, loop), sys.executable, prog
@@ -288,13 +293,13 @@ async def run_subprocess_stderr(loop):
     await proto.connected
 
     stdin = transp.get_pipe_transport(0)
-    stdin.write(b'test')
+    stdin.write(b"test")
 
     await proto.completed
 
     transp.close()
-    assert b'OUT:test' == proto.data[1]
-    assert proto.data[2].startswith(b'ERR:test'), proto.data[2]
+    assert b"OUT:test" == proto.data[1]
+    assert proto.data[2].startswith(b"ERR:test"), proto.data[2]
     assert 0 == proto.returncode
 
 
@@ -305,13 +310,13 @@ async def test_subprocess_stderr_redirect_to_stdout(loop):
 
 @aio_as_trio
 async def run_subprocess_stderr_redirect_to_stdout(loop):
-    prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo2.py')
+    prog = os.path.join(os.path.dirname(__file__), "scripts", "echo2.py")
 
     connect = loop.subprocess_exec(
         functools.partial(MySubprocessProtocol, loop),
         sys.executable,
         prog,
-        stderr=subprocess.STDOUT
+        stderr=subprocess.STDOUT,
     )
     transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
@@ -321,10 +326,10 @@ async def run_subprocess_stderr_redirect_to_stdout(loop):
     assert transp.get_pipe_transport(1) is not None
     assert transp.get_pipe_transport(2) is None
 
-    stdin.write(b'test')
+    stdin.write(b"test")
     await proto.completed
-    assert proto.data[1].startswith(b'OUT:testERR:test'), proto.data[1]
-    assert b'' == proto.data[2]
+    assert proto.data[1].startswith(b"OUT:testERR:test"), proto.data[1]
+    assert b"" == proto.data[2]
 
     transp.close()
     assert 0 == proto.returncode
@@ -337,7 +342,7 @@ async def test_subprocess_close_client_stream(loop):
 
 @aio_as_trio
 async def run_subprocess_close_client_stream(loop):
-    prog = os.path.join(os.path.dirname(__file__), 'scripts', 'echo3.py')
+    prog = os.path.join(os.path.dirname(__file__), "scripts", "echo3.py")
 
     connect = loop.subprocess_exec(
         functools.partial(MySubprocessProtocol, loop), sys.executable, prog
@@ -348,22 +353,22 @@ async def run_subprocess_close_client_stream(loop):
 
     stdin = transp.get_pipe_transport(0)
     stdout = transp.get_pipe_transport(1)
-    stdin.write(b'test')
+    stdin.write(b"test")
     await proto.got_data[1].wait()
-    assert b'OUT:test' == proto.data[1]
+    assert b"OUT:test" == proto.data[1]
 
     stdout.close()
     await proto.disconnects[1]
-    stdin.write(b'xxx')
+    stdin.write(b"xxx")
     await proto.got_data[2].wait()
-    if sys.platform != 'win32':
-        assert b'ERR:BrokenPipeError' == proto.data[2]
+    if sys.platform != "win32":
+        assert b"ERR:BrokenPipeError" == proto.data[2]
     else:
         # After closing the read-end of a pipe, writing to the
         # write-end using os.write() fails with errno==EINVAL and
         # GetLastError()==ERROR_INVALID_NAME on Windows!?!  (Using
         # WriteFile() we get ERROR_BROKEN_PIPE as expected.)
-        assert b'ERR:OSError' == proto.data[2]
+        assert b"ERR:OSError" == proto.data[2]
     with test_utils.disable_logger():
         transp.close()
     await proto.completed
@@ -380,11 +385,11 @@ async def run_subprocess_wait_no_same_group(loop):
     # start the new process in a new session
     connect = loop.subprocess_shell(
         functools.partial(MySubprocessProtocol, loop),
-        'exit 7',
+        "exit 7",
         stdin=None,
         stdout=None,
         stderr=None,
-        start_new_session=True
+        start_new_session=True,
     )
     transp, proto = await connect
     assert isinstance(proto, MySubprocessProtocol)
@@ -398,7 +403,7 @@ async def run_subprocess_wait_no_same_group(loop):
 async def test_subprocess_exec_invalid_args(loop):
     @aio_as_trio
     async def connect(**kwds):
-        await loop.subprocess_exec(asyncio.SubprocessProtocol, 'pwd', **kwds)
+        await loop.subprocess_exec(asyncio.SubprocessProtocol, "pwd", **kwds)
 
     with pytest.raises(ValueError):
         await connect(universal_newlines=True)
@@ -413,11 +418,11 @@ async def test_subprocess_shell_invalid_args(loop):
     @aio_as_trio
     async def connect(cmd=None, **kwds):
         if not cmd:
-            cmd = 'pwd'
+            cmd = "pwd"
         await loop.subprocess_shell(asyncio.SubprocessProtocol, cmd, **kwds)
 
     with pytest.raises(ValueError):
-        await connect(['ls', '-l'])
+        await connect(["ls", "-l"])
     with pytest.raises(ValueError):
         await connect(universal_newlines=True)
     with pytest.raises(ValueError):

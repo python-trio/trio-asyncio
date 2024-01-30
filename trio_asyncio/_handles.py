@@ -12,7 +12,7 @@ def _format_callback_source(func, args):
     func_repr = _format_callback(func, args, None)
     source = _get_function_source(func)
     if source:  # pragma: no cover
-        func_repr += ' at %s:%s' % source
+        func_repr += " at %s:%s" % source
     return func_repr
 
 
@@ -43,14 +43,14 @@ class ScopedHandle(asyncio.Handle):
         AsyncHandle.
         """
         cb = _format_callback_source(self._callback, self._args)
-        msg = 'Exception in callback {}'.format(cb)
+        msg = "Exception in callback {}".format(cb)
         context = {
-            'message': msg,
-            'exception': exc,
-            'handle': self,
+            "message": msg,
+            "exception": exc,
+            "handle": self,
         }
         if self._source_traceback:
-            context['source_traceback'] = self._source_traceback
+            context["source_traceback"] = self._source_traceback
         self._loop.call_exception_handler(context)
 
 
@@ -87,7 +87,11 @@ def collapse_exception_group(excgroup):
                 modified = True
                 exceptions[i] = new_exc
 
-    if len(exceptions) == 1 and getattr(excgroup, "collapse", False):
+    collapse = getattr(excgroup, "collapse", False) or (  # Trio 0.23.0  # Trio 0.24.0
+        getattr(trio._core._run, "NONSTRICT_EXCEPTIONGROUP_NOTE", object())
+        in getattr(excgroup, "__notes__", ())
+    )
+    if len(exceptions) == 1 and collapse:
         exceptions[0].__traceback__ = concat_tb(
             excgroup.__traceback__, exceptions[0].__traceback__
         )

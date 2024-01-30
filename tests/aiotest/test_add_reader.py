@@ -7,26 +7,26 @@ import trio
 class TestAddReader:
     @pytest.mark.trio
     async def test_add_reader(self, loop):
-        result = {'received': None}
+        result = {"received": None}
         rsock, wsock = socketpair()
         ready = trio.Event()
         try:
 
             def reader():
                 data = rsock.recv(100)
-                result['received'] = data
+                result["received"] = data
                 loop.remove_reader(rsock)
                 ready.set()
 
             def writer():
                 loop.remove_writer(wsock)
-                loop.call_soon(wsock.send, b'abc')
+                loop.call_soon(wsock.send, b"abc")
 
             loop.add_reader(rsock, reader)
             loop.add_writer(wsock, writer)
 
             await ready.wait()
-            assert result['received'] == b'abc'
+            assert result["received"] == b"abc"
 
         finally:
             rsock.close()
@@ -36,12 +36,13 @@ class TestAddReader:
         socket = config.socket
 
         selector = loop._selector
-        if event == 'reader':
+        if event == "reader":
             add_sock = loop.add_reader
             remove_sock = loop.remove_reader
 
             def get_handle(fileobj):
                 return selector.get_key(fileobj).data[0]
+
         else:
             add_sock = loop.add_writer
             remove_sock = loop.remove_writer
