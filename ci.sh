@@ -77,7 +77,7 @@ else
     # 'coverage xml' to generate the report that it uses, and that will only
     # apply the ignore patterns in the current directory's .coveragerc.
     cp ../.coveragerc .
-    if pytest -ra --junitxml=../test-results.xml --cov=trio_asyncio --verbose ../tests; then
+    if pytest -ra --junitxml=../test-results.xml --cov=trio_asyncio --verbose --timeout=30 ../tests; then
         PASSED=true
     else
         PASSED=false

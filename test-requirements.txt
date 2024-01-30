@@ -2,3 +2,4 @@ pytest >= 5.4   # for the Node.from_parent() transition
 pytest-cov
 pytest-trio
 outcome
+pytest-timeout
