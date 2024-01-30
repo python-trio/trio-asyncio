@@ -103,10 +103,12 @@ else:
         by_id = {item.nodeid: item for item in items}
         aio_test_root = aio_test_nodeid(asyncio_test_dir / "foo")[:-3]
 
-        def mark(marker, rel_id):
+        def mark(marker, rel_id, may_be_absent=False):
             try:
                 by_id[aio_test_root + rel_id].add_marker(marker)
             except KeyError:
+                if may_be_absent:
+                    return
                 warnings.warn(
                     "Tried to add marker {} to {}, but that test doesn't exist.".format(
                         marker, rel_id
@@ -189,6 +191,15 @@ else:
             # but Trio isn't fork-safe -- it hangs nondeterministically.
             skip("test_events.py::TestPyGetEventLoop::test_get_event_loop_new_process")
             skip("test_events.py::TestCGetEventLoop::test_get_event_loop_new_process")
+
+            # This test attempts to stop the event loop from within a
+            # run_until_complete coroutine, which hangs on our implementation.
+            # Only present on releases post November 2023
+            mark(
+                pytest.mark.skip,
+                "test_streams.py::StreamTests::test_loop_is_closed_resource_warnings",
+                may_be_absent=True,
+            )
 
         if sys.version_info >= (3, 9):
             # This tries to create a new loop from within an existing one,
