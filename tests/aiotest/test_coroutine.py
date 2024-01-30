@@ -7,7 +7,7 @@ async def hello_world(asyncio, result, delay, loop):
     result.append("Hello")
     # retrieve the event loop from the policy
     await asyncio.sleep(delay)
-    result.append('World')
+    result.append("World")
     return "."
 
 
@@ -17,7 +17,7 @@ class TestCoroutine(aiotest.TestCase):
         result = []
         coro = hello_world(config.asyncio, result, 0.001, loop)
         await loop.run_aio_coroutine(config.asyncio.ensure_future(coro))
-        assert result == ['Hello', 'World']
+        assert result == ["Hello", "World"]
 
     @pytest.mark.trio
     async def test_waiter(self, loop, config):
@@ -33,4 +33,4 @@ class TestCoroutine(aiotest.TestCase):
 
         result = []
         await trio_asyncio.aio_as_trio(waiter)(config.asyncio, hello_world, result)
-        assert result == ['Future', 'Hello', 'World', '.']
+        assert result == ["Future", "Hello", "World", "."]

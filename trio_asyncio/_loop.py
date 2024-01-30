@@ -119,7 +119,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
             )
         if _faked_policy.policy is not None:
             return _faked_policy.policy.new_event_loop()
-        if 'pytest' not in sys.modules:
+        if "pytest" not in sys.modules:
             warn_deprecated(
                 "Using trio-asyncio outside of a Trio event loop",
                 "0.10.0",
@@ -128,6 +128,7 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
             )
 
         from ._sync import SyncTrioEventLoop
+
         return SyncTrioEventLoop()
 
     def get_event_loop(self):
@@ -221,7 +222,9 @@ def _new_policy_set(new_policy):
         raise RuntimeError("You can't set the Trio loop policy manually")
     if _in_trio_context():
         raise RuntimeError("You can't change the event loop policy in Trio context")
-    if (new_policy is not None and not isinstance(new_policy, asyncio.AbstractEventLoopPolicy)):
+    if new_policy is not None and not isinstance(
+        new_policy, asyncio.AbstractEventLoopPolicy
+    ):
         # Raise the type of error that the CPython test suite expects
         raise_type = TypeError if sys.version_info >= (3, 11) else AssertionError
         raise raise_type(
@@ -324,8 +327,9 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
                 if isinstance(threading.current_thread(), threading._MainThread):
                     self._watcher.attach_loop(current_loop.get())
 
-        if self._watcher is not None and \
-                isinstance(threading.current_thread(), threading._MainThread):
+        if self._watcher is not None and isinstance(
+            threading.current_thread(), threading._MainThread
+        ):
             self._watcher.attach_loop(current_loop.get())
 
     def set_child_watcher(self, watcher):
@@ -347,12 +351,14 @@ _trio_policy = TrioPolicy()
 _orig_policy_set(_trio_policy)
 
 # Backwards compatibility -- unused
-current_policy = ContextVar('trio_aio_policy', default=_trio_policy)
+current_policy = ContextVar("trio_aio_policy", default=_trio_policy)
 
-current_loop = ContextVar('trio_aio_loop', default=None)
+current_loop = ContextVar("trio_aio_loop", default=None)
 
 
-class TrioChildWatcher(asyncio.AbstractChildWatcher if sys.platform != 'win32' else object):
+class TrioChildWatcher(
+    asyncio.AbstractChildWatcher if sys.platform != "win32" else object
+):
     """Watches for child processes to exit using Trio APIs.
 
     All TrioChildWatchers behave identically, so there's no reason to construct

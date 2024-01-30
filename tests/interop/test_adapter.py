@@ -13,7 +13,7 @@ from trio_asyncio import TrioAsyncioDeprecationWarning
 def de_deprecate_converter(func):
     def wrapper(proc):
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', TrioAsyncioDeprecationWarning)
+            warnings.simplefilter("ignore", TrioAsyncioDeprecationWarning)
             return func(proc)
 
     return wrapper

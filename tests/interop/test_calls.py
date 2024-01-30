@@ -89,7 +89,9 @@ class TestCalls(aiotest.TestCase):
             return 8
 
         seen = Seen()
-        res = await aio_as_trio(partial(self.call_a_t, loop=loop), loop=loop)(dly_trio, seen)
+        res = await aio_as_trio(partial(self.call_a_t, loop=loop), loop=loop)(
+            dly_trio, seen
+        )
         assert res == 8
         assert seen.flag == 2
 
@@ -123,7 +125,9 @@ class TestCalls(aiotest.TestCase):
             return 8
 
         seen = Seen()
-        res = await aio_as_trio(partial(self.call_a_ts, loop=loop), loop=loop)(dly_trio, seen)
+        res = await aio_as_trio(partial(self.call_a_ts, loop=loop), loop=loop)(
+            dly_trio, seen
+        )
         assert res == 8
         assert seen.flag == 2
 
@@ -156,7 +160,9 @@ class TestCalls(aiotest.TestCase):
             raise RuntimeError("I has more owie")
 
         with pytest.raises(RuntimeError) as err:
-            await aio_as_trio(partial(self.call_a_ts, loop=loop), loop=loop)(err_trio_sync)
+            await aio_as_trio(partial(self.call_a_ts, loop=loop), loop=loop)(
+                err_trio_sync
+            )
         assert err.value.args[0] == "I has more owie"
 
     @pytest.mark.trio
@@ -182,7 +188,9 @@ class TestCalls(aiotest.TestCase):
 
         seen = Seen()
         with pytest.raises(asyncio.CancelledError):
-            await aio_as_trio(partial(self.call_a_t, loop=loop), loop=loop)(cancelled_trio, seen)
+            await aio_as_trio(partial(self.call_a_t, loop=loop), loop=loop)(
+                cancelled_trio, seen
+            )
         assert seen.flag == 3
 
     @pytest.mark.trio
@@ -259,7 +267,9 @@ class TestCalls(aiotest.TestCase):
         async def cancel_trio(seen):
             started = trio.Event()
             async with trio.open_nursery() as nursery:
-                nursery.start_soon(partial(self.call_t_a, loop=loop), in_asyncio, started, seen)
+                nursery.start_soon(
+                    partial(self.call_t_a, loop=loop), in_asyncio, started, seen
+                )
                 await started.wait()
                 nursery.cancel_scope.cancel()
             seen.flag |= 8
@@ -334,7 +344,9 @@ class TestCalls(aiotest.TestCase):
         seen = Seen()
 
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(async_gen_to_list, run_aio_generator(loop, dly_asyncio(hold, seen)))
+            nursery.start_soon(
+                async_gen_to_list, run_aio_generator(loop, dly_asyncio(hold, seen))
+            )
             await trio.testing.wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
         assert nursery.cancel_scope.cancel_called
@@ -361,8 +373,6 @@ class TestCalls(aiotest.TestCase):
 
         sum = 0
         # with test_utils.deprecate(self): ## not yet
-        async for n in aio_as_trio(
-            slow_nums(), loop=loop
-        ):
+        async for n in aio_as_trio(slow_nums(), loop=loop):
             sum += n
         assert sum == 15

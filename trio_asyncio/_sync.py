@@ -51,15 +51,14 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             self._stop_pending = False
             raise TrioAsyncioExit("stopping trio-asyncio loop")
 
-
-#        async def stop_me():
-#            def kick_():
-#                raise StopAsyncIteration
-#            self._queue_handle(asyncio.Handle(kick_, (), self))
-#            await self._main_loop()
-#        if threading.current_thread() != self._thread:
-#            self.__run_in_thread(stop_me)
-#        else:
+        #        async def stop_me():
+        #            def kick_():
+        #                raise StopAsyncIteration
+        #            self._queue_handle(asyncio.Handle(kick_, (), self))
+        #            await self._main_loop()
+        #        if threading.current_thread() != self._thread:
+        #            self.__run_in_thread(stop_me)
+        #        else:
 
         if self._thread_running and not self._stop_pending:
             self._stop_pending = True
@@ -78,8 +77,9 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         # On the other hand, if a request has been submitted (but not yet
         # processed) through self._token, any other requestss also must be
         # sent that way, otherwise they'd overtake each other.
-        if self._token is not None and (self._some_deferred or \
-                                        threading.current_thread() != self._thread):
+        if self._token is not None and (
+            self._some_deferred or threading.current_thread() != self._thread
+        ):
             self._some_deferred += 1
             self._token.run_sync_soon(put, self, handle)
         else:
@@ -88,7 +88,9 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
 
     def run_forever(self):
         if self._thread == threading.current_thread():
-            raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
+            raise RuntimeError(
+                "You can't nest calls to run_until_complete()/run_forever()."
+            )
         self.__run_in_thread(self._main_loop)
 
     def is_running(self):
@@ -121,7 +123,9 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         """
 
         if self._thread == threading.current_thread():
-            raise RuntimeError("You can't nest calls to run_until_complete()/run_forever().")
+            raise RuntimeError(
+                "You can't nest calls to run_until_complete()/run_forever()."
+            )
         return self.__run_in_thread(self._run_coroutine, future)
 
     async def _run_coroutine(self, future):
@@ -156,13 +160,15 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             future.remove_done_callback(is_done)
 
         if result is None:
-            raise RuntimeError('Event loop stopped before Future completed.')
+            raise RuntimeError("Event loop stopped before Future completed.")
         return result.unwrap()
 
     def __run_in_thread(self, async_fn, *args):
         self._check_closed()
         if self._thread is None:
-            raise RuntimeError("You need to wrap your main code in a 'with loop:' statement.")
+            raise RuntimeError(
+                "You need to wrap your main code in a 'with loop:' statement."
+            )
         if not self._thread.is_alive():
             raise RuntimeError("The Trio thread is not running")
         self.__blocking_job_queue.put((async_fn, args))
@@ -179,7 +185,7 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                 name="trio-asyncio-" + threading.current_thread().name,
                 target=trio.run,
                 daemon=True,
-                args=(self.__trio_thread_main,)
+                args=(self.__trio_thread_main,),
             )
             self._thread.start()
             x = self.__blocking_result_queue.get()
@@ -203,7 +209,10 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
                 self._thread_running = True
                 result = await outcome.acapture(async_fn, *args)
                 self._thread_running = False
-                if type(result) == outcome.Error and type(result.error) == trio.Cancelled:
+                if (
+                    type(result) == outcome.Error
+                    and type(result.error) == trio.Cancelled
+                ):
                     res = RuntimeError("Main loop cancelled")
                     res.__cause__ = result.error.__cause__
                     result = outcome.Error(res)

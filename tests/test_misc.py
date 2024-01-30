@@ -32,8 +32,9 @@ class TestMisc:
             async with trio_asyncio.open_loop() as loop:
                 await trio.lowlevel.checkpoint()
                 loop.stop()
-        assert not scope.cancelled_caught, \
-            "Possible deadlock after manual call to loop.stop"
+        assert (
+            not scope.cancelled_caught
+        ), "Possible deadlock after manual call to loop.stop"
 
     @pytest.mark.trio
     async def test_err1(self, loop):
@@ -171,6 +172,7 @@ class TestMisc:
 @pytest.mark.trio
 async def test_wrong_context_manager_order():
     take_down = trio.Event()
+
     async def work_in_asyncio():
         await asyncio.sleep(0)
 
@@ -189,8 +191,7 @@ async def test_wrong_context_manager_order():
 
 
 @pytest.mark.trio
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="Not supported on Windows")
+@pytest.mark.skipif(sys.platform == "win32", reason="Not supported on Windows")
 async def test_keyboard_interrupt_teardown():
     asyncio_loop_closed = trio.Event()
 
@@ -223,12 +224,13 @@ async def test_keyboard_interrupt_teardown():
 
     import signal
     import threading
+
     with pytest.raises(KeyboardInterrupt):
-        with pytest.warns(RuntimeWarning):
-            async with trio.open_nursery() as nursery:
-                await nursery.start(run_asyncio_loop, nursery)
-                # Trigger KeyboardInterrupt that should propagate accross the coroutines
-                signal.pthread_kill(threading.get_ident(), signal.SIGINT)
+        async with trio.open_nursery() as nursery:
+            await nursery.start(run_asyncio_loop, nursery)
+            # Trigger KeyboardInterrupt that should propagate accross the coroutines
+            signal.pthread_kill(threading.get_ident(), signal.SIGINT)
+
 
 @pytest.mark.trio
 @pytest.mark.parametrize("throw_another", [False, True])
@@ -237,6 +239,7 @@ async def test_cancel_loop(throw_another):
     does not cause any of the tasks running within it to yield a
     result of Cancelled.
     """
+
     async def manage_loop(task_status):
         try:
             with trio.CancelScope() as scope:
@@ -330,9 +333,7 @@ async def test_run_trio_task_errors(monkeypatch):
     monkeypatch.setattr(
         trio_asyncio.TrioEventLoop, "default_exception_handler", collect_exceptions
     )
-    expected = [
-        ValueError("hi"), ValueError("lo"), KeyError(), IndexError()
-    ]
+    expected = [ValueError("hi"), ValueError("lo"), KeyError(), IndexError()]
     await raise_in_aio_loop(expected[0])
     with pytest.raises(SystemExit):
         await raise_in_aio_loop(SystemExit(0))

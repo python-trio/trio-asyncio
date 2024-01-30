@@ -37,20 +37,20 @@ python -m pip --version
 
 python -m pip install .
 
-# See https://github.com/python-trio/trio/issues/334
-YAPF_VERSION=0.20.0
+BLACK_VERSION=24.1.0
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    pip install yapf==${YAPF_VERSION}
-    if ! yapf -rpd setup.py trio_asyncio; then
+    pip install black==${BLACK_VERSION}
+    if ! black --check setup.py tests trio_asyncio; then
+        black --diff setup.py tests trio_asyncio
         cat <<EOF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Formatting problems were found (listed above). To fix them, run
 
-   pip install yapf==${YAPF_VERSION}
-   yapf -rpi setup.py trio_asyncio
+   pip install black==${BLACK_VERSION}
+   black setup.py tests trio_asyncio
 
 in your local checkout.
 

@@ -20,9 +20,10 @@ except ImportError:
     from ._child import wait_for_child
 
 import logging
+
 logger = logging.getLogger(__name__)
 
-_mswindows = (sys.platform == "win32")
+_mswindows = sys.platform == "win32"
 
 try:
     _wait_readable = trio.lowlevel.wait_readable
@@ -170,27 +171,27 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     def __repr__(self):
         try:
             return "<%s running=%s at 0x%x>" % (
-                self.__class__.__name__, "closed" if self._closed else "no"
-                if self._stopped.is_set() else "yes", id(self)
+                self.__class__.__name__,
+                "closed" if self._closed else "no" if self._stopped.is_set() else "yes",
+                id(self),
             )
         except Exception as exc:
             return "<%s ?:%s>" % (self.__class__.__name__, repr(exc))
 
     def set_default_executor(self, executor):
         if not isinstance(executor, TrioExecutor):
-            if 'pytest' not in sys.modules:
+            if "pytest" not in sys.modules:
                 warnings.warn(
                     "executor %r is not supported by trio-asyncio and will "
                     "not be used" % (repr(executor),),
                     RuntimeWarning,
-                    stacklevel=2
+                    stacklevel=2,
                 )
             return
         super().set_default_executor(executor)
 
     def time(self):
-        """Return Trio's idea of the current time.
-        """
+        """Return Trio's idea of the current time."""
         if self._task is None:
             raise RuntimeError("This loop is closed.")
         return self._task._runner.clock.current_time()
@@ -297,7 +298,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         :param callback: Sync function to call.
         :return: a handle which may be used to cancel the timer.
         """
-        self._check_callback(callback, 'call_later')
+        self._check_callback(callback, "call_later")
         assert delay >= 0, delay
         h = asyncio.TimerHandle(delay + self.time(), callback, args, self, **context)
         self._queue_handle(h)
@@ -308,15 +309,17 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         Note that the callback is a sync function.
         """
-        self._check_callback(callback, 'call_at')
-        return self._queue_handle(asyncio.TimerHandle(when, callback, args, self, **context))
+        self._check_callback(callback, "call_at")
+        return self._queue_handle(
+            asyncio.TimerHandle(when, callback, args, self, **context)
+        )
 
     def call_soon(self, callback, *args, **context):
         """asyncio's defer-to-mainloop callback executor.
 
         Note that the callback is a sync function.
         """
-        self._check_callback(callback, 'call_soon')
+        self._check_callback(callback, "call_soon")
         return self._queue_handle(asyncio.Handle(callback, args, self, **context))
 
     def call_soon_threadsafe(self, callback, *args, **context):
@@ -324,7 +327,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         Note that the callback is a sync function.
         """
-        self._check_callback(callback, 'call_soon_threadsafe')
+        self._check_callback(callback, "call_soon_threadsafe")
         self._check_closed()
         h = asyncio.Handle(callback, args, self, **context)
         self._token.run_sync_soon(self._q_send.send_nowait, h)
@@ -355,7 +358,16 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     if not _mswindows:
 
         async def _make_subprocess_transport(
-                self, protocol, args, shell, stdin, stdout, stderr, bufsize, extra=None, **kwargs
+            self,
+            protocol,
+            args,
+            shell,
+            stdin,
+            stdout,
+            stderr,
+            bufsize,
+            extra=None,
+            **kwargs
         ):
             """Make a subprocess transport. Asyncio context."""
 
@@ -407,7 +419,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         Returns an asyncio.Future.
         """
-        self._check_callback(func, 'run_in_executor')
+        self._check_callback(func, "run_in_executor")
         self._check_closed()
         if executor is None:  # pragma: no branch
             executor = self._default_executor
@@ -437,21 +449,20 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._token.run_sync_soon(self._q_send.send_nowait, h)
 
     def add_signal_handler(self, sig, callback, *args):
-        """asyncio's method to add a signal handler.
-        """
+        """asyncio's method to add a signal handler."""
         self._check_closed()
         self._check_signal(sig)
         if sig == signal.SIGKILL:
             raise RuntimeError("SIGKILL cannot be caught")
         h = asyncio.Handle(callback, args, self)
-        assert sig not in self._signal_handlers, \
-            "Signal %d is already being caught" % (sig,)
+        assert sig not in self._signal_handlers, "Signal %d is already being caught" % (
+            sig,
+        )
         self._orig_signals[sig] = signal.signal(sig, self._handle_sig)
         self._signal_handlers[sig] = h
 
     def remove_signal_handler(self, sig):
-        """asyncio's method to remove a signal handler.
-        """
+        """asyncio's method to remove a signal handler."""
         # self._check_signal(sig)
         try:
             h = self._signal_handlers.pop(sig)
@@ -581,7 +592,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         :param fd: Either an integer (Unix file descriptor) or an object
                    with a ``fileno`` method providing one.
         """
-        if hasattr(fd, 'fileno'):
+        if hasattr(fd, "fileno"):
             fd = fd.fileno()
         self._close_files.add(fd)
 
@@ -597,7 +608,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                    with a ``fileno()`` method providing one.
         :raises KeyError: if the descriptor is not marked to be auto-closed.
         """
-        if hasattr(fd, 'fileno'):
+        if hasattr(fd, "fileno"):
             fd = fd.fileno()
         self._close_files.remove(fd)
 
@@ -748,8 +759,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         return not self._stopped.is_set()
 
     def run_forever(self):
-        """asyncio's method to run the loop until it is stopped.
-        """
+        """asyncio's method to run the loop until it is stopped."""
         raise RuntimeError("This is not a sync loop")
 
     def run_until_complete(self, coro_or_future):

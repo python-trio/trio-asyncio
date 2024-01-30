@@ -11,19 +11,19 @@ def create_classes(config):
         def __init__(self, message, loop):
             self.message = message
             self.loop = loop
-            self.state = 'new'
+            self.state = "new"
             self.received = None
 
         def connection_made(self, transport):
-            self.state = 'ping'
+            self.state = "ping"
             transport.write(self.message)
 
         def data_received(self, data):
-            self.state = 'pong'
+            self.state = "pong"
             self.received = data
 
         def connection_lost(self, exc):
-            self.state = 'closed'
+            self.state = "closed"
             self.loop.stop()
 
     class TcpServer(threading.Thread):
@@ -67,8 +67,8 @@ class TestNetwork(aiotest.TestCase):
     async def test_tcp_hello(self, loop, config):
         return
         port = 8888
-        host = '127.0.0.1'
-        message = b'Hello World!'
+        host = "127.0.0.1"
+        message = b"Hello World!"
 
         event = config.threading.Event()
         TcpEchoClientProtocol, TcpServer = create_classes(config)
@@ -80,8 +80,8 @@ class TestNetwork(aiotest.TestCase):
         proto = TcpEchoClientProtocol(message, loop)
         coro = loop.create_connection(lambda: proto, host, port)
         await loop.run_aio_coroutine(coro)
-        assert proto.state != 'new'
+        assert proto.state != "new"
 
         await loop.stop().wait()()
-        assert proto.state == 'closed'
+        assert proto.state == "closed"
         assert proto.received == message

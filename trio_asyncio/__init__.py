@@ -49,12 +49,22 @@ __deprecated_attributes__ = {
         issue=64,
         instead="an import from the top-level trio_asyncio package",
     )
-    for name in ("adapter", "async_", "base", "child", "handles", "loop", "sync", "util")
+    for name in (
+        "adapter",
+        "async_",
+        "base",
+        "child",
+        "handles",
+        "loop",
+        "sync",
+        "util",
+    )
 }
 __deprecated_attributes__.update(
     {
-        name:
-        _deprecate.DeprecatedAttribute(getattr(_loop, name), "0.11.0", issue=64, instead=None)
+        name: _deprecate.DeprecatedAttribute(
+            getattr(_loop, name), "0.11.0", issue=64, instead=None
+        )
         for name in ("TrioPolicy", "TrioChildWatcher", "current_policy")
     }
 )
@@ -62,6 +72,7 @@ __deprecated_attributes__.update(
 # Provide aliases in the old place for names that moved between modules.
 # Remove these when the non-underscore-prefixed module names are removed.
 from . import _loop, _async
+
 _async.open_loop = _loop.open_loop
 
 _util.fixup_module_metadata(__name__, globals())

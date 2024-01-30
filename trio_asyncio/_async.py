@@ -37,11 +37,11 @@ class TrioEventLoop(BaseTrioEventLoop):
         super().default_exception_handler(context)
 
         # Also raise an exception so it can't go unnoticed
-        exception = context.get('exception')
+        exception = context.get("exception")
         if exception is None:
-            message = context.get('message')
+            message = context.get("message")
             if not message:
-                message = 'Unhandled error in event loop'
+                message = "Unhandled error in event loop"
             exception = RuntimeError(message)
 
         async def propagate_asyncio_error():

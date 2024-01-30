@@ -13,16 +13,16 @@ class TestThread(aiotest.TestCase):
         except AttributeError:
             get_ident = threading._get_ident  # Python 2
 
-        result = {'ident': None}
+        result = {"ident": None}
 
         def work():
-            result['ident'] = get_ident()
+            result["ident"] = get_ident()
 
         fut = loop.run_in_executor(None, work)
         await loop.run_aio_coroutine(fut)
 
         # ensure that work() was executed in a different thread
-        work_ident = result['ident']
+        work_ident = result["ident"]
         assert work_ident is not None
         assert work_ident != get_ident()
 
@@ -45,18 +45,18 @@ class TestThread(aiotest.TestCase):
     @pytest.mark.trio
     async def test_policy(self, loop, config):
         asyncio = config.asyncio
-        result = {'loop': 'not set'}  # sentinel, different than None
+        result = {"loop": "not set"}  # sentinel, different than None
 
         def work():
             try:
-                result['loop'] = asyncio.get_event_loop()
+                result["loop"] = asyncio.get_event_loop()
             except Exception as exc:
-                result['loop'] = exc
+                result["loop"] = exc
 
         # get_event_loop() must return None in a different thread
         fut = loop.run_in_executor(None, work)
         await loop.run_aio_future(fut)
-        assert isinstance(result['loop'], (AssertionError, RuntimeError))
+        assert isinstance(result["loop"], (AssertionError, RuntimeError))
 
     @pytest.mark.trio
     async def test_run_in_thread(self, config):
