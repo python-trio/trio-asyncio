@@ -132,7 +132,7 @@ In such cases, you can instead keep the old approach (``get_event_loop()`` +
 asyncio-flavored functions. This is referred to internally as a "sync loop"
 (``SyncTripEventLoop``), as contrasted with the "async loop" that you use
 when you start from an existing Trio run. The sync loop is implemented using
-the `greenlet` library to switch out of a Trio run that has not yet completed,
+the ``greenlet`` library to switch out of a Trio run that has not yet completed,
 so it is less well-supported than the approach where you start in Trio.
 But as of trio-asyncio 0.14.0, we do think it should generally work.
 
