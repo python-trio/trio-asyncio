@@ -1,0 +1,4 @@
+Fix an issue where a call to ``TrioEventLoop.call_exception_handler()`` after
+the loop was closed would attempt to call a method on ``None``. This pattern
+can be encountered if an ``aiohttp`` session is garbage-collected without being
+properly closed, for example.
