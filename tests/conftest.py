@@ -198,12 +198,6 @@ else:
             )
 
         if sys.version_info >= (3, 12):
-            # This test explicitly uses asyncio.tasks._c_current_task,
-            # bypassing our monkeypatch.
-            xfail(
-                "test_tasks.py::CCurrentLoopTests::test_current_task_with_implicit_loop"
-            )
-
             # These tests assume asyncio.sleep(0) is sufficient to run all pending tasks
             xfail(
                 "test_futures2.py::PyFutureTests::test_task_exc_handler_correct_context"

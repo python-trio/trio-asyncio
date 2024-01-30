@@ -5,3 +5,4 @@ towncrier
 trio >= 0.15.0
 outcome
 attrs
+greenlet

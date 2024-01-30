@@ -23,12 +23,17 @@ async def _sync(proc, *args):
 def clean_trio_state():
     trio_globals = trio._core._run.GLOBAL_RUN_CONTEXT.__dict__
     old_state = trio_globals.copy()
-    old_wakeup_fd = signal.set_wakeup_fd(-1)
+    old_wakeup_fd = None
+    try:
+        old_wakeup_fd = signal.set_wakeup_fd(-1)
+    except ValueError:
+        pass  # probably we're on the non-main thread
     trio_globals.clear()
     try:
         yield
     finally:
-        signal.set_wakeup_fd(old_wakeup_fd, warn_on_full_buffer=(not old_state))
+        if old_wakeup_fd is not None:
+            signal.set_wakeup_fd(old_wakeup_fd, warn_on_full_buffer=(not old_state))
         trio_globals.clear()
         trio_globals.update(old_state)
 

@@ -104,7 +104,7 @@ Asyncio main loop
 +++++++++++++++++
 
 Sometimes you instead start with asyncio code which you wish to extend
-with some Trio portions. By far the best-supported approach here is to
+with some Trio portions. The best-supported approach here is to
 wrap your entire asyncio program in a Trio event loop. In other words,
 you should transform this code::
 
@@ -123,27 +123,18 @@ to this::
         trio_asyncio.run(trio_asyncio.aio_as_trio(async_main))
 
 If your program makes multiple calls to ``run_until_complete()`` and/or
-``run_forever()``, this may be a somewhat challenging transformation.
-In theory, you can instead keep the old approach (``get_event_loop()`` +
+``run_forever()``, or if the call to :func:`asyncio.run` is hidden inside
+a library you're using, then this may be a somewhat challenging transformation.
+In such cases, you can instead keep the old approach (``get_event_loop()`` +
 ``run_until_complete()``) unchanged, and if you've imported ``trio_asyncio``
 (and not changed the asyncio event loop policy) you'll still be able to use
 :func:`~trio_asyncio.trio_as_aio` to run Trio code from within your
-asyncio-flavored functions. In practice, this is not recommended, because:
-
-* It's implemented by running the contents of the loop in an
-  additional thread, so anything that expects to run on the main
-  thread (such as a signal handler) won't be happy.
-
-* The implementation is kind of a terrible hack.
-
-For these reasons, obtaining a new Trio-enabled asyncio event loop
-using the standard asyncio functions (:func:`asyncio.get_event_loop`,
-etc), rather than :func:`trio_asyncio.open_loop`, will raise a
-deprecation warning. (Except when running under pytest, because
-support for ``run_until_complete()`` is often needed to test asyncio
-libraries' test suites against trio-asyncio.) asyncio is transitioning
-towards the model of using a single top-level :func:`asyncio.run` call
-anyway, so the effort you spend on conversion won't be wasted.
+asyncio-flavored functions. This is referred to internally as a "sync loop"
+(``SyncTripEventLoop``), as contrasted with the "async loop" that you use
+when you start from an existing Trio run. The sync loop is implemented using
+the `greenlet` library to switch out of a Trio run that has not yet completed,
+so it is less well-supported than the approach where you start in Trio.
+But as of trio-asyncio 0.14.0, we do think it should generally work.
 
 Compatibility issues
 ++++++++++++++++++++
@@ -166,7 +157,7 @@ Interrupting the asyncio loop
 
 A trio-asyncio event loop created with :func:`open_loop` does not support
 ``run_until_complete`` or ``run_forever``. If you need these features,
-you might be able to get away with using a (deprecated) "sync loop" as
+you might be able to get away with using a "sync loop" as
 explained :ref:`above <asyncio-loop>`, but it's better to refactor
 your program so all of its async code runs within a single event loop
 invocation. For example, you might replace::
@@ -180,7 +171,7 @@ invocation. For example, you might replace::
     loop = asyncio.get_event_loop()
     loop.run_until_complete(setup)
     loop.run_forever()
-        
+
 with::
 
     stopped_event = trio.Event()
@@ -202,9 +193,7 @@ Detecting the current function's flavor
 
 :func:`sniffio.current_async_library` correctly reports "asyncio" or
 "trio" when called from a trio-asyncio program, based on the flavor of
-function that's calling it. (Some corner cases
-might not work on Pythons below 3.7 where asyncio doesn't support
-context variables.)
+function that's calling it.
 
 However, this feature should generally not be necessary, because you
 should know whether each function in your program is asyncio-flavored
