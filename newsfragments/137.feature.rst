@@ -1,0 +1,10 @@
+trio-asyncio now implements its :ref:`synchronous event loop <asyncio-loop>`
+(which is used when the top-level of your program is an asyncio call such as
+:func:`asyncio.run`, rather than a Trio call such as :func:`trio.run`)
+using the ``greenlet`` library rather than a separate thread. This provides
+some better theoretical grounding and fixes various edge cases around signal
+handling and other integrations; in particular, recent versions of IPython
+will no longer crash when importing trio-asyncio. Synchronous event loops have
+been un-deprecated with this change, though we still recommend using an
+async loop (``async with trio_asyncio.open_loop():`` from inside a Trio run)
+where possible.

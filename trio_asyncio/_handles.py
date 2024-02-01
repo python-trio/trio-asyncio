@@ -31,7 +31,7 @@ class ScopedHandle(asyncio.Handle):
 
     def cancel(self):
         super().cancel()
-        self._scope.cancel()
+        self._loop._trio_io_cancel(self._scope)
 
     def _repr_info(self):
         return super()._repr_info() + ["scope={!r}".format(self._scope)]

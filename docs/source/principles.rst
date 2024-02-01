@@ -168,10 +168,11 @@ this gap by providing two event loop implementations.
   installed a custom event loop policy, calling :func:`asyncio.new_event_loop`
   (including the implicit call made by the first :func:`asyncio.get_event_loop`
   in the main thread) will give you an event loop that transparently runs
-  in a separate thread in order to support multiple
+  in a separate greenlet in order to support multiple
   calls to :meth:`~asyncio.loop.run_until_complete`,
   :meth:`~asyncio.loop.run_forever`, and :meth:`~asyncio.loop.stop`.
   Sync loops are intended to allow trio-asyncio to run the existing
   test suites of large asyncio libraries, which often call
   :meth:`~asyncio.loop.run_until_complete` on the same loop multiple times.
-  Using them for other purposes is deprecated.
+  Using them for other purposes is not recommended (it is better to refactor
+  so you can use an async loop) but will probably work.

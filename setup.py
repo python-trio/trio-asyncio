@@ -67,6 +67,7 @@ setup(
         "outcome",
         "sniffio >= 1.3.0",
         "exceptiongroup >= 1.0.0; python_version < '3.11'",
+        "greenlet",
     ],
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
