@@ -36,6 +36,13 @@ class TrioEventLoop(BaseTrioEventLoop):
         # Call the original default handler so we get the full info in the log
         super().default_exception_handler(context)
 
+        if self._nursery is None:
+            # Event loop is already closed; don't do anything further.
+            # Some asyncio libraries call the asyncio exception handler
+            # from their __del__ methods, e.g., aiohttp for "Unclosed
+            # client session".
+            return
+
         # Also raise an exception so it can't go unnoticed
         exception = context.get("exception")
         if exception is None:

@@ -46,6 +46,15 @@ async def test_get_running_loop():
 
 
 @pytest.mark.trio
+async def test_exception_after_closed(caplog):
+    async with trio_asyncio.open_loop() as loop:
+        pass
+    loop.call_exception_handler({"message": "Test exception after loop closed"})
+    assert len(caplog.records) == 1
+    assert caplog.records[0].message == "Test exception after loop closed"
+
+
+@pytest.mark.trio
 async def test_tasks_get_cancelled():
     record = []
     tasks = []
