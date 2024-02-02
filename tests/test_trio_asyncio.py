@@ -127,6 +127,7 @@ async def test_cancel_loop_with_tasks(autojump_clock, shield, body_raises):
 
     with catcher, trio.move_on_after(1.25) as scope:
         async with trio_asyncio.open_loop():
+
             async def trio_task():
                 try:
                     with trio.CancelScope(shield=shield):
@@ -168,7 +169,10 @@ async def test_cancel_loop_with_tasks(autojump_clock, shield, body_raises):
                 record.append("toplevel done")
 
     assert record == [
-        "trio_task done at", trio.current_time(), "aio_task done", "toplevel done"
+        "trio_task done at",
+        trio.current_time(),
+        "aio_task done",
+        "toplevel done",
     ]
     assert trio.current_time() == 1.5 + (shield * 0.5)
     assert scope.cancelled_caught == (not shield)

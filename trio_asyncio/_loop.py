@@ -494,6 +494,7 @@ async def open_loop(queue_len=None):
                     # into its body.
                     forward_cancel_scope = trio.CancelScope()
                     with trio.CancelScope() as body_scope:
+
                         @loop_nursery.start_soon
                         async def forward_cancellation():
                             try:
@@ -524,6 +525,7 @@ async def open_loop(queue_len=None):
                     # stops (due to someone else calling stop()) before
                     # that.
                     async with trio.open_nursery() as sync_nursery:
+
                         @sync_nursery.start_soon
                         async def wait_for_sync():
                             if not loop.is_closed():
