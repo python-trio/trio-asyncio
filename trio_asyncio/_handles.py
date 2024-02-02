@@ -128,28 +128,50 @@ class AsyncHandle(ScopedHandle):
 
     """
 
-    __slots__ = ("_fut", "_started")
+    __slots__ = ("_fut", "_started", "_finished", "_cancel_message")
 
     def __init__(self, *args, result_future=None, **kw):
         super().__init__(*args, **kw)
         self._fut = result_future
         self._started = trio.Event()
-        if self._fut is not None:
+        self._finished = False
+        self._cancel_message = None
 
-            @self._fut.add_done_callback
-            def propagate_cancel(f):
-                if f.cancelled():
-                    self.cancel()
+        if self._fut is not None:
+            orig_cancel = self._fut.cancel
+
+            def wrapped_cancel(msg=None):
+                if self._finished:
+                    # We're being called back after the task completed
+                    if msg is not None:
+                        return orig_cancel(msg)
+                    elif self._cancel_message is not None:
+                        return orig_cancel(self._cancel_message)
+                    else:
+                        return orig_cancel()
+                if self._fut.done():
+                    return False
+                # Forward cancellation to the Trio task, don't mark
+                # future as cancelled until it completes
+                self._cancel_message = msg
+                self.cancel()
+                return True
+
+            self._fut.cancel = wrapped_cancel
 
     async def _run(self):
         self._started.set()
         if self._cancelled:
+            self._finished = True
             return
 
         try:
             # Run the callback
             with self._scope:
-                res = await self._callback(*self._args)
+                try:
+                    res = await self._callback(*self._args)
+                finally:
+                    self._finished = True
 
             if self._fut:
                 # Propagate result or just-this-handle cancellation to the Future
