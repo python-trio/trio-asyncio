@@ -231,6 +231,7 @@ class TestCalls(aiotest.TestCase):
                 await trio.sleep(1)
             except trio.Cancelled:
                 seen.flag |= 1
+                raise
             else:
                 seen.flag |= 4
             finally:

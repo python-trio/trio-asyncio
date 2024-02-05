@@ -279,9 +279,7 @@ async def test_cancel_loop(throw_another):
 @pytest.mark.trio
 async def test_trio_as_fut_throws_after_cancelled():
     """If a trio_as_future() future is cancelled, any exception
-    thrown by the Trio task as it unwinds is ignored. (This is
-    somewhat infelicitous, but the asyncio Future API doesn't allow
-    a future to go from cancelled to some other outcome.)
+    thrown by the Trio task as it unwinds is still propagated.
     """
 
     async def trio_task():
@@ -294,8 +292,8 @@ async def test_trio_as_fut_throws_after_cancelled():
         fut = loop.trio_as_future(trio_task)
         await trio.testing.wait_all_tasks_blocked()
         fut.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await fut
+        with pytest.raises(ValueError):
+            await trio_asyncio.run_aio_future(fut)
 
 
 @pytest.mark.trio

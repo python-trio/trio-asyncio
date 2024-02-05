@@ -12,6 +12,9 @@ from contextlib import asynccontextmanager
 from ._async import TrioEventLoop
 from ._util import run_aio_future
 
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
+
 try:
     from trio.lowlevel import wait_for_child
 except ImportError:
@@ -461,15 +464,19 @@ async def open_loop(queue_len=None):
     async with trio.open_nursery() as loop_nursery:
         loop = TrioEventLoop(queue_len=queue_len)
         old_loop = current_loop.set(loop)
+        forwarded_cancellation = None
         try:
             loop._closed = False
             async with trio.open_nursery() as tasks_nursery:
-                # There are not actually any unshielded checkpoints in
-                # either of the following async functions, so the
-                # shield doesn't do much. However, it is necessary to
-                # make sure that start() actually moves the _main_loop
-                # task into the tasks_nursery if this call to
-                # open_loop() is cancelled. TaskStatus.started()
+                # Shield Trio background tasks and I/O waiters from
+                # immediate cancellation if the entire open_loop is
+                # cancelled. They should be cancelled based on the
+                # cancellation status of the asyncio task that ran them.
+                tasks_nursery.cancel_scope.shield = True
+
+                # Note that this shield also has the side effect of guaranteeing
+                # that the start() call below actually moves the _main_loop
+                # task into the tasks_nursery. TaskStatus.started()
                 # doesn't complete Nursery.start() if there's a
                 # cancellation pending, because it figures the task
                 # will be cancelled soon enough and doesn't want to
@@ -478,19 +485,46 @@ async def open_loop(queue_len=None):
                 # after started(), so this just results in start() never
                 # completing. With the shield here, started() can't see
                 # the outer cancellation, which avoids the deadlock.
-                with trio.CancelScope(shield=True):
-                    await loop._main_loop_init(tasks_nursery)
-                    await loop_nursery.start(loop._main_loop)
+                await loop._main_loop_init(tasks_nursery)
+                await loop_nursery.start(loop._main_loop)
 
                 try:
-                    yield loop
+                    # Since we're inside the tasks_nursery which is shielded,
+                    # we need to forward cancellation from outside open_loop()
+                    # into its body.
+                    forward_cancel_scope = trio.CancelScope()
+                    with trio.CancelScope() as body_scope:
+
+                        @loop_nursery.start_soon
+                        async def forward_cancellation():
+                            try:
+                                with forward_cancel_scope:
+                                    await trio.sleep_forever()
+                            except trio.Cancelled:
+                                # We only want a trio.Cancelled to escape from
+                                # open_loop() if something inside the body took
+                                # a cancellation
+                                pass
+                            finally:
+                                body_scope.cancel()
+
+                        try:
+                            yield loop
+                        except trio.Cancelled as exc:
+                            forwarded_cancellation = exc
+                        except BaseExceptionGroup as exc:
+                            forwarded_cancellation, rest = exc.split(trio.Cancelled)
+                            if rest is not None:
+                                raise rest
+                        finally:
+                            forward_cancel_scope.cancel()
+
                 finally:
                     # Allow all already-submitted tasks a chance to start
                     # (and then immediately be cancelled), unless the loop
                     # stops (due to someone else calling stop()) before
                     # that.
                     async with trio.open_nursery() as sync_nursery:
-                        sync_nursery.cancel_scope.shield = True
 
                         @sync_nursery.start_soon
                         async def wait_for_sync():
@@ -515,7 +549,17 @@ async def open_loop(queue_len=None):
                     for task in aio_tasks:
                         tasks_nursery.start_soon(run_aio_future, task)
                     tasks_nursery.cancel_scope.cancel()
+
         finally:
+            if forwarded_cancellation is not None:
+                # Now that we're outside the shielded tasks_nursery, we can
+                # add this cancellation to the set of errors propagating out
+                # of the loop_nursery.
+
+                @loop_nursery.start_soon
+                async def forward_cancellation():
+                    raise forwarded_cancellation
+
             try:
                 await loop._main_loop_exit()
             finally:

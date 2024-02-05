@@ -4,6 +4,7 @@ import types
 import asyncio
 import trio
 import trio_asyncio
+import contextlib
 
 
 async def use_asyncio():
@@ -102,3 +103,76 @@ async def test_tasks_get_cancelled():
             tasks[1]._coro.throw(SystemExit)
         except SystemExit:
             break
+
+
+@pytest.mark.trio
+async def test_cancel_loop(autojump_clock):
+    with trio.move_on_after(1) as scope:
+        async with trio_asyncio.open_loop():
+            await trio.sleep_forever()
+    assert trio.current_time() == 1
+    assert scope.cancelled_caught
+
+
+@pytest.mark.trio
+@pytest.mark.parametrize("shield", (False, True))
+@pytest.mark.parametrize("body_raises", (False, True))
+async def test_cancel_loop_with_tasks(autojump_clock, shield, body_raises):
+    record = []
+
+    if body_raises:
+        catcher = pytest.raises(ValueError, match="hi")
+    else:
+        catcher = contextlib.nullcontext()
+
+    with catcher, trio.move_on_after(1.25) as scope:
+        async with trio_asyncio.open_loop():
+
+            async def trio_task():
+                try:
+                    with trio.CancelScope(shield=shield):
+                        await trio.sleep(1)
+                finally:
+                    record.append("trio_task done at")
+                    record.append(trio.current_time())
+
+            async def aio_task():
+                await asyncio.sleep(1)
+                try:
+                    await trio_asyncio.trio_as_aio(trio_task)()
+                except asyncio.CancelledError:
+                    assert not shield
+                    raise
+                except trio.Cancelled:
+                    assert False
+                else:
+                    assert shield
+                finally:
+                    record.append("aio_task done")
+
+            try:
+                async with trio.open_nursery() as nursery:
+                    nursery.cancel_scope.shield = True
+
+                    @nursery.start_soon
+                    async def unshield_later():
+                        await trio.sleep(1.5)
+                        nursery.cancel_scope.shield = False
+
+                    nursery.start_soon(trio_asyncio.aio_as_trio(aio_task))
+                    if body_raises:
+                        try:
+                            await trio.sleep_forever()
+                        finally:
+                            raise ValueError("hi")
+            finally:
+                record.append("toplevel done")
+
+    assert record == [
+        "trio_task done at",
+        trio.current_time(),
+        "aio_task done",
+        "toplevel done",
+    ]
+    assert trio.current_time() == 1.5 + (shield * 0.5)
+    assert scope.cancelled_caught == (not shield)

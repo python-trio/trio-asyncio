@@ -1,0 +1,9 @@
+trio-asyncio now better respects cancellation semantics for
+asyncio-to-Trio transitions. The asyncio caller now will not propagate
+cancellation until the Trio callee actually terminates, and only if
+the Trio callee terminates by cancellation (rather than, for example,
+finishing normally because the cancel arrived too late). Additionally,
+we no longer immediately cancel all Trio tasks started from asyncio
+context if the entire :func:`open_loop` is cancelled; they only become
+cancelled when their asyncio caller is cancelled, or when the body of
+the :func:`open_loop` terminates.
