@@ -141,7 +141,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def __init__(self, queue_len=None):
         if queue_len is None:
-            queue_len = 10000
+            queue_len = math.inf
 
         # Processing queue
         self._q_send, self._q_recv = trio.open_memory_channel(queue_len)
