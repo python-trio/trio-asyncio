@@ -5,6 +5,49 @@ Release history
 
 .. towncrier release notes start
 
+trio-asyncio 0.14.0 (2024-02-07)
+--------------------------------
+
+Features
+~~~~~~~~
+
+- trio-asyncio now implements its :ref:`synchronous event loop <asyncio-loop>`
+  (which is used when the top-level of your program is an asyncio call such as
+  :func:`asyncio.run`, rather than a Trio call such as :func:`trio.run`)
+  using the ``greenlet`` library rather than a separate thread. This provides
+  some better theoretical grounding and fixes various edge cases around signal
+  handling and other integrations; in particular, recent versions of IPython
+  will no longer crash when importing trio-asyncio. Synchronous event loops have
+  been un-deprecated with this change, though we still recommend using an
+  async loop (``async with trio_asyncio.open_loop():`` from inside a Trio run)
+  where possible. (`#137 <https://github.com/python-trio/trio-asyncio/issues/137>`__)
+- trio-asyncio now better respects cancellation semantics for
+  asyncio-to-Trio transitions. The asyncio caller now will not propagate
+  cancellation until the Trio callee actually terminates, and only if
+  the Trio callee terminates by cancellation (rather than, for example,
+  finishing normally because the cancel arrived too late). Additionally,
+  we no longer immediately cancel all Trio tasks started from asyncio
+  context if the entire :func:`open_loop` is cancelled; they only become
+  cancelled when their asyncio caller is cancelled, or when the body of
+  the :func:`open_loop` terminates. (`#140 <https://github.com/python-trio/trio-asyncio/issues/140>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- trio-asyncio no longer applies a limit to the maximum number of
+  asyncio callbacks (including new task creations) that can be enqueued
+  near-simultaneously. Previously the default limit was 10,000. A limit
+  may still be requested using the *queue_len* parameter to
+  :func:`open_loop`, but this is discouraged because there is no way
+  to fail gracefully upon exceeding the limit; it will most likely just
+  crash your program. (`#130 <https://github.com/python-trio/trio-asyncio/issues/130>`__)
+- Fix an issue where a call to ``TrioEventLoop.call_exception_handler()`` after
+  the loop was closed would attempt to call a method on ``None``. This pattern
+  can be encountered if an ``aiohttp`` session is garbage-collected without being
+  properly closed, for example. (`#134 <https://github.com/python-trio/trio-asyncio/issues/134>`__)
+
+
 trio-asyncio 0.13.0 (2023-12-01)
 --------------------------------
 

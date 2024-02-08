@@ -1,18 +1,18 @@
+.. image:: https://img.shields.io/pypi/v/trio-asyncio.svg
+   :target: https://pypi.org/project/trio-asyncio
+   :alt: Latest PyPI version
+
 .. image:: https://img.shields.io/badge/chat-join%20now-blue.svg
    :target: https://gitter.im/python-trio/general
    :alt: Join chatroom
 
 .. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
    :target: https://trio-asyncio.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
+   :alt: Documentation status
 
-.. image:: https://travis-ci.org/python-trio/trio-asyncio.svg?branch=master
-   :target: https://travis-ci.org/python-trio/trio-asyncio
-   :alt: Automated test status (Linux and MacOS)
-
-.. image:: https://ci.appveyor.com/api/projects/status/github/python-trio/trio-asyncio?svg=true;branch=master
-   :target: https://ci.appveyor.com/project/python-trio/trio-asyncio/history
-   :alt: Automated test status (Windows)
+.. image:: https://github.com/python-trio/trio-asyncio/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/python-trio/trio-asyncio/actions/workflows/ci.yml
+   :alt: Automated test status
 
 .. image:: https://codecov.io/gh/python-trio/trio-asyncio/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/python-trio/trio-asyncio
@@ -26,8 +26,8 @@
 **trio-asyncio** is a re-implementation of the ``asyncio`` mainloop on top of
 Trio.
 
-Trio-Asyncio requires at least Python 3.7. It is tested on recent versions of
-3.7 through 3.11, plus 3.12-dev.
+trio-asyncio requires at least Python 3.8. It is tested on recent versions of
+3.8 through 3.12.
 
 +++++++++++
  Rationale

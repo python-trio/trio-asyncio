@@ -108,8 +108,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     Arguments:
         queue_len:
             The maximum length of the internal event queue.
-            The default is 1000. Use more for large programs,
-            or when running benchmarks.
+            The default of None means unlimited. A limit should be specified
+            only if you would rather crash your program than use too
+            much memory, because it's not feasible to enforce graceful
+            backpressure here.
     """
 
     # This code implements a semi-efficient way to run asyncio code within Trio.
