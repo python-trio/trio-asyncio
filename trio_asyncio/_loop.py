@@ -424,6 +424,15 @@ async def open_loop(queue_len=None):
     code possible. You additionally need to wrap any asyncio functions
     that you want to run in :func:`aio_as_trio`.
 
+    If you provide a *queue_len*, then any attempt to enqueue more
+    than that many asyncio callbacks near-simultaneously (including,
+    for example, new task creations) will fail. There is no way to
+    backpressure asyncio callback registration, so the best we can
+    do if the queue length is exceeded is raise an exception
+    (`trio.WouldBlock`), which is likely to crash your whole program.
+    It is suggested to leave the *queue_len* at its default of None
+    (unlimited) unless you need to enforce hard constraints on memory use.
+
     Exiting the context manager will attempt to do an orderly shutdown
     of the tasks it contains, analogously to :func:`asyncio.run`.
     Both asyncio-flavored tasks and Trio-flavored tasks (the latter
@@ -567,19 +576,21 @@ async def open_loop(queue_len=None):
                 current_loop.reset(old_loop)
 
 
-def run(proc, *args, queue_len=None):
+def run(proc, *args, queue_len=None, **trio_run_options):
     """Run a Trio-flavored async function in a context that has an
     asyncio event loop also available.
 
     This is exactly equivalent to using :func:`trio.run` plus wrapping
     the body of *proc* in ``async with trio_asyncio.open_loop():``.
+    See the documentation of :func:`open_loop` for more on the *queue_len*
+    argument, which should usually be left at its default of None.
     """
 
     async def _run_task(proc, args):
         async with open_loop(queue_len=queue_len):
             return await proc(*args)
 
-    return trio.run(_run_task, proc, args)
+    return trio.run(_run_task, proc, args, **trio_run_options)
 
 
 # Non-deprecated aliases for event loop methods
