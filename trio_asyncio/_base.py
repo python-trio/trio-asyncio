@@ -84,14 +84,8 @@ class TrioExecutor(concurrent.futures.ThreadPoolExecutor):
     async def submit(self, func, *args):
         if not self._running:  # pragma: no cover
             raise RuntimeError("Executor is down")
-        lim = self._limiter
-        if lim is not None:
-            await lim.acquire()
-        try:
-            return await trio.to_thread.run_sync(func, *args, limiter=self._limiter)
-        finally:
-            if lim is not None:
-                lim.release()
+        # there is no need to call self._limiter.acquire() here, run_sync does it
+        return await trio.to_thread.run_sync(func, *args, limiter=self._limiter)
 
     def shutdown(self, wait=None):
         self._running = False

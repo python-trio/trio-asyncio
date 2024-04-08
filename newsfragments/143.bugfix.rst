@@ -1,0 +1,3 @@
+``TrioExecutor.submit``, called from :meth:`asyncio.loop.run_in_executor`, no longer acquires a token from its `~trio.CapacityLimiter` before calling `~trio.to_thread.run_sync` (which already does its own ``acquire()``).
+
+The previous behaviour led to a double-acquire, leading each worker thread to require two tokens to run instead of one. Tasks could get stuck having acquired the first token but unable to acquire the second as part of `~trio.to_thread.run_sync`, leading to a deadlock.
