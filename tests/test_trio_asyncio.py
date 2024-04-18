@@ -176,3 +176,18 @@ async def test_cancel_loop_with_tasks(autojump_clock, shield, body_raises):
     ]
     assert trio.current_time() == 1.5 + (shield * 0.5)
     assert scope.cancelled_caught == (not shield)
+
+
+@pytest.mark.trio
+async def test_executor_limiter_deadlock():
+    def noop():
+        pass
+
+    # capacity of 1 to catch a double-acquire
+    limiter = trio.CapacityLimiter(1)
+    executor = trio_asyncio.TrioExecutor(limiter=limiter)
+    async with trio_asyncio.open_loop() as loop:
+        with trio.move_on_after(1) as scope:
+            await trio_asyncio.aio_as_trio(loop.run_in_executor)(executor, noop)
+
+    assert not scope.cancelled_caught
