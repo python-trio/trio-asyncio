@@ -2,7 +2,7 @@ sphinx >= 1.7.0
 sphinx_rtd_theme
 sphinxcontrib-trio
 towncrier
-trio >= 0.15.0,< 0.25.0
+trio >= 0.25.0
 outcome
 attrs
 greenlet
