@@ -1,0 +1,1 @@
+Updated test suite to cope with Trio 0.25.0 and later defaulting ``strict_exception_groups`` to ``True``. Trio 0.25.0 is now required to run the tests, although trio-asyncio itself still supports older versions.

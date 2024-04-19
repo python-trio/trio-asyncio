@@ -299,7 +299,7 @@ class TestCalls(aiotest.TestCase):
                 seen.flag |= 8
 
         seen = Seen()
-        with pytest.raises(asyncio.CancelledError):
+        with trio.testing.RaisesGroup(asyncio.CancelledError):
             await cancel_trio(seen)
         assert seen.flag == 1 | 8
 

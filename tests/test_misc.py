@@ -225,7 +225,7 @@ async def test_keyboard_interrupt_teardown():
     import signal
     import threading
 
-    with pytest.raises(KeyboardInterrupt):
+    with trio.testing.RaisesGroup(KeyboardInterrupt):
         async with trio.open_nursery() as nursery:
             await nursery.start(run_asyncio_loop, nursery)
             # Trigger KeyboardInterrupt that should propagate accross the coroutines
@@ -270,7 +270,7 @@ async def test_cancel_loop(throw_another):
         scope.cancel()
     assert fut.done()
     if throw_another:
-        with pytest.raises(ValueError, match="hi"):
+        with trio.testing.RaisesGroup(trio.testing.Matcher(ValueError, match="hi")):
             fut.result()
     else:
         assert fut.cancelled()
@@ -333,12 +333,19 @@ async def test_run_trio_task_errors(monkeypatch):
     )
     expected = [ValueError("hi"), ValueError("lo"), KeyError(), IndexError()]
     await raise_in_aio_loop(expected[0])
-    with pytest.raises(SystemExit):
+    with trio.testing.RaisesGroup(SystemExit, strict=False):
         await raise_in_aio_loop(SystemExit(0))
-    with pytest.raises(BaseExceptionGroup) as result:
+    with trio.testing.RaisesGroup(SystemExit, strict=False) as result:
         await raise_in_aio_loop(BaseExceptionGroup("", [expected[1], SystemExit()]))
+
     assert len(result.value.exceptions) == 1
-    assert isinstance(result.value.exceptions[0], SystemExit)
+
+    def innermost_exception(item):
+        if isinstance(item, BaseExceptionGroup):
+            return innermost_exception(item.exceptions[0])
+        return item
+
+    assert isinstance(innermost_exception(result.value), SystemExit)
     await raise_in_aio_loop(ExceptionGroup("", expected[2:]))
 
     assert len(exceptions) == 3
