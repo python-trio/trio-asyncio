@@ -5,6 +5,33 @@ Release history
 
 .. towncrier release notes start
 
+trio-asyncio 0.14.1 (2024-04-18)
+--------------------------------
+
+Bugfixes
+~~~~~~~~
+
+- ``TrioExecutor.submit()``, which implements calls to
+  :meth:`asyncio.loop.run_in_executor` in a trio-asyncio program,
+  no longer acquires a token from its `~trio.CapacityLimiter` before
+  calling :func:`trio.to_thread.run_sync`.
+  The previous behaviour caused each worker thread to consume two tokens
+  rather than one, since :func:`trio.to_thread.run_sync` also acquires a token.
+  When many tasks called :meth:`~asyncio.loop.run_in_executor` in parallel,
+  this could cause a deadlock: because everyone is holding a first token, no one
+  can make progress by getting a second one.
+  (`#143 <https://github.com/python-trio/trio-asyncio/issues/143>`__)
+
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+- Updated test suite to cope with Trio 0.25.0 and later defaulting
+  ``strict_exception_groups`` to ``True``. Trio 0.25.0 is now required
+  to run the tests, although trio-asyncio itself still supports older
+  versions. (`#146 <https://github.com/python-trio/trio-asyncio/issues/146>`__)
+
+
 trio-asyncio 0.14.0 (2024-02-07)
 --------------------------------
 
