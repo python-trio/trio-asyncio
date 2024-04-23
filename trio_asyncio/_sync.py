@@ -139,6 +139,14 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             nonlocal result
 
             result = outcome.capture(future.result)
+            if isinstance(result, outcome.Error) and isinstance(
+                result.error, (SystemExit, KeyboardInterrupt)
+            ):
+                # These exceptions propagate out of the event loop;
+                # don't stop the event loop again, or else it will
+                # interfere with cleanup actions like
+                # run_until_complete(shutdown_asyncgens)
+                return
             self.stop()
 
         future.add_done_callback(is_done)

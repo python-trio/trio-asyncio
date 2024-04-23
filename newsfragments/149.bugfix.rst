@@ -1,0 +1,3 @@
+trio-asyncio no longer raises a spurious "Event loop stopped before Future
+completed!" exception if a function passed to :func:`asyncio.run` calls
+:func:`sys.exit`.

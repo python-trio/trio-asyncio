@@ -193,3 +193,13 @@ async def test_executor_limiter_deadlock():
             await trio_asyncio.aio_as_trio(loop.run_in_executor)(executor, noop)
 
     assert not scope.cancelled_caught
+
+
+def test_system_exit():
+    async def main():
+        raise SystemExit(42)
+
+    with pytest.raises(SystemExit) as scope:
+        asyncio.run(main())
+
+    assert scope.value.code == 42
