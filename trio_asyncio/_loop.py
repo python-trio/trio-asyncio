@@ -5,6 +5,7 @@ import os
 import sys
 import trio
 import asyncio
+import warnings
 import threading
 from contextvars import ContextVar
 from contextlib import asynccontextmanager
@@ -560,6 +561,49 @@ async def open_loop(queue_len=None):
                     tasks_nursery.cancel_scope.cancel()
 
         finally:
+            # If we have any async generators left, finalize them before
+            # closing the event loop. Make sure that the finalizers have a
+            # chance to actually start before they're exposed to any
+            # external cancellation, since asyncio doesn't guarantee that
+            # cancelled tasks have a chance to start first.
+
+            asyncgens_done = trio.Event()
+            should_warn = False
+            if len(loop._asyncgens) == 0:
+                asyncgens_done.set()
+            elif not loop.is_running():
+                asyncgens_done.set()
+                should_warn = True
+            else:
+                shield_asyncgen_finalizers = trio.CancelScope(shield=True)
+
+                async def sentinel():
+                    try:
+                        yield
+                    finally:
+                        try:
+                            # Open-coded asyncio version of loop.synchronize();
+                            # since we closed the tasks_nursery, we can't do
+                            # any more asyncio-to-trio-mode conversions
+                            w = asyncio.Event()
+                            loop.call_soon(w.set)
+                            await w.wait()
+                        finally:
+                            shield_asyncgen_finalizers.shield = False
+
+                async def shutdown_asyncgens_from_aio():
+                    agen = sentinel()
+                    await agen.asend(None)
+                    try:
+                        await loop.shutdown_asyncgens()
+                    finally:
+                        asyncgens_done.set()
+
+                @loop_nursery.start_soon
+                async def shutdown_asyncgens_from_trio():
+                    with shield_asyncgen_finalizers:
+                        await loop.run_aio_coroutine(shutdown_asyncgens_from_aio())
+
             if forwarded_cancellation is not None:
                 # Now that we're outside the shielded tasks_nursery, we can
                 # add this cancellation to the set of errors propagating out
@@ -570,7 +614,17 @@ async def open_loop(queue_len=None):
                     raise forwarded_cancellation
 
             try:
-                await loop._main_loop_exit()
+                try:
+                    if should_warn:
+                        warnings.warn(
+                            "trio-asyncio loop was stopped before its async "
+                            "generators were finalized; weird stuff might happen",
+                            RuntimeWarning,
+                        )
+                finally:
+                    with trio.CancelScope(shield=True):
+                        await asyncgens_done.wait()
+                    await loop._main_loop_exit()
             finally:
                 loop.close()
                 current_loop.reset(old_loop)

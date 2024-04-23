@@ -3,8 +3,10 @@ import sys
 import types
 import asyncio
 import trio
+import trio.testing
 import trio_asyncio
 import contextlib
+import gc
 
 
 async def use_asyncio():
@@ -203,3 +205,100 @@ def test_system_exit():
         asyncio.run(main())
 
     assert scope.value.code == 42
+
+
+@pytest.mark.trio
+@pytest.mark.parametrize("alive_on_exit", (False, True))
+@pytest.mark.parametrize("slow_finalizer", (False, True))
+@pytest.mark.parametrize("loop_timeout", (0, 1, 20))
+async def test_asyncgens(alive_on_exit, slow_finalizer, loop_timeout, autojump_clock):
+    import sniffio
+
+    record = set()
+    holder = []
+
+    async def agen(label, extra):
+        assert sniffio.current_async_library() == label
+        if label == "asyncio":
+            loop = asyncio.get_running_loop()
+        try:
+            yield 1
+        finally:
+            library = sniffio.current_async_library()
+            if label == "asyncio":
+                assert loop is asyncio.get_running_loop()
+            try:
+                await sys.modules[library].sleep(5 if slow_finalizer else 0)
+            except (trio.Cancelled, asyncio.CancelledError):
+                pass
+            record.add((label + extra, library))
+
+    async def iterate_one(label, extra=""):
+        ag = agen(label, extra)
+        await ag.asend(None)
+        if alive_on_exit:
+            holder.append(ag)
+        else:
+            del ag
+
+    sys.unraisablehook, prev_hook = sys.__unraisablehook__, sys.unraisablehook
+    try:
+        start_time = trio.current_time()
+        with trio.move_on_after(loop_timeout) as scope:
+            if loop_timeout == 0:
+                scope.cancel()
+            async with trio_asyncio.open_loop() as loop:
+                async with trio_asyncio.open_loop() as loop2:
+                    async with trio.open_nursery() as nursery:
+                        # Make sure the iterate_one aio tasks don't get
+                        # cancelled before they start:
+                        nursery.cancel_scope.shield = True
+                        try:
+                            nursery.start_soon(iterate_one, "trio")
+                            nursery.start_soon(
+                                loop.run_aio_coroutine, iterate_one("asyncio")
+                            )
+                            nursery.start_soon(
+                                loop2.run_aio_coroutine, iterate_one("asyncio", "2")
+                            )
+                            await loop.synchronize()
+                            await loop2.synchronize()
+                        finally:
+                            nursery.cancel_scope.shield = False
+                    if not alive_on_exit and sys.implementation.name == "pypy":
+                        for _ in range(5):
+                            gc.collect()
+
+        # asyncio agens should be finalized as soon as asyncio loop ends,
+        # regardless of liveness
+        assert ("asyncio", "asyncio") in record
+        assert ("asyncio2", "asyncio") in record
+
+        # asyncio agen finalizers should be able to take a cancel
+        if (slow_finalizer or loop_timeout == 0) and alive_on_exit:
+            # Each loop finalizes in series, and takes 5 seconds
+            # if slow_finalizer is true.
+            assert trio.current_time() == start_time + min(loop_timeout, 10)
+            assert scope.cancelled_caught == (loop_timeout < 10)
+        else:
+            # `not alive_on_exit` implies that the asyncio agen aclose() tasks
+            # are started before loop shutdown, which means they'll be
+            # cancelled during loop shutdown; this matches regular asyncio.
+            #
+            # `not slow_finalizer and loop_timeout > 0` implies that the agens
+            # have time to complete before we cancel them.
+            assert trio.current_time() == start_time
+            assert not scope.cancelled_caught
+
+        # trio asyncgen should eventually be finalized in trio mode
+        del holder[:]
+        for _ in range(5):
+            gc.collect()
+        await trio.testing.wait_all_tasks_blocked()
+        assert record == {
+            ("trio", "trio"),
+            ("asyncio", "asyncio"),
+            ("asyncio2", "asyncio"),
+        }
+    finally:
+        sys.unraisablehook = prev_hook
