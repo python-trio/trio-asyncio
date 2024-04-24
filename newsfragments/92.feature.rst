@@ -1,4 +1,0 @@
-trio-asyncio now properly finalizes asyncio-flavored async generators
-upon closure of the event loop. Previously, Trio's async generator finalizers
-would try to finalize all async generators in Trio mode, regardless of their
-flavor, which could lead to spurious errors.
