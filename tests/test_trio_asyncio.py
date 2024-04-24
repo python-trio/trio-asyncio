@@ -243,31 +243,36 @@ async def test_asyncgens(alive_on_exit, slow_finalizer, loop_timeout, autojump_c
 
     sys.unraisablehook, prev_hook = sys.__unraisablehook__, sys.unraisablehook
     try:
+        before_hooks = sys.get_asyncgen_hooks()
+
         start_time = trio.current_time()
         with trio.move_on_after(loop_timeout) as scope:
             if loop_timeout == 0:
                 scope.cancel()
-            async with trio_asyncio.open_loop() as loop:
-                async with trio_asyncio.open_loop() as loop2:
-                    async with trio.open_nursery() as nursery:
-                        # Make sure the iterate_one aio tasks don't get
-                        # cancelled before they start:
-                        nursery.cancel_scope.shield = True
-                        try:
-                            nursery.start_soon(iterate_one, "trio")
-                            nursery.start_soon(
-                                loop.run_aio_coroutine, iterate_one("asyncio")
-                            )
-                            nursery.start_soon(
-                                loop2.run_aio_coroutine, iterate_one("asyncio", "2")
-                            )
-                            await loop.synchronize()
-                            await loop2.synchronize()
-                        finally:
-                            nursery.cancel_scope.shield = False
-                    if not alive_on_exit and sys.implementation.name == "pypy":
-                        for _ in range(5):
-                            gc.collect()
+            async with trio_asyncio.open_loop() as loop, trio_asyncio.open_loop() as loop2:
+                assert sys.get_asyncgen_hooks() != before_hooks
+                async with trio.open_nursery() as nursery:
+                    # Make sure the iterate_one aio tasks don't get
+                    # cancelled before they start:
+                    nursery.cancel_scope.shield = True
+                    try:
+                        nursery.start_soon(iterate_one, "trio")
+                        nursery.start_soon(
+                            loop.run_aio_coroutine, iterate_one("asyncio")
+                        )
+                        nursery.start_soon(
+                            loop2.run_aio_coroutine, iterate_one("asyncio", "2")
+                        )
+                        await loop.synchronize()
+                        await loop2.synchronize()
+                    finally:
+                        nursery.cancel_scope.shield = False
+                if not alive_on_exit and sys.implementation.name == "pypy":
+                    for _ in range(5):
+                        gc.collect()
+
+        # Make sure we cleaned up properly once all trio-aio loops were closed
+        assert sys.get_asyncgen_hooks() == before_hooks
 
         # asyncio agens should be finalized as soon as asyncio loop ends,
         # regardless of liveness
