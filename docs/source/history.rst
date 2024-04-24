@@ -5,6 +5,26 @@ Release history
 
 .. towncrier release notes start
 
+trio-asyncio 0.15.0 (2024-04-24)
+--------------------------------
+
+Features
+~~~~~~~~
+
+- trio-asyncio now properly finalizes asyncio-flavored async generators
+  upon closure of the event loop. Previously, Trio's async generator finalizers
+  would try to finalize all async generators in Trio mode, regardless of their
+  flavor, which could lead to spurious errors. (`#92 <https://github.com/python-trio/trio-asyncio/issues/92>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- trio-asyncio no longer raises a spurious "Event loop stopped before Future
+  completed!" exception if a function passed to :func:`asyncio.run` calls
+  :func:`sys.exit`. (`#149 <https://github.com/python-trio/trio-asyncio/issues/149>`__)
+
+
 trio-asyncio 0.14.1 (2024-04-18)
 --------------------------------
 
