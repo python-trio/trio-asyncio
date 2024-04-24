@@ -91,6 +91,71 @@ class TrioExecutor(concurrent.futures.ThreadPoolExecutor):
         self._running = False
 
 
+class AsyncGeneratorDispatcher:
+    """Helper object providing async generator hooks that route
+    finalization to either the correct trio-asyncio event loop or the
+    outer Trio run, depending on where the generator was first iterated.
+    """
+
+    def __init__(self, prev_hooks):
+        self.prev_hooks = prev_hooks
+        self.refcnt = 1
+
+    @classmethod
+    def install(cls):
+        current_hooks = sys.get_asyncgen_hooks()
+
+        # These hooks should either be our own AsyncGeneratorDispatcher
+        # (for another trio-asyncio loop) or Trio's hooks. Both of those
+        # provide both hooks.
+        assert current_hooks.firstiter is not None
+        assert current_hooks.finalizer is not None
+
+        matches = (
+            getattr(current_hooks.firstiter, "__func__", None) is cls.firstiter
+        ) + (getattr(current_hooks.finalizer, "__func__", None) is cls.finalizer)
+        if matches == 0:
+            # Create a new dispatcher that forwards non-trio-asyncio asyncgens
+            # to the current_hooks
+            dispatcher = cls(prev_hooks=current_hooks)
+            sys.set_asyncgen_hooks(
+                firstiter=dispatcher.firstiter, finalizer=dispatcher.finalizer
+            )
+        else:
+            # Take a new reference to the dispatcher that the current_hooks
+            # refer to
+            assert matches == 2
+            dispatcher = current_hooks.firstiter.__self__
+            assert dispatcher is current_hooks.finalizer.__self__
+            assert isinstance(dispatcher, cls)
+            dispatcher.refcnt += 1
+        return dispatcher
+
+    def uninstall(self):
+        self.refcnt -= 1
+        if self.refcnt <= 0:
+            sys.set_asyncgen_hooks(*self.prev_hooks)
+            assert self.refcnt == 0
+
+    def firstiter(self, agen):
+        if sniffio_library.name == "asyncio":
+            loop = asyncio.get_running_loop()
+            agen.ag_frame.f_locals["@trio_asyncio_loop"] = loop
+            return loop._asyncgen_firstiter_hook(agen)
+        else:
+            return self.prev_hooks.firstiter(agen)
+
+    def finalizer(self, agen):
+        try:
+            loop = agen.ag_frame.f_locals.get("@trio_asyncio_loop")
+        except AttributeError:  # pragma: no cover
+            loop = None
+        if loop is not None:
+            return loop._asyncgen_finalizer_hook(agen)
+        else:
+            return self.prev_hooks.finalizer(agen)
+
+
 class BaseTrioEventLoop(asyncio.SelectorEventLoop):
     """An asyncio event loop that runs on top of Trio.
 
@@ -134,6 +199,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     # (threading) Thread this loop is running in
     _thread = None
+
+    # An instance of AsyncGeneratorDispatcher for handling asyncio async
+    # generators; it may be shared by multiple running trio-asyncio loops
+    _asyncgen_dispatcher = None
 
     def __init__(self, queue_len=None):
         if queue_len is None:
@@ -629,6 +698,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         self._nursery = nursery
         self._task = trio.lowlevel.current_task()
         self._token = trio.lowlevel.current_trio_token()
+        self._asyncgen_dispatcher = AsyncGeneratorDispatcher.install()
 
     async def _main_loop(self, task_status=trio.TASK_STATUS_IGNORED):
         """Run the loop by processing its event queue.
@@ -737,6 +807,10 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                     break
                 except TrioAsyncioExit:
                     pass
+
+        # Restore previous async generator hooks
+        self._asyncgen_dispatcher.uninstall()
+        self._asyncgen_dispatcher = None
 
         # Kill off unprocessed work
         self._cancel_fds()

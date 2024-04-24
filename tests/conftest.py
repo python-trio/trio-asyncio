@@ -12,10 +12,7 @@ import unittest
 @pytest.fixture
 async def loop():
     async with trio_asyncio.open_loop() as loop:
-        try:
-            yield loop
-        finally:
-            await loop.stop().wait()
+        yield loop
 
 
 # auto-trio-ize all async functions
