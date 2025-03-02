@@ -8,7 +8,7 @@ Build-Depends: dh-python, python3-setuptools, python3-all, debhelper (>= 9),
   python3-pytest-runner,
   python3-outcome,
 Standards-Version: 3.9.6
-Homepage: https://github.com/smurfix/trio-asyncio
+Homepage: https://github.com/python-trio/trio-asyncio
 
 Package: python3-trio-asyncio
 Architecture: all
