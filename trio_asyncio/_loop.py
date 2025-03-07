@@ -190,12 +190,6 @@ class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
             super().set_event_loop(loop)
 
 
-# get_event_loop() without a running loop is deprecated in 3.12+. The logic for emitting the
-# DeprecationWarning walks the stack looking at module names in order to associate it with
-# the first caller outside asyncio. We need to pretend to be asyncio in order for that to work.
-if sys.version_info >= (3, 12):
-    __name__ = "asyncio.fake.trio_asyncio._loop"
-
 # Make sure we don't try to continue using the Trio loop after a fork()
 if hasattr(os, "register_at_fork"):
 
@@ -687,3 +681,10 @@ def run_trio_task(proc, *args):
     will propagate to, and terminate, the trio-asyncio loop.
     """
     _running_loop().run_trio_task(proc, *args)
+
+
+# get_event_loop() without a running loop is deprecated in 3.12+. The logic for emitting the
+# DeprecationWarning walks the stack looking at module names in order to associate it with
+# the first caller outside asyncio. We need to pretend to be asyncio in order for that to work.
+if sys.version_info >= (3, 12):
+    __name__ = "asyncio.fake.trio_asyncio._loop"
