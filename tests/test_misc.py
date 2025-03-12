@@ -333,9 +333,9 @@ async def test_run_trio_task_errors(monkeypatch):
     )
     expected = [ValueError("hi"), ValueError("lo"), KeyError(), IndexError()]
     await raise_in_aio_loop(expected[0])
-    with trio.testing.RaisesGroup(SystemExit, strict=False):
+    with trio.testing.RaisesGroup(SystemExit, flatten_subgroups=True):
         await raise_in_aio_loop(SystemExit(0))
-    with trio.testing.RaisesGroup(SystemExit, strict=False) as result:
+    with trio.testing.RaisesGroup(SystemExit, flatten_subgroups=True) as result:
         await raise_in_aio_loop(BaseExceptionGroup("", [expected[1], SystemExit()]))
 
     assert len(result.value.exceptions) == 1

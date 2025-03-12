@@ -124,7 +124,7 @@ async def test_cancel_loop_with_tasks(autojump_clock, shield, body_raises):
 
     if body_raises:
         catcher = trio.testing.RaisesGroup(
-            trio.testing.Matcher(ValueError, match="hi"), strict=False
+            trio.testing.Matcher(ValueError, match="hi"), flatten_subgroups=True
         )
     else:
         catcher = contextlib.nullcontext()

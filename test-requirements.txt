@@ -3,4 +3,4 @@ pytest-cov
 pytest-trio
 outcome
 pytest-timeout
-trio >= 0.25.0
+trio >= 0.26.0
