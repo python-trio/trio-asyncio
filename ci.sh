@@ -41,8 +41,8 @@ BLACK_VERSION=24.1.0
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     pip install black==${BLACK_VERSION}
-    if ! black --check tests trio_asyncio; then
-        black --diff tests trio_asyncio
+    if ! black --check tests src; then
+        black --diff tests src
         cat <<EOF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -50,7 +50,7 @@ if [ "$CHECK_FORMATTING" = "1" ]; then
 Formatting problems were found (listed above). To fix them, run
 
    pip install black==${BLACK_VERSION}
-   black tests trio_asyncio
+   black tests src
 
 in your local checkout.
 
