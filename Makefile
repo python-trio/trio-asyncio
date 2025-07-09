@@ -43,7 +43,7 @@ test:
 
 
 tag:
-		@-git tag v$(shell python3 setup.py -V)
+		@-git tag v$(shell python3 -c "from trio_asyncio._version import __version__; print(__version__)")
 
 pypi:   tag
 	@if python3 setup.py -V 2>/dev/null | grep -qs + >/dev/null 2>&1 ; \
