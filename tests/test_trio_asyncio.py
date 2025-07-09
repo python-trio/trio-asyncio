@@ -249,7 +249,10 @@ async def test_asyncgens(alive_on_exit, slow_finalizer, loop_timeout, autojump_c
         with trio.move_on_after(loop_timeout) as scope:
             if loop_timeout == 0:
                 scope.cancel()
-            async with trio_asyncio.open_loop() as loop, trio_asyncio.open_loop() as loop2:
+            async with (
+                trio_asyncio.open_loop() as loop,
+                trio_asyncio.open_loop() as loop2,
+            ):
                 assert sys.get_asyncgen_hooks() != before_hooks
                 async with trio.open_nursery() as nursery:
                     # Make sure the iterate_one aio tasks don't get

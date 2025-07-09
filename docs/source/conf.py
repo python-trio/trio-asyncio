@@ -17,22 +17,80 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+from __future__ import annotations
+
+import glob
 import os
 import sys
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from sphinx.application import Sphinx
+    from sphinx.util.typing import Inventory
+
 # So autodoc can import our package
 sys.path.insert(0, os.path.abspath('../..'))
 
-# https://docs.readthedocs.io/en/stable/builds.html#build-environment
-if "READTHEDOCS" in os.environ:
-    import glob
-    if glob.glob("../../newsfragments/*.*.rst"):
-        print("-- Found newsfragments; running towncrier --", flush=True)
-        import subprocess
+# Enable reloading with `typing.TYPE_CHECKING` being True
+os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
+
+# Handle writing newsfragments into the history file.
+# We want to keep files unchanged when testing locally.
+# So immediately revert the contents after running towncrier,
+# then substitute when Sphinx wants to read it in.
+history_file = Path("history.rst")
+
+history_new: str | None
+if glob.glob("../../newsfragments/*.*.rst"):
+    print("-- Found newsfragments; running towncrier --", flush=True)
+    history_orig = history_file.read_bytes()
+    import subprocess
+
+    # In case changes were staged, preserve indexed version.
+    # This grabs the hash of the current staged version.
+    history_staged = subprocess.run(
+        ["git", "rev-parse", "--verify", ":docs/source/history.rst"],
+        check=True,
+        cwd="../..",
+        stdout=subprocess.PIPE,
+        encoding="ascii",
+    ).stdout.strip()
+    try:
         subprocess.run(
-            ["towncrier", "--yes", "--date", "not released yet"],
+            ["towncrier", "--keep", "--date", "not released yet"],
             cwd="../..",
             check=True,
         )
+        history_new = history_file.read_text("utf8")
+    finally:
+        # Make sure this reverts even if a failure occurred.
+        # Restore whatever was staged.
+        print(f"Restoring history.rst = {history_staged}")
+        subprocess.run(
+            [
+                "git",
+                "update-index",
+                "--cacheinfo",
+                f"100644,{history_staged},docs/source/history.rst",
+            ],
+            cwd="../..",
+            check=False,
+        )
+        # And restore the working copy.
+        history_file.write_bytes(history_orig)
+    del history_orig  # We don't need this any more.
+else:
+    # Leave it as is.
+    history_new = None
+
+
+def on_read_source(app: Sphinx, docname: str, content: list[str]) -> None:
+    """Substitute the modified history file."""
+    if docname == "history" and history_new is not None:
+        # This is a 1-item list with the file contents.
+        content[0] = history_new
+
 
 # Warn about all references to unknown targets
 nitpicky = True
@@ -94,8 +152,9 @@ author = 'Matthias Urlichs'
 # built documents.
 #
 # The short X.Y version.
-import trio_asyncio
-version = trio_asyncio.__version__
+import importlib.metadata
+
+version = importlib.metadata.version("trio_asyncio")
 # The full version, including alpha/beta/rc tags.
 release = version
 
