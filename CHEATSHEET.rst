@@ -14,12 +14,12 @@ To run yapf
 -----------
 
 * Show what changes yapf wants to make:
-  ``yapf3 -rpd setup.py trio_asyncio tests``
+  ``yapf3 -rpd trio_asyncio tests``
 
 * Apply all changes directly to the source tree:
-  ``yapf -rpi setup.py trio_asyncio tests``
+  ``yapf -rpi trio_asyncio tests``
 
-* Find semantic problems: ``flake8 setup.py trio_asyncio tests``
+* Find semantic problems: ``flake8 trio_asyncio tests``
 
 
 To make a release

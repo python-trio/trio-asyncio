@@ -3,7 +3,7 @@
 .PHONY: doc test update all tag pypi upload
 
 all:
-		@echo "Please use 'python setup.py'."
+		@echo "Please use 'pip install -e .'."
 		@exit 1
 
 # need to use python3 sphinx-build
