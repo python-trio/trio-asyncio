@@ -94,8 +94,9 @@ author = 'Matthias Urlichs'
 # built documents.
 #
 # The short X.Y version.
-import trio_asyncio
-version = trio_asyncio.__version__
+import importlib.metadata
+
+version = importlib.metadata.version("trio_asyncio")
 # The full version, including alpha/beta/rc tags.
 release = version
 
