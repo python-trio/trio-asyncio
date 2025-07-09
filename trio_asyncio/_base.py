@@ -432,7 +432,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             stderr,
             bufsize,
             extra=None,
-            **kwargs
+            **kwargs,
         ):
             """Make a subprocess transport. Asyncio context."""
 
@@ -448,7 +448,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
                 bufsize,
                 waiter=waiter,
                 extra=extra,
-                **kwargs
+                **kwargs,
             )
 
             async def child_wait(transp):
