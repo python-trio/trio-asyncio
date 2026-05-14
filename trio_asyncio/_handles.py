@@ -161,8 +161,13 @@ class AsyncHandle(ScopedHandle):
 
     async def _run(self):
         self._started.set()
+
         if self._cancelled:
+            # asyncio.Handle.cancel() nulls out _callback and _args, so we
+            # cannot run the callback. We however must resolve the result_future as cancelled
             self._finished = True
+            if self._fut is not None and not self._fut.done():
+                self._fut.cancel()
             return
 
         try:

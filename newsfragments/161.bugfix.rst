@@ -1,0 +1,8 @@
+When an ``AsyncHandle`` is cancelled before the ``_main_loop`` is able to 
+dequeue it (often due to heavy CPU load), ``trio-asyncio`` currently leaves 
+the underlying ``asyncio.Future`` hanging in the ``PENDING`` state forever, 
+preventing the cancellation to travel upwards back into the trio loop, 
+leading to us missing task cancellation/completion. Specifically, 
+``_main_loop_one`` greedily drops it at ``if obj._cancelled: return`` 
+without running ``_run``, leaving the ``result_future`` pending forever. 
+The fix is to always run ``AsyncHandle._run``.
