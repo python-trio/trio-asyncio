@@ -225,7 +225,7 @@ async def test_keyboard_interrupt_teardown():
     import signal
     import threading
 
-    with trio.testing.RaisesGroup(KeyboardInterrupt):
+    with pytest.RaisesGroup(KeyboardInterrupt):
         async with trio.open_nursery() as nursery:
             await nursery.start(run_asyncio_loop, nursery)
             # Trigger KeyboardInterrupt that should propagate accross the coroutines
@@ -270,7 +270,7 @@ async def test_cancel_loop(throw_another):
         scope.cancel()
     assert fut.done()
     if throw_another:
-        with trio.testing.RaisesGroup(trio.testing.Matcher(ValueError, match="hi")):
+        with pytest.RaisesGroup(pytest.RaisesExc(ValueError, match="hi")):
             fut.result()
     else:
         assert fut.cancelled()
@@ -333,9 +333,9 @@ async def test_run_trio_task_errors(monkeypatch):
     )
     expected = [ValueError("hi"), ValueError("lo"), KeyError(), IndexError()]
     await raise_in_aio_loop(expected[0])
-    with trio.testing.RaisesGroup(SystemExit, flatten_subgroups=True):
+    with pytest.RaisesGroup(SystemExit, flatten_subgroups=True):
         await raise_in_aio_loop(SystemExit(0))
-    with trio.testing.RaisesGroup(SystemExit, flatten_subgroups=True) as result:
+    with pytest.RaisesGroup(SystemExit, flatten_subgroups=True) as result:
         await raise_in_aio_loop(BaseExceptionGroup("", [expected[1], SystemExit()]))
 
     assert len(result.value.exceptions) == 1
