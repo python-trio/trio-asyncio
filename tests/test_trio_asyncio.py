@@ -2,6 +2,7 @@ import pytest
 import sys
 import types
 import asyncio
+import threading
 import trio
 import trio.testing
 import trio_asyncio
@@ -307,3 +308,62 @@ async def test_asyncgens(alive_on_exit, slow_finalizer, loop_timeout, autojump_c
         }
     finally:
         sys.unraisablehook = prev_hook
+
+
+def test_async_handle_cancelled_before_dequeue():
+    """
+    Regression test for the wedge where an AsyncHandle queued onto _q_send
+    and then cancelled before _main_loop_one dequeues it would never resolve
+    its result_future.
+
+    Run trio.run in a daemon thread with a hard 5s join timeout: when the bug
+    is present, both run_aio_future and the open_loop shutdown wedge on the
+    dropped AsyncHandle, so an in-trio timeout cannot recover the test.
+    """
+
+    async def trio_main():
+        async with trio_asyncio.open_loop() as loop:
+            # Define a trio function for the AsyncHandle to wrap.
+            async def trio_proc():
+                return 42
+
+            # Queue an AsyncHandle on _q_send. trio_as_future is sync — it
+            # creates the AsyncHandle, calls _queue_handle (= _q_send.send_nowait),
+            # and returns the asyncio.Future immediately. _main_loop hasn't
+            # had a chance to run yet because we haven't yielded.
+            f = loop.trio_as_future(trio_proc)
+            assert not f.done()
+
+            # Cancel the future BEFORE yielding. wrapped_cancel marks the
+            # AsyncHandle._cancelled = True but leaves f PENDING.
+            assert f.cancel() is True
+            assert not f.done()  # the bug is here: f is PENDING despite cancel
+
+            # Now yield. _main_loop dequeues the cancelled handle. Without
+            # the fix, _main_loop_one drops it at `if obj._cancelled: return`
+            # and f stays PENDING forever. With the fix, _run is called and
+            # marks f cancelled.
+            try:
+                await loop.run_aio_future(f)
+            except asyncio.CancelledError:
+                pass
+
+            assert f.done()
+            assert f.cancelled()
+
+    error = []
+
+    def runner():
+        try:
+            trio.run(trio_main)
+        except BaseException as e:
+            error.append(e)
+
+    thread = threading.Thread(target=runner, daemon=True)
+    thread.start()
+    thread.join(timeout=5.0)
+
+    if thread.is_alive():
+        pytest.fail("AsyncHandle.result_future was never resolved within 5s")
+    if error:
+        raise error[0]

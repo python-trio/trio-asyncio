@@ -763,10 +763,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         # Hopefully one of ours
         # but it might be a standard asyncio handle
 
-        if obj._cancelled:
-            # simply skip cancelled handlers
-            return
-
         # Don't go through the expensive nursery dance
         # if this is a sync function.
         if isinstance(obj, AsyncHandle):
@@ -774,7 +770,7 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
             # sniffio library
             obj._context.run(self._nursery.start_soon, obj._run, name=obj._callback)
             await obj._started.wait()
-        else:
+        elif not obj._cancelled:
             prev_library, sniffio_library.name = sniffio_library.name, "asyncio"
             try:
                 obj._run()
