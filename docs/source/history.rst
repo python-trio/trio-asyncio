@@ -5,6 +5,24 @@ Release history
 
 .. towncrier release notes start
 
+trio-asyncio 0.16.0 (2026-05-15)
+--------------------------------
+
+Bugfixes
+~~~~~~~~
+
+- trio-asyncio now properly resolves the ``asyncio.Future`` used for
+  asyncio-to-trio transitions (``trio_as_future()``, etc) when the
+  underlying asyncio Handle is cancelled. Previously, this would occur
+  only if the cancellation were taken after the Trio task began executing.
+  (`#161 <https://github.com/python-trio/trio-asyncio/issues/161>`__)
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+- Python 3.13 is now supported. Python 3.8 is no longer supported.
+
+
 trio-asyncio 0.15.0 (2024-04-24)
 --------------------------------
 
