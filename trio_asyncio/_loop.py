@@ -119,7 +119,42 @@ def _in_trio_context_other_than_sync_loop():
         return False
 
 
-class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
+# Compatibility shims for asyncio API changes across Python versions:
+# - 3.14 renamed BaseDefaultEventLoopPolicy -> _BaseDefaultEventLoopPolicy
+#   (https://github.com/python/cpython/pull/128216); see issue #160.
+# - 3.14 removed AbstractChildWatcher (deprecated since 3.12); see issue #152.
+# - 3.14 deprecated the public policy helpers and prefers underscored names.
+try:
+    _BasePolicy = asyncio.events.BaseDefaultEventLoopPolicy
+except AttributeError:  # pragma: no cover
+    _BasePolicy = asyncio.events._BaseDefaultEventLoopPolicy
+
+try:
+    if sys.platform == "win32":  # pragma: no cover
+        from asyncio.windows_events import (
+            _DefaultEventLoopPolicy as _PlatformDefaultPolicy,
+        )
+    else:
+        from asyncio.unix_events import (
+            _DefaultEventLoopPolicy as _PlatformDefaultPolicy,
+        )
+except ImportError:
+    # Python < 3.14 exports the public name only.
+    _PlatformDefaultPolicy = asyncio.DefaultEventLoopPolicy
+
+try:
+    _AbstractEventLoopPolicy = asyncio.events._AbstractEventLoopPolicy
+except AttributeError:
+    _AbstractEventLoopPolicy = asyncio.AbstractEventLoopPolicy
+
+if sys.platform == "win32":  # pragma: no cover
+    _ChildWatcherBase = object
+else:
+    # Falls back to object once AbstractChildWatcher is removed (3.14+).
+    _ChildWatcherBase = getattr(asyncio, "AbstractChildWatcher", object)
+
+
+class _TrioPolicy(_BasePolicy):
     @staticmethod
     def _loop_factory():
         raise RuntimeError("Event loop creations shouldn't get here")
@@ -222,9 +257,7 @@ def _new_policy_set(new_policy):
         raise RuntimeError("You can't set the Trio loop policy manually")
     if _in_trio_context_other_than_sync_loop():
         raise RuntimeError("You can't change the event loop policy in Trio context")
-    if new_policy is not None and not isinstance(
-        new_policy, asyncio.AbstractEventLoopPolicy
-    ):
+    if new_policy is not None and not isinstance(new_policy, _AbstractEventLoopPolicy):
         # Raise the type of error that the CPython test suite expects
         raise_type = TypeError if sys.version_info >= (3, 11) else AssertionError
         raise raise_type(
@@ -234,12 +267,21 @@ def _new_policy_set(new_policy):
     _faked_policy.policy = new_policy
 
 
-_orig_policy_get = _aio_event.get_event_loop_policy
-_orig_policy_set = _aio_event.set_event_loop_policy
+# Prefer the non-deprecated private helpers on 3.14+ so import-time policy
+# install does not emit DeprecationWarning under filterwarnings=error.
+_orig_policy_get = getattr(
+    _aio_event, "_get_event_loop_policy", _aio_event.get_event_loop_policy
+)
+_orig_policy_set = getattr(
+    _aio_event, "_set_event_loop_policy", _aio_event.set_event_loop_policy
+)
 _aio_event.get_event_loop_policy = _new_policy_get
 _aio_event.set_event_loop_policy = _new_policy_set
 asyncio.get_event_loop_policy = _new_policy_get
 asyncio.set_event_loop_policy = _new_policy_set
+if hasattr(_aio_event, "_get_event_loop_policy"):
+    _aio_event._get_event_loop_policy = _new_policy_get
+    _aio_event._set_event_loop_policy = _new_policy_set
 
 #####
 
@@ -317,10 +359,13 @@ asyncio.current_task = _new_current_task
 #####
 
 
-class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
+class TrioPolicy(_TrioPolicy, _PlatformDefaultPolicy):
     """This is the loop policy that's active whenever we're in a Trio context."""
 
     def _init_watcher(self):
+        # 3.14+ DefaultEventLoopPolicy no longer owns a child watcher.
+        if not hasattr(self, "_watcher"):
+            self._watcher = None
         with asyncio.events._lock:
             if self._watcher is None:  # pragma: no branch
                 self._watcher = TrioChildWatcher()
@@ -343,7 +388,15 @@ class TrioPolicy(_TrioPolicy, asyncio.DefaultEventLoopPolicy):
                 watcher.close()
                 watcher = TrioChildWatcher()
                 watcher.attach_loop(loop)
-        super().set_child_watcher(watcher)
+        parent_set = getattr(super(), "set_child_watcher", None)
+        if parent_set is not None:
+            parent_set(watcher)
+        else:
+            # Child-watcher policy APIs were removed in Python 3.14.
+            old = getattr(self, "_watcher", None)
+            if old is not None:
+                old.close()
+            self._watcher = watcher
 
 
 _original_policy = _orig_policy_get()
@@ -356,9 +409,7 @@ current_policy = ContextVar("trio_aio_policy", default=_trio_policy)
 current_loop = ContextVar("trio_aio_loop", default=None)
 
 
-class TrioChildWatcher(
-    asyncio.AbstractChildWatcher if sys.platform != "win32" else object
-):
+class TrioChildWatcher(_ChildWatcherBase):
     """Watches for child processes to exit using Trio APIs.
 
     All TrioChildWatchers behave identically, so there's no reason to construct
@@ -367,7 +418,7 @@ class TrioChildWatcher(
     ``asyncio.get_event_loop_policy
     """
 
-    # AbstractChildWatcher not available under Windows
+    # AbstractChildWatcher is unavailable on Windows and removed in 3.14+
     def __init__(self):
         super().__init__()
         self._callbacks = {}  # pid => handler
