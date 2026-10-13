@@ -78,7 +78,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
             self._queue_handle(asyncio.Handle(do_stop, (), self))
 
     def _queue_handle(self, handle):
-        self._check_closed()
+        if self.is_closed():
+            raise RuntimeError("Event loop is closed")
         if self._glet is not greenlet.getcurrent() and self._token is not None:
             self.__run_in_greenlet(_sync, self._q_send.send_nowait, handle)
         else:
@@ -168,7 +169,8 @@ class SyncTrioEventLoop(BaseTrioEventLoop):
         return result.unwrap()
 
     def __run_in_greenlet(self, async_fn, *args):
-        self._check_closed()
+        if self.is_closed():
+            raise RuntimeError("Event loop is closed")
         if self._loop_running:
             raise RuntimeError(
                 "You can't nest calls to run_until_complete()/run_forever()."

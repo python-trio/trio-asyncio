@@ -10,7 +10,8 @@ class TrioEventLoop(BaseTrioEventLoop):
     """
 
     def _queue_handle(self, handle):
-        self._check_closed()
+        if self.is_closed():
+            raise RuntimeError("Event loop is closed")
         self._q_send.send_nowait(handle)
         return handle
 

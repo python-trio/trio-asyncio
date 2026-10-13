@@ -283,7 +283,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
         """
         try:
-            self._check_closed()
+            if self.is_closed():
+                raise RuntimeError("Event loop is closed")
             fut = asyncio.ensure_future(coro, loop=self)
         except BaseException:
             coro.close()  # avoid unawaited coroutine error
@@ -393,7 +394,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Note that the callback is a sync function.
         """
         self._check_callback(callback, "call_soon_threadsafe")
-        self._check_closed()
+        if self.is_closed():
+            raise RuntimeError("Event loop is closed")
         h = asyncio.Handle(callback, args, self, **context)
         self._token.run_sync_soon(self._q_send.send_nowait, h)
 
@@ -485,7 +487,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         Returns an asyncio.Future.
         """
         self._check_callback(func, "run_in_executor")
-        self._check_closed()
+        if self.is_closed():
+            raise RuntimeError("Event loop is closed")
         if executor is None:  # pragma: no branch
             executor = self._default_executor
         assert isinstance(executor, TrioExecutor)
@@ -515,7 +518,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     def add_signal_handler(self, sig, callback, *args):
         """asyncio's method to add a signal handler."""
-        self._check_closed()
+        if self.is_closed():
+            raise RuntimeError("Event loop is closed")
         self._check_signal(sig)
         if sig == signal.SIGKILL:
             raise RuntimeError("SIGKILL cannot be caught")
@@ -559,7 +563,8 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
 
     # Local helper to factor out common logic between _add_reader/_add_writer
     def _add_io_handler(self, set_handle, wait_ready, fd, callback, args):
-        self._check_closed()
+        if self.is_closed():
+            raise RuntimeError("Event loop is closed")
         handle = ScopedHandle(callback, args, self)
         old_handle = set_handle(fd, handle)
 
