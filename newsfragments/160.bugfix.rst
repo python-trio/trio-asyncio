@@ -1,0 +1,2 @@
+Fix importing ``trio_asyncio`` on Python 3.14 and later, where asyncio renamed
+``BaseDefaultEventLoopPolicy``.

@@ -1,3 +1,4 @@
+import subprocess
 import pytest
 import trio_asyncio
 import asyncio
@@ -6,6 +7,22 @@ import sys
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup, BaseExceptionGroup
+
+
+def test_import_with_private_base_event_loop_policy() -> None:
+    script = """
+import asyncio.events
+
+base_policy = getattr(asyncio.events, "BaseDefaultEventLoopPolicy", None)
+if base_policy is None:
+    base_policy = asyncio.events._BaseDefaultEventLoopPolicy
+else:
+    del asyncio.events.BaseDefaultEventLoopPolicy
+asyncio.events._BaseDefaultEventLoopPolicy = base_policy
+
+import trio_asyncio
+"""
+    subprocess.run([sys.executable, "-c", script], check=True)
 
 
 class Seen:

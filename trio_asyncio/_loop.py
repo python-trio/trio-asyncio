@@ -119,7 +119,15 @@ def _in_trio_context_other_than_sync_loop():
         return False
 
 
-class _TrioPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
+# Python 3.14 renamed this private implementation class with no compatibility
+# alias. Keep supporting older Python versions while accepting the new name.
+try:
+    _BaseDefaultEventLoopPolicy = asyncio.events.BaseDefaultEventLoopPolicy
+except AttributeError:
+    _BaseDefaultEventLoopPolicy = asyncio.events._BaseDefaultEventLoopPolicy
+
+
+class _TrioPolicy(_BaseDefaultEventLoopPolicy):
     @staticmethod
     def _loop_factory():
         raise RuntimeError("Event loop creations shouldn't get here")
