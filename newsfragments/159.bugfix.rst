@@ -1,0 +1,1 @@
+Allow ``loop.call_later()`` to accept negative delays, matching asyncio's behavior by scheduling the callback immediately.

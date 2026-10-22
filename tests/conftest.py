@@ -211,6 +211,17 @@ else:
                         item.add_marker(pytest.mark.skip)
 
         if sys.version_info >= (3, 11):
+            # CPython's SSLProtocol test intentionally leaves the two transports
+            # created while checking the missing-server_hostname warning without
+            # cleanup callbacks.  pytest 9 reports their finalizer warnings as
+            # unraisable exceptions, even though the test itself passes.
+            mark(
+                pytest.mark.filterwarnings("ignore:.*_SSLProtocolTransport.__del__.*"),
+                "test_sslproto.py::SslProtoHandshakeTests::"
+                "test_check_hostname_requires_server_hostname",
+                may_be_absent=True,
+            )
+
             # This tries to use a mock ChildWatcher that does something unlikely.
             # We don't support it because we don't actually use the ChildWatcher
             # to manage subprocesses.

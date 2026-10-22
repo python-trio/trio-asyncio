@@ -168,6 +168,16 @@ class TestMisc:
         await trio_asyncio.aio_as_trio(cancel_sleep, loop=loop)()
         assert owch == 0
 
+    @pytest.mark.trio
+    async def test_call_later_accepts_negative_delay(self, loop):
+        called = trio.Event()
+
+        def callback():
+            called.set()
+
+        loop.call_later(-1, callback)
+        await called.wait()
+
 
 @pytest.mark.trio
 async def test_wrong_context_manager_order():

@@ -364,7 +364,6 @@ class BaseTrioEventLoop(asyncio.SelectorEventLoop):
         :return: a handle which may be used to cancel the timer.
         """
         self._check_callback(callback, "call_later")
-        assert delay >= 0, delay
         h = asyncio.TimerHandle(delay + self.time(), callback, args, self, **context)
         self._queue_handle(h)
         return h
